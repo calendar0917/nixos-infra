@@ -1,5 +1,9 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 
+let
+  dms = pkgs.unstable.dms-shell;
+  quickshell = pkgs.unstable.quickshell;
+in
 {
   imports = [
     ./hardware-configuration.nix
@@ -13,7 +17,6 @@
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = false;
-  networking.wireless.enable = true;
 
   # ---------- 代理 ----------
   services.mihomo = {
@@ -52,19 +55,26 @@
     variant = "";
   };
 
-  # GDM 作显示管理器（保留 GNOME 作备选桌面）
+  # GDM + GNOME（来自 stable，保证 PAM 稳定）
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
 
-  # niri Wayland compositor + DankMaterialShell
-  programs.niri.enable = true;
-  programs.dms-shell = {
+  # niri Wayland compositor（来自 unstable，版本够新）
+  programs.niri = {
     enable = true;
-    systemd.enable = true;
+    package = pkgs.unstable.niri;
   };
 
-  # 显式启用 gnome-keyring，确保 PAM 模块可用
-  services.gnome.gnome-keyring.enable = true;
+  # DankMaterialShell（来自 unstable，手动配置）
+  systemd.packages = [ dms ];
+  systemd.user.services.dms = {
+    wantedBy = [ "graphical-session.target" ];
+    path = [ ];
+  };
+  services.power-profiles-daemon.enable = lib.mkDefault true;
+  services.accounts-daemon.enable = lib.mkDefault true;
+  hardware.i2c.enable = lib.mkDefault true;
+  hardware.graphics.enable = lib.mkDefault true;
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -122,8 +132,10 @@
     clang
     gdb
     gh
-    # 其他
-    opencode
+  ] ++ [
+    dms
+    quickshell
+    pkgs.unstable.opencode
   ];
 
   # ---------- Nix 配置 ----------
