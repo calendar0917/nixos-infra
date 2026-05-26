@@ -13,6 +13,7 @@
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   networking.firewall.enable = false;
+  networking.wireless.enable = true;
 
   # ---------- 代理 ----------
   services.mihomo = {
@@ -52,8 +53,8 @@
   };
 
   # GDM 作显示管理器（保留 GNOME 作备选桌面）
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
+  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
 
   # niri Wayland compositor + DankMaterialShell
   programs.niri.enable = true;
@@ -61,6 +62,9 @@
     enable = true;
     systemd.enable = true;
   };
+
+  # 显式启用 gnome-keyring，确保 PAM 模块可用
+  services.gnome.gnome-keyring.enable = true;
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
