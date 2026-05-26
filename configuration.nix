@@ -69,7 +69,8 @@ in
   systemd.packages = [ dms ];
   systemd.user.services.dms = {
     wantedBy = [ "graphical-session.target" ];
-    path = [ ];
+    path = lib.mkForce [ ];
+    restartIfChanged = false;
   };
   services.power-profiles-daemon.enable = lib.mkDefault true;
   services.accounts-daemon.enable = lib.mkDefault true;
@@ -132,6 +133,14 @@ in
     clang
     gdb
     gh
+    # niri 周边工具
+    kitty         # GPU 终端
+    kanshi        # 显示器输出管理
+    wayland-utils # wayland-info
+    wl-clipboard  # Wayland 剪贴板
+    grim          # 截图
+    slurp         # 区域选择
+    swaybg        # 壁纸
   ] ++ [
     dms
     quickshell
