@@ -20,7 +20,7 @@
     configFile = ./clash.yaml;
   };
 
-  # ---------- 时区 / 区域 / 输入法 ----------
+  # ---------- 时区 / 区域 ----------
   time.timeZone = "Asia/Shanghai";
   i18n.defaultLocale = "zh_CN.UTF-8";
 
@@ -36,14 +36,30 @@
     LC_TIME = "zh_CN.UTF-8";
   };
 
-  # ---------- 桌面环境 (GNOME) ----------
+  # ---------- 中文输入法 ----------
+  i18n.inputMethod = {
+    enable = true;
+    type = "fcitx5";
+    fcitx5.addons = with pkgs; [ fcitx5-rime ];
+  };
+
+  # ---------- 桌面环境 ----------
   services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
 
   services.xserver.xkb = {
     layout = "cn";
     variant = "";
+  };
+
+  # GDM 作显示管理器（保留 GNOME 作备选桌面）
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
+
+  # niri Wayland compositor + DankMaterialShell
+  programs.niri.enable = true;
+  programs.dms-shell = {
+    enable = true;
+    systemd.enable = true;
   };
 
   # ---------- 打印机 ----------
@@ -59,11 +75,21 @@
     pulse.enable = true;
   };
 
+  # ---------- 蓝牙 ----------
+  hardware.bluetooth.enable = true;
+  services.blueman.enable = true;
+
+  # ---------- Shell ----------
+  programs.fish.enable = true;
+
+  # ---------- Docker ----------
+  virtualisation.docker.enable = true;
+
   # ---------- 用户 ----------
   users.users.calendar = {
     isNormalUser = true;
     description = "calendar";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [
       #   thunderbird
     ];
@@ -80,12 +106,20 @@
     lsof
     curl
     htop
+    btop
     ripgrep
     fd
     jq
     gnupg
-  ] ++ [
-    pkgs.unstable.opencode
+    p7zip
+    fastfetch
+    # 开发
+    cmake
+    clang
+    gdb
+    gh
+    # 其他
+    opencode
   ];
 
   # ---------- Nix 配置 ----------
