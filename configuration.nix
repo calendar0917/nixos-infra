@@ -48,6 +48,7 @@ in
   };
 
   # ---------- 桌面环境 ----------
+  security.polkit.enable = true;
   services.xserver.enable = true;
 
   services.xserver.xkb = {
@@ -60,22 +61,32 @@ in
   services.xserver.desktopManager.gnome.enable = true;
 
   # niri Wayland compositor（来自 unstable，版本够新）
+  # 参考：https://wiki.nixos.org/wiki/Niri
   programs.niri = {
     enable = true;
     package = pkgs.unstable.niri;
   };
 
+  # niri 官方 wiki：NixOS 会注入精简 PATH 覆盖 user-manager 的完整 PATH，
+  # 导致 niri-session 找不到用户安装的程序。必须关闭。
+  systemd.user.services.niri.enableDefaultPath = false;
+
+  # niri + GNOME 共存时，文件选择器需要额外配置
+  xdg.portal.config.niri = {
+    "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+  };
+
+  # niri 的 secret service（保存 WiFi 密码、SSH key 密码等）
+  services.gnome.gnome-keyring.enable = true;
+
   # DankMaterialShell（来自 unstable，手动配置）
   systemd.packages = [ dms ];
   systemd.user.services.dms = {
     wantedBy = [ "graphical-session.target" ];
-    path = lib.mkForce [ ];
+    path = [ quickshell ];
     restartIfChanged = false;
   };
-  services.power-profiles-daemon.enable = lib.mkDefault true;
-  services.accounts-daemon.enable = lib.mkDefault true;
-  hardware.i2c.enable = lib.mkDefault true;
-  hardware.graphics.enable = lib.mkDefault true;
+  hardware.graphics.enable = true;
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -93,6 +104,14 @@ in
   # ---------- 蓝牙 ----------
   hardware.bluetooth.enable = true;
   services.blueman.enable = true;
+
+  # ---------- 字体 (CJK) ----------
+  fonts.packages = with pkgs; [
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-cjk-serif
+    noto-fonts-emoji
+  ];
 
   # ---------- Shell ----------
   programs.fish.enable = true;
@@ -135,6 +154,7 @@ in
     gdb
     gh
     # niri 周边工具
+    xwayland-satellite  # XWayland 兼容层，niri wiki 强烈推荐
     kitty         # GPU 终端
     kanshi        # 显示器输出管理
     wayland-utils # wayland-info
