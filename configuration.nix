@@ -104,6 +104,7 @@ in
   users.users.calendar = {
     isNormalUser = true;
     description = "calendar";
+    shell = pkgs.fish;
     extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [
       #   thunderbird
