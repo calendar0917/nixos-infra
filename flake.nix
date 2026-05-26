@@ -2,7 +2,7 @@
   description = "NixOS configuration for my laptop";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/nixpkgs-unstable/nixexprs.tar.xz";
   };
 
   outputs = { nixpkgs, ... } @ inputs: {

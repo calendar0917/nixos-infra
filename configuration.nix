@@ -38,8 +38,8 @@
 
   # ---------- 桌面环境 (GNOME) ----------
   services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   services.xserver.xkb = {
     layout = "cn";
@@ -84,9 +84,19 @@
     fd
     jq
     gnupg
-    # 代理客户端
     opencode
   ];
+
+  # ---------- Nix 配置 ----------
+  nix.settings = {
+    substituters = [
+      "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+      "https://cache.nixos.org/"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    ];
+  };
 
   # ---------- 版本锁定 ----------
   system.stateVersion = "25.05";
