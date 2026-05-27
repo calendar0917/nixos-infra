@@ -33,6 +33,20 @@
     ];
   };
 
+  # Windows C 盘
+  fileSystems."/mnt/c" = {
+    device = "/dev/disk/by-uuid/7A0C392C0C38E533";
+    fsType = "ntfs3";
+    options = [ "uid=1000" "gid=1000" "dmask=022" "fmask=133" ];
+  };
+
+  # Windows D 盘
+  fileSystems."/mnt/d" = {
+    device = "/dev/disk/by-uuid/4A0EEC030EEBE5C3";
+    fsType = "ntfs3";
+    options = [ "uid=1000" "gid=1000" "dmask=022" "fmask=133" ];
+  };
+
   swapDevices = [
     { device = "/dev/disk/by-uuid/762ff8bf-f013-440d-b5c4-3c2dfae695b9"; }
   ];
