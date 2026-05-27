@@ -942,3 +942,143 @@ code/nixos/
 sudo nixos-rebuild switch --flake ~/code/nixos#laptop
 sudo nixos-rebuild switch --flake ~/code/nixos#desktop
 ```
+
+---
+
+# Nix 开发环境实战
+
+## 二十六、核心理念
+
+```
+每个项目 = 一个声明式环境
+                ↓
+     flake.nix 里写：我要 go 1.26, nodejs 24, postgresql 18
+                ↓
+     nix develop 进入隔离环境
+                ↓
+     退出 shell → 环境消失，系统零污染
+```
+
+## 二十七、最简单用法（不掉进 flake）
+
+不需要写 flake。一行命令临时进环境：
+
+```bash
+# Go 项目
+nix shell nixpkgs#go nixpkgs#gopls
+
+# Python 项目
+nix shell nixpkgs#python3 nixpkgs#uv
+
+# 多工具
+nix shell nixpkgs#nodejs_22 nixpkgs#go nixpkgs#postgresql
+```
+
+exit 就退出，工具就没了。适合临时用一下。
+
+## 二十八、标准用法：项目自带 flake.nix
+
+在项目根目录创建 `flake.nix`：
+
+```nix
+# flake.nix
+{
+  description = "My project dev environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { nixpkgs, ... }: let
+    system = "x86_64-linux";
+    pkgs = nixpkgs.legacyPackages.${system};
+  in {
+    devShells.${system}.default = pkgs.mkShell {
+      packages = with pkgs; [
+        go
+        gopls          # LSP
+        gotools        # goimports, etc.
+        nodejs_22
+        python3
+        uv
+        postgresql_18
+      ];
+
+      shellHook = ''
+        echo "✅ 开发环境就绪"
+        export GOPATH=$PWD/.go
+        export PATH=$GOPATH/bin:$PATH
+      '';
+    };
+  };
+}
+```
+
+然后每次进项目：
+
+```bash
+nix develop        # 进入环境
+go build           # 直接用
+exit               # 退出
+```
+
+## 二十九、direnv：自动激活，零感知
+
+写一个 `.envrc`，`cd` 进去就自动激活：
+
+```bash
+# .envrc（放项目根目录）
+use flake
+```
+
+安装 direnv：
+
+```bash
+# 全局装（你已经在系统配置里，可以加）
+environment.systemPackages = with pkgs; [ direnv ];
+
+# 然后 hook 进 shell（fish）
+# 或者用 home-manager：
+programs.direnv = {
+  enable = true;
+  nix-direnv.enable = true;
+};
+```
+
+效果：`cd myproject/` → 自动进入 nix 环境，`cd ..` → 自动退出。完全无感。
+
+## 三十、语言工具的共存
+
+```
+Nix 装： python3, go, nodejs, cargo 本体
+        ↓（只读，/nix/store）
+你装：   pip install, npm install, cargo install
+        ↓（写 /home，正常读写）
+结果：   项目依赖在项目目录，语言工具由 Nix 提供
+```
+
+`uv pip install`、`npm install`、`go mod download` 照常用，装的包在项目目录或 `~/.local/`，Nix 不管。
+
+## 三十一、你的项目模板
+
+把下面这个 `flake.nix` 放到任何项目根目录：
+
+```nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  outputs = { nixpkgs, ... }: let
+    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  in {
+    devShells.x86_64-linux.default = pkgs.mkShell {
+      # 按需增减
+      packages = with pkgs; [
+        git vim ripgrep fd jq    # 通用工具
+        go nodejs python3        # 语言
+        gopls                    # LSP
+      ];
+    };
+  };
+}
+```
+
+然后 `nix develop` 或配 `.envrc` + `direnv allow`。
