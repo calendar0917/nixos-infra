@@ -36,6 +36,18 @@
     networkmanagerapplet
   ];
 
+  # ---------- kanshi 显示器管理（自动启动）----------
+  systemd.user.services.kanshi = {
+    description = "Kanshi output management daemon";
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${pkgs.kanshi}/bin/kanshi";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+  };
+
   # ---------- polkit 认证代理 ----------
   systemd.user.services.polkit-gnome-authentication-agent-1 = {
     description = "polkit-gnome-authentication-agent-1";
