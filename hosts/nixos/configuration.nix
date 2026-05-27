@@ -43,13 +43,16 @@
     fcitx5.addons = with pkgs; [ fcitx5-rime ];
   };
 
-  # ---------- 桌面 (GNOME) ----------
+  # ---------- 桌面 ----------
   services.xserver.enable = true;
   services.xserver.xkb.layout = "cn";
 
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
-  services.gnome.gnome-keyring.enable = true;
+  # SDDM + KDE Plasma 6（保险桌面）
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
+
+  # niri Wayland compositor
+  programs.niri.enable = true;
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -86,24 +89,9 @@
   nixpkgs.config.allowUnfree = true;
 
   environment.systemPackages = with pkgs; [
-    git
-    vim
-    wget
-    lsof
-    curl
-    htop
-    btop
-    ripgrep
-    fd
-    jq
-    gnupg
-    p7zip
-    fastfetch
+    git vim wget lsof curl htop btop ripgrep fd jq
+    gnupg p7zip fastfetch cmake clang gdb gh
     kitty
-    cmake
-    clang
-    gdb
-    gh
     opencode
   ];
 

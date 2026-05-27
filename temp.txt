@@ -1,0 +1,6 @@
+5月 27 15:26:10 nixos gdm-password][1920]: gkr-pam: unable to locate daemon control file
+5月 27 15:26:10 nixos fish[2406]: A graphical session is already running!
+5月 27 15:26:11 nixos systemd-coredump[2448]: Process 2406 (.gnome-session-) of user 1000 dumped core.
+                                               #7  0x000064770d3e4737 main (/nix/store/nszz5jrhjm3dv5wrsif529nhj7zvimmj-gnome-session-50.0/libexec/.gnome-session-init-worker-wrapped + 0x3737)
+                                               #10 0x000064770d3e4b25 _start (/nix/store/nszz5jrhjm3dv5wrsif529nhj7zvimmj-gnome-session-50.0/libexec/.gnome-session-init-worker-wrapped + 0x3b25)
+5月 27 15:26:29 nixos login[2505]: gkr-pam: unable to locate daemon control file
