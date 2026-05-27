@@ -1,0 +1,14 @@
+# 场景 1: 单兵作战 (只用笔记本)
+profile undocked {
+    output eDP-1 enable scale 2 position 0,0
+}
+
+# 场景 2: 基地模式 (宿舍外接显示器)
+# 假设外接显示器在笔记本右边
+profile docked {
+    output eDP-1 disable
+    output HDMI-A-1 enable scale 1.2 position 0,0 mode 1920x1080
+}
+
+# 场景 3: 实验室投影 (镜像模式/Mirror)
+# 这种场景通常是临时手动调，或者你可以配置 output *

@@ -1,0 +1,22 @@
+// dms/binds.kdl - 你需要的部分
+binds {
+    // 启动器
+    Mod+D hotkey-overlay-title="Application Launcher" {
+        spawn "dms" "ipc" "call" "spotlight" "toggle";
+    }
+    // 设置界面
+    Mod+S hotkey-overlay-title="Settings" {
+        spawn "dms" "ipc" "call" "settings" "toggle";
+    }
+    // 锁屏
+    Alt+L hotkey-overlay-title="Lock Screen" {
+        spawn "dms" "ipc" "call" "lock" "lock";
+    }
+    // 电源菜单 (包含睡眠)
+    Alt+Shift+L hotkey-overlay-title="Power Menu" {
+        spawn "dms" "ipc" "call" "powermenu" "toggle";
+    }
+    Mod+Shift+V hotkey-overlay-title="Clipboard Manager" {
+    spawn "dms" "ipc" "call" "clipboard" "toggle";
+  }
+}

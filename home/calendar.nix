@@ -4,27 +4,25 @@
   home.username = "calendar";
   home.homeDirectory = "/home/calendar";
 
-  # ---------- niri KDL 配置（放在 ~/.config/niri/ 而非 /etc/niri/）----------
+  # ---------- niri（主配置 + dms 子配置）----------
   xdg.configFile."niri/config.kdl".source = ../modules/features/niri/config.kdl;
+  xdg.configFile."niri/dms".source = ../modules/features/niri/dms;
 
-  # ---------- fish shell 配置 ----------
+  # ---------- kitty ----------
+  xdg.configFile."kitty".source = ../modules/features/kitty;
+
+  # ---------- kanshi ----------
+  xdg.configFile."kanshi/config".source = ../modules/features/kanshi/config;
+
+  # ---------- fish ----------
   programs.fish.enable = true;
 
-  # ---------- kitty 终端 ----------
-  programs.kitty = {
-    enable = true;
-    settings = {
-      font_family = "Maple Mono NF CN";
-      font_size = 13;
-      shell = "fish";
-    };
-  };
+  # 以下不在 HM 管理范围，直接留 ~/.config/ 下：
+  #   nvim  → LazyVim 自管理插件，不适合声明式
+  #   fish  → config.fish 已手动维护，Arch/NixOS 共用
 
-  # ---------- 用户级包（不影响系统）----------
   home.packages = with pkgs; [
-    # 可以在这里加只有你需要的东西
   ];
 
-  # ---------- 版本 ----------
   home.stateVersion = "25.05";
 }
