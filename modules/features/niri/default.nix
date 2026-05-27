@@ -1,27 +1,20 @@
 { config, lib, pkgs, ... }:
 
 {
-  # ---------- Niri compositor ----------
-  programs.niri = {
-    enable = true;
-    package = pkgs.unstable.niri;
-  };
-
   # ---------- KDL 原生配置 ----------
   environment.etc."niri/config.kdl".source = ./config.kdl;
 
-  # ---------- Niri 环境变量 ----------
+  # ---------- niri 环境变量 ----------
   systemd.user.services.niri.environment = {
     GDK_BACKEND = "wayland";
     XDG_CURRENT_DESKTOP = "niri";
     XDG_SESSION_TYPE = "wayland";
   };
 
-  # ---------- Niri 周边工具 ----------
+  # ---------- niri 周边工具 ----------
   environment.systemPackages = with pkgs; [
     # 终端 / 文件管理
-    kitty
-    xfce.thunar
+    thunar
     # 显示器管理
     kanshi
     # 锁屏
@@ -39,14 +32,8 @@
     # 亮度 / 音量
     brightnessctl
     playerctl
-    wireplumber
-    # 通知 / 网络
+    # 网络托盘
     networkmanagerapplet
-    # Wayland 工具
-    wayland-utils
-    # 桌面 shell
-    pkgs.unstable.dms-shell
-    pkgs.unstable.quickshell
   ];
 
   # ---------- polkit 认证代理 ----------

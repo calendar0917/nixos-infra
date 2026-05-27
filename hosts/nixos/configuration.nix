@@ -3,6 +3,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ../../modules/features/niri
   ];
 
   # ---------- 引导 ----------
@@ -47,12 +48,15 @@
   services.xserver.enable = true;
   services.xserver.xkb.layout = "cn";
 
-  # SDDM + KDE Plasma 6（保险桌面）
   services.displayManager.sddm.enable = true;
   services.desktopManager.plasma6.enable = true;
 
-  # niri Wayland compositor
+  # niri + dms
   programs.niri.enable = true;
+  programs.dms-shell = {
+    enable = true;
+    systemd.enable = true;
+  };
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -90,8 +94,7 @@
 
   environment.systemPackages = with pkgs; [
     git vim wget lsof curl htop btop ripgrep fd jq
-    gnupg p7zip fastfetch cmake clang gdb gh
-    kitty
+    gnupg p7zip fastfetch cmake clang gdb gh kitty
     opencode
   ];
 
