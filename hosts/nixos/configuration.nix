@@ -136,9 +136,8 @@
     cmake clang gdb gh go nodejs python3 uv pandoc
     # 终端
     kitty yazi
-    # 通信
+    # 通信（微信走 Flatpak：com.tencent.WeChat）
     telegram-desktop
-    wechat-uos
     # 办公 / 笔记
     onlyoffice-desktopeditors
     obsidian zotero
