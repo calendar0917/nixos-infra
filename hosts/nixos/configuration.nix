@@ -47,8 +47,8 @@
   services.xserver.enable = true;
   services.xserver.xkb.layout = "cn";
 
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -103,8 +103,7 @@
     clang
     gdb
     gh
-  ] ++ [
-    pkgs.unstable.opencode
+    opencode
   ];
 
   # ---------- Nix ----------
