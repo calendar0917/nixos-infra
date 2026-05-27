@@ -682,3 +682,263 @@ sudo nix-collect-garbage --delete-older-than 7d  # 删 7 天前的
 6. `imports = [ ./hardware-configuration.nix ../../modules/features/niri ]` → 导入其他模块文件
 
 如果都能解释清楚——你已经掌握了 NixOS 的核心逻辑。
+
+---
+
+# 高级篇
+
+## 十九、NixOS 到底管什么（边界模型）
+
+```
+┌─────────────────────────────────────────────┐
+│  /home/calendar/    ← 你的数据              │
+│  ├── Documents/     ← NixOS 不碰            │
+│  ├── .config/       ← 你手动管（或用 HM）    │
+│  ├── .ssh/          ← 直接通用              │
+│  └── .mozilla/      ← 直接通用              │
+├─────────────────────────────────────────────┤
+│  /etc/              ← NixOS 管（只读）       │
+│  /run/current-system/sw/  ← NixOS 管        │
+│  /nix/store/        ← NixOS 管（不可变）     │
+└─────────────────────────────────────────────┘
+```
+
+**关键理解：** `/etc/` 在 NixOS 上是**只读的**（软链接到 /nix/store）。不能手动编辑 `/etc/niri/config.kdl`——改了下次 rebuild 就覆盖。正确做法是改源码 `.nix` 文件或源 `.kdl` 文件，然后 rebuild。
+
+**那 ~/.config 和 /etc 冲突了怎么办？** 以 niri 为例，可以在模块里禁用系统级配置，只让用户自己管：
+
+```nix
+# 不装到 /etc，让用户自己在 ~/.config/niri/ 管
+# environment.etc."niri/config.kdl".source = ./config.kdl;  # 注释掉这行
+```
+
+这样 niri 会用 `~/.config/niri/config.kdl`，你可以随时手动改，不受 rebuild 影响。
+
+## 二十、配置优先级链
+
+```
+用户 ~/.config/  (最高优先，手动改)
+    ↓ 覆盖
+系统 /etc/       (NixOS 管，rebuild 时覆盖)
+    ↓ 覆盖
+程序默认值       (最低优先)
+```
+
+**实际案例：** 你的 niri 配置通过 `environment.etc` 写到 `/etc/niri/config.kdl`。但如果你在 `~/.config/niri/config.kdl` 放一个文件，niri 会忽略 `/etc/` 的版本。这是 POSIX XDG 规范的标准行为。
+
+## 二十一、为什么 Arch 数据在 NixOS 里有时"不见了"
+
+`/home` 是同一个 btrfs 子卷，文件都在。但软件版本差异导致数据格式不兼容：
+
+| 软件 | Arch 版本 | NixOS 版本 | 数据兼容？ |
+|------|----------|-----------|-----------|
+| GNOME dconf | 48 | 50 | ❌ GNOME 50 崩溃 |
+| Firefox | ~148 | ~150 | ✅ |
+| Git | 2.54 | 2.54 | ✅ |
+| SSH | same | same | ✅ |
+| fish | 4.7 | 4.7 | ✅ |
+| fcitx5 | 5.1 | 5.1 | ✅ |
+| kitty | 0.46 | 0.46 | ✅ |
+
+**规则：** 跨大版本（GNOME 48→50）配置大概率不兼容。小版本增量或纯文本配置（git、ssh、nvim）直接通用。
+
+---
+
+# Home Manager 篇
+
+## 二十二、Home Manager 是什么
+
+Home Manager（HM）是 NixOS 的"用户级扩展"。NixOS 管 `/etc` 和系统包，HM 管 `~/.config` 和用户级包。
+
+```
+NixOS：  系统级    /etc/  systemd  内核  驱动  系统包
+HM：     用户级    ~/.config/  systemd --user  用户包  dotfiles
+```
+
+**什么时候用 HM：**
+- 管理 dotfiles（kitty.conf、fish config、nvim 插件、GTK 主题）
+- 安装只有当前用户需要的包（不和系统混一起）
+- 管理 systemd 用户服务（现在我们手动写的 kanshi、polkit 这些可以迁移进去）
+- 多机器共享用户配置
+
+## 二十三、给现有 flake 加 Home Manager
+
+### 1. flake.nix 加 input：
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/nixos-unstable/nixexprs.tar.xz";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";  # 共用 nixpkgs
+    };
+  };
+
+  outputs = { nixpkgs, home-manager, ... }@inputs: {
+    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      modules = [
+        ./hosts/nixos
+        home-manager.nixosModules.home-manager  # ← 加这一行
+      ];
+    };
+  };
+}
+```
+
+### 2. 创建 user config：
+
+```nix
+# home/calendar.nix
+{ config, pkgs, ... }:
+{
+  home.username = "calendar";
+  home.homeDirectory = "/home/calendar";
+
+  # 不用 source，用 program.xxx 管理 dotfiles
+  programs.kitty = {
+    enable = true;
+    settings = {
+      font_family = "Maple Mono NF CN";
+      font_size = 12;
+    };
+  };
+
+  # 或者直接写文件
+  home.file.".config/niri/config.kdl".source = ../modules/features/niri/config.kdl;
+
+  # 用户级包（不影响系统）
+  home.packages = with pkgs; [ yazi zoxide ];
+
+  # 用户级 systemd 服务
+  systemd.user.services.my-service = {
+    Unit.Description = "...";
+    Service.ExecStart = "${pkgs.xxx}/bin/xxx";
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  home.stateVersion = "25.05";
+}
+```
+
+### 3. 在 configuration.nix 引用：
+
+```nix
+home-manager.users.calendar = import ../../home/calendar.nix;
+```
+
+### 4. HM 的 niri KDL 管理（替代 environment.etc）
+
+```nix
+# 在 home/calendar.nix 里
+xdg.configFile."niri/config.kdl".source = ../../modules/features/niri/config.kdl;
+```
+
+这会把 KDL 写到 `~/.config/niri/config.kdl`，而不是 `/etc/niri/config.kdl`。好处：可以手动临时改，HM rebuild 时覆盖。
+
+## 二十四、Home Manager 的工作流
+
+```bash
+# 改完 home/calendar.nix 后
+home-manager switch --flake ~/code/nixos#calendar
+
+# 或者和系统一起 rebuild
+sudo nixos-rebuild switch --flake ~/code/nixos#nixos
+```
+
+`nixos-rebuild switch` 会自动触发 `home-manager` 的切换。
+
+---
+
+# 多机器篇
+
+## 二十五、多机器共享配置
+
+### 目录结构：
+
+```
+code/nixos/
+├── flake.nix
+├── hosts/
+│   ├── laptop/           # 笔记本
+│   │   ├── default.nix
+│   │   ├── configuration.nix
+│   │   └── hardware-configuration.nix
+│   └── desktop/          # 台式机
+│       ├── default.nix
+│       ├── configuration.nix
+│       └── hardware-configuration.nix
+├── modules/
+│   ├── common/           # 两台机器都用的
+│   │   ├── packages.nix  # 通用软件包
+│   │   └── fonts.nix
+│   └── features/
+│       └── niri/         # 主力机用
+└── home/
+    └── calendar.nix      # 用户配置（两台都可用）
+```
+
+### flake.nix（多机器版）：
+
+```nix
+{
+  outputs = { nixpkgs, ... }@inputs: {
+    nixosConfigurations = {
+      laptop = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./modules/common        # 共享模块
+          ./hosts/laptop          # 笔记本特有
+          home-manager.nixosModules.home-manager
+        ];
+      };
+      desktop = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./modules/common        # 共享模块（同一套）
+          ./hosts/desktop         # 台式机特有
+          home-manager.nixosModules.home-manager
+        ];
+      };
+    };
+  };
+}
+```
+
+### 共享模块示例：
+
+```nix
+# modules/common/packages.nix
+{ pkgs, ... }:
+{
+  environment.systemPackages = with pkgs; [
+    git vim wget curl htop btop ripgrep fd jq
+    # 两台机器都装的
+  ];
+}
+```
+
+### 机器特有配置：
+
+```nix
+# hosts/laptop/configuration.nix
+{ ... }:
+{
+  imports = [ ../../modules/features/niri ];  # 笔记本有 niri
+  services.tailscale.enable = true;           # 笔记本需要
+}
+
+# hosts/desktop/configuration.nix
+{ ... }:
+{
+  # 台式机不需要 niri，可能用 GNOME
+  services.xserver.desktopManager.gnome.enable = true;
+}
+```
+
+### 构建命令：
+
+```bash
+sudo nixos-rebuild switch --flake ~/code/nixos#laptop
+sudo nixos-rebuild switch --flake ~/code/nixos#desktop
+```
