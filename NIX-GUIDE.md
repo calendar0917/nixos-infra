@@ -323,3 +323,362 @@ systemd.user.services.kanshi = {
 2. **Overlay / Override**：覆盖/修改已有包的构建参数
 3. **自定义 derivation**：自己打包不在 nixpkgs 里的软件
 4. **多机器共享配置**：同一套 flake 管多台电脑
+
+---
+
+# 进阶篇
+
+## 十二、NixOS 模块系统深层理解
+
+### 12.1 你写的配置到底经历了什么
+
+```
+你写的 .nix 文件
+    ↓ 模块系统合并（lib.evalModules）
+一个巨大的 "config" 属性集
+    ↓ nixpkgs 构建系统
+/nix/store 里的二进制 + 配置文件 + systemd unit + ...
+    ↓ switch-to-configuration
+重启对应服务 / 更新符号链接 / 写入 /etc
+```
+
+**模块合并规则：**
+- 同名**列表**选项 → 合并（后面的追加到前面）
+- 同名**属性集**选项 → 递归合并
+- 同名**标量**选项 → 后定义的覆盖先定义的（高优先级覆盖低）
+- `lib.mkDefault` 标记的值优先级最低
+- `lib.mkForce` 标记的值优先级最高
+
+### 12.2 怎么找到所有可用选项
+
+**方法一：search.nixos.org**
+
+打开 https://search.nixos.org/options ，搜索关键词即可。切换 unstable/stable 频道看差异。
+
+**方法二：nixos-option**
+
+```bash
+# 查看某个选项的文档和当前值
+nixos-option services.xserver.desktopManager
+
+# 查看某个选项的所有可能子选项
+nixos-option services.openssh
+```
+
+**方法三：直接读 nixpkgs 源码**
+
+所有模块都在 nixpkgs 仓库里：https://github.com/NixOS/nixpkgs/tree/nixos-unstable/nixos/modules
+
+- `services/` → 各类服务的模块
+- `programs/` → 桌面软件的模块
+- `system/boot/` → 引导相关
+- `security/` → 安全策略
+
+**方法四：用 nix repl 探索**
+
+```bash
+nix repl --file '<nixpkgs/nixos>'
+# 然后：
+nixos-config = ./hosts/nixos/configuration.nix
+# 可以 tab 补全看有哪些选项
+```
+
+### 12.3 模块的 import 和参数传递
+
+```nix
+# flake.nix 中
+modules = [ ./hosts/nixos ];
+
+# 自动等价于：
+modules = [
+  (import ./hosts/nixos/default.nix)
+  (import ./hosts/nixos/configuration.nix)
+  (import ./hosts/nixos/hardware-configuration.nix)
+  (import ./modules/features/niri/default.nix)
+];
+
+# 每个模块都是一个函数，接收这些参数：
+{ config, lib, pkgs, options, modulesPath, ... }:
+```
+
+**关键理解：**
+- `config`：整个系统最终的配置结果（所有模块合并后）
+- `options`：所有可用选项的元数据
+- `pkgs`：nixpkgs 包集合（和你在 flake.nix 里选的 nixpkgs 是同一个）
+- `lib`：nixpkgs 工具函数库
+
+## 十三、NixOS 没有提供模块时怎么办
+
+这是从"会用"到"会搞"的关键分水岭。
+
+### 13.1 情况一：只需要一个 systemd 服务
+
+你不需要等 NixOS 有人写模块。直接用 `systemd.services`：
+
+```nix
+systemd.services.my-service = {
+  description = "My custom service";
+  wantedBy = [ "multi-user.target" ];
+  serviceConfig = {
+    ExecStart = "${pkgs.some-package}/bin/some-daemon";
+    Restart = "on-failure";
+  };
+};
+```
+
+我们配置里的 kanshi 就是这样做的（`modules/features/niri/default.nix:36-44`）：
+
+```nix
+systemd.user.services.kanshi = {
+  wantedBy = [ "graphical-session.target" ];
+  serviceConfig.ExecStart = "${pkgs.kanshi}/bin/kanshi";
+};
+```
+
+`systemd.services.xxx` 和 `systemd.user.services.xxx` 分别对应系统级和用户级服务。
+
+### 13.2 情况二：需要写配置文件到 /etc
+
+```nix
+environment.etc."应用名/config.conf".text = ''
+  [Section]
+  key = value
+'';
+
+# 或者从文件复制
+environment.etc."应用名/config.conf".source = ./my-config.conf;
+```
+
+我们的 niri KDL 配置就是用这个（`modules/features/niri/default.nix:5`）。
+
+### 13.3 情况三：需要创建目录或临时文件
+
+```nix
+systemd.tmpfiles.rules = [
+  "d /var/lib/myapp 0755 myuser mygroup"
+  "f /etc/myapp.conf 0644 root root - config content here"
+];
+```
+
+### 13.4 情况四：需要添加 udev 规则
+
+```nix
+services.udev.extraRules = ''
+  SUBSYSTEM=="usb", ATTR{idVendor}=="1234", MODE="0666"
+'';
+```
+
+### 13.5 情况五：需要编译不在 nixpkgs 里的软件
+
+这就是我们写 maple-mono 字体的方式（`modules/fonts/default.nix`）：
+
+```nix
+let
+  my-package = pkgs.stdenv.mkDerivation {
+    pname = "...";
+    version = "...";
+    src = pkgs.fetchurl { url = "..."; hash = "..."; };
+
+    # 不需要编译的话用 stdenvNoCC
+    # 构建命令
+    buildPhase = "make";
+    installPhase = "mkdir -p $out/bin && cp mybin $out/bin/";
+  };
+in
+{
+  environment.systemPackages = [ my-package ];
+}
+```
+
+### 13.6 情况六：需要修改已有包的构建参数（override）
+
+```nix
+environment.systemPackages = [
+  (pkgs.kitty.override {  # 用不同选项重新编译 kitty
+    withWayland = true;
+  })
+];
+```
+
+### 13.7 情况七：用 overlay 全局替换包
+
+```nix
+nixpkgs.overlays = [
+  (final: prev: {
+    # 把系统里的 vim 替换成 neovim
+    vim = prev.neovim;
+  })
+];
+```
+
+## 十四、如何阅读 nixpkgs 源码
+
+以你关心的包为例：
+
+### 14.1 找一个包的源码
+
+```bash
+# 方法1：从 search.nixos.org 点进去
+# 方法2：在 nixpkgs GitHub 仓库里搜索文件名
+# 方法3：用 nix edit（需要先配好编辑器）
+nix edit nixpkgs#kitty
+```
+
+### 14.2 看懂一个 derivation
+
+以 kitty 为例，打开 `pkgs/applications/terminal-emulators/kitty/default.nix`：
+
+```nix
+{ stdenv, lib, fetchFromGitHub, ... }:
+
+stdenv.mkDerivation rec {
+  pname = "kitty";
+  version = "0.40.1";
+
+  src = fetchFromGitHub { ... };   # 源码从哪下载
+
+  buildInputs = [ ... ];           # 编译依赖
+
+  meta = {
+    description = "...";
+    homepage = "...";
+    license = lib.licenses.gpl3;
+  };
+}
+```
+
+- `src`：从哪下载源码
+- `buildInputs` / `nativeBuildInputs`：编译时需要什么
+- `meta`：元信息
+
+### 14.3 看懂一个 NixOS 模块
+
+以我们用的 dms-shell 为例，打开 `nixos/modules/programs/wayland/dms-shell.nix`：
+
+```nix
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.programs.dms-shell;  # 引用用户配置
+in
+{
+  options.programs.dms-shell = {    # 声明有哪些可配的选项
+    enable = mkEnableOption "...";
+    package = mkPackageOption pkgs "dms-shell" { };
+    systemd.enable = mkOption { ... };
+  };
+
+  config = mkIf cfg.enable {        # 如果启用，做什么
+    systemd.packages = [ cfg.package ];
+    systemd.user.services.dms = { ... };
+    environment.systemPackages = [ cfg.package ... ];
+  };
+}
+```
+
+**模式：** `options` 声明"用户可以配什么"，`config` 声明"配了之后系统干什么"。
+
+## 十五、nixos-rebuild 的完整生命周期
+
+```bash
+sudo nixos-rebuild switch --flake ~/code/nixos#nixos
+```
+
+1. **Evaluation**：读取你的 .nix 文件，算出整个系统配置
+2. **Build**：按配置在 /nix/store 里构建所有需要的文件
+3. **Activation**：把新文件链接到系统：
+   - 写入 `/etc/` 配置文件
+   - 创建 systemd unit 文件
+   - 重启变化了的服务
+   - 更新 `/run/current-system` → 指向新世代
+
+**switch vs boot vs test：**
+| 命令 | 效果 |
+|------|------|
+| `switch` | 构建 + 立即生效 |
+| `boot` | 构建 + 下次重启生效（当前不受影响） |
+| `test` | 构建 + 立即生效 + **重启后自动回滚** |
+
+## 十六、Flake 的深入理解
+
+### 16.1 inputs 和 follows
+
+```nix
+inputs = {
+  nixpkgs.url = "...";
+  nixpkgs-unstable.url = "...";
+  # 如果有其他 flake，可以用 follows 共享 nixpkgs：
+  some-flake = {
+    url = "github:...";
+    inputs.nixpkgs.follows = "nixpkgs";  # 用我们的 nixpkgs，不要另下一份
+  };
+};
+```
+
+- 不加 `follows` → 每个 flake 各自下载一份 nixpkgs
+- 加了 `follows` → 共用同一份，节省空间和时间
+
+### 16.2 flake.lock
+
+这是自动生成的文件，锁定所有 input 的精确版本。类似 `package-lock.json`。**应该提交到 git**，保证其他人（或未来的你）重建出来的系统完全一致。
+
+```bash
+nix flake update           # 更新所有 input 到最新版本
+nix flake lock --update-input nixpkgs  # 只更新 nixpkgs
+```
+
+### 16.3 flake check
+
+```bash
+nix flake check   # 验证配置是否有语法/类型错误（不实际构建）
+```
+
+我们每次改配置后都会跑这个。如果 `flake check` 报错，说明有选项名写错了或包不存在，不需要等到 `nixos-rebuild` 才知道。
+
+## 十七、常见坑和经验
+
+### 为什么包名有时是 `pkgs.thunar` 有时是 `pkgs.xfce.thunar`
+
+nixpkgs 有时会把一个项目的包放在子命名空间下。在 unstable 里 thunar 被移到了顶层（`pkgs.thunar`），但在旧版本里是 `pkgs.xfce.thunar`。**查 search.nixos.org 最准。**
+
+### unfree 包
+
+```nix
+nixpkgs.config.allowUnfree = true;
+# 高级用法：只允许特定 unfree 包
+nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+  "steam"
+  "vscode"
+];
+```
+
+### 代理和镜像
+
+国内用清华 TUNA 镜像：
+```nix
+# 1. nixpkgs 源码（flake input）
+nixpkgs.url = "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/nixos-unstable/nixexprs.tar.xz";
+
+# 2. 二进制缓存
+nix.settings.substituters = [ "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store" ... ];
+```
+
+### 磁盘空间
+
+/nix/store 会累积很多历史版本。定期清理：
+```bash
+sudo nix-collect-garbage -d        # 删所有未引用的 store 路径
+sudo nix-collect-garbage --delete-older-than 7d  # 删 7 天前的
+```
+
+## 十八、你能看懂自己的配置了吗？（自测）
+
+现在再打开你的 `configuration.nix`：
+
+1. `boot.loader.systemd-boot.enable` → 选项路径 `boot.loader.systemd-boot.enable`，值 `true`
+2. `environment.systemPackages = with pkgs; [ git vim ... ]` → with 展开，等价于 `[ pkgs.git pkgs.vim ... ]`
+3. `services.keyd.keyboards.default.settings.main.capslock = "overload(control, esc)"` → 深层嵌套选项
+4. `programs.dms-shell.systemd.enable = true` → 启用 dms-shell 模块的 systemd 子选项
+5. `systemd.user.services.kanshi = { ... }` → 自定义 systemd 用户服务（因为没有现成的 kanshi 模块）
+6. `imports = [ ./hardware-configuration.nix ../../modules/features/niri ]` → 导入其他模块文件
+
+如果都能解释清楚——你已经掌握了 NixOS 的核心逻辑。
