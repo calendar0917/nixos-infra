@@ -152,6 +152,8 @@
     # AI
     claude-code
     opencode
+    # 代理 GUI（可选）
+    clash-verge-rev
   ];
 
   # ---------- Nix ----------
