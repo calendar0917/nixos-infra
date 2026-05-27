@@ -1,0 +1,52 @@
+5月 27 07:58:28 nixos systemd[2036]: Starting A scrollable-tiling Wayland compositor...
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.040481Z  INFO niri: starting version 26.04 (Nixpkgs)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.067634Z DEBUG niri_config: loaded config from "/home/calendar/.config/niri/config.kdl"
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.273332Z DEBUG niri::backend::tty: session is not active, starting libinput in paused state
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.279822Z  INFO niri::backend::tty: using as the render node: "/dev/dri/renderD128"
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.307821Z  INFO niri: listening on Wayland socket: wayland-1
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.307835Z  INFO niri: IPC listening on: /run/user/1000/niri.wayland-1.2132.sock
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.308215Z  WARN niri::utils::xwayland::satellite: error spawning xwayland-satellite at "xwayland-satellite", disabling integration: No such file or directory (os error 2)
+5月 27 07:58:29 nixos systemctl[2206]: Environment variable $DISPLAY not set, ignoring.
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.316767Z  WARN niri: import environment shell exited with exit status: 1
+5月 27 07:58:29 nixos systemd[2036]: Started A scrollable-tiling Wayland compositor.
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.332617Z  WARN niri::niri: env var 'XDG_SESSION_ID' is unset or invalid; logind LockedHint won't be set
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.332645Z DEBUG niri::backend::tty: resuming session
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.408481Z DEBUG niri::backend::tty: adding device: 57857 "/dev/dri/card1"
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.408506Z DEBUG niri::backend::tty: this is the primary node
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.447492Z DEBUG niri::backend::tty: got render node: renderD128
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.447515Z DEBUG niri::backend::tty: initializing the primary renderer
+5月 27 07:58:29 nixos niri[2132]: amdgpu: amdgpu_cs_ctx_create2 failed. (-13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.469985Z DEBUG niri::backend::tty: bound legacy EGL to wl_display
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.476479Z  WARN niri::backend::tty: error initializing DRM leasing for card1: UnableToOpenNode(Os { code: 13, kind: PermissionDenied, message: "Permission denied" })
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.476500Z DEBUG niri::backend::tty: device changed: 57857
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.476766Z DEBUG niri::backend::tty: new connector: eDP-1 "California Institute of Technology 0x1615 Unknown"
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.476793Z DEBUG niri::backend::tty: new connector: HDMI-A-1 "Philips Consumer Electronics Company PHL 277E7 UHB1635007926"
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.477008Z  WARN niri::backend::tty: error cleaning up connectors: error doing atomic commit
+5月 27 07:58:29 nixos niri[2132]: Caused by:
+5月 27 07:58:29 nixos niri[2132]:     Permission denied (os error 13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.477025Z DEBUG niri::backend::tty: connecting connector: eDP-1
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.477043Z DEBUG niri::backend::tty: picking mode: Mode { name: "2560x1600", clock: 552950, size: (2560, 1600), hsync: (2608, 2640, 2720), vsync: (1603, 1609, 1694), hskew: 0, vscan: 0, vrefresh: 120, mode_type: ModeTypeFlags(PREFERRED | DRIVER) }
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.477111Z DEBUG niri::backend::tty: couldn't reset gamma: error setting GAMMA_LUT
+5月 27 07:58:29 nixos niri[2132]: Caused by:
+5月 27 07:58:29 nixos niri[2132]:     Permission denied (os error 13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.479965Z  WARN niri::backend::tty: error creating DRM compositor, will try with invalid modifier: DrmError(Access(AccessError { errmsg: "Error testing state", dev: Some("/dev/dri/card1"), source: Os { code: 13, kind: PermissionDenied, message: "Permission denied" } }))
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.495360Z  WARN niri::backend::tty: error connecting connector: error creating DRM compositor
+5月 27 07:58:29 nixos niri[2132]: Caused by:
+5月 27 07:58:29 nixos niri[2132]:     0: The underlying drm surface encountered an error: DRM access error: Error testing state on device `Some("/dev/dri/card1")` (Permission denied (os error 13))
+5月 27 07:58:29 nixos niri[2132]:     1: DRM access error: Error testing state on device `Some("/dev/dri/card1")` (Permission denied (os error 13))
+5月 27 07:58:29 nixos niri[2132]:     2: Permission denied (os error 13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.495391Z DEBUG niri::backend::tty: connecting connector: HDMI-A-1
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.495421Z DEBUG niri::backend::tty: picking mode: Mode { name: "1920x1080", clock: 148500, size: (1920, 1080), hsync: (2008, 2052, 2200), vsync: (1084, 1089, 1125), hskew: 0, vscan: 0, vrefresh: 60, mode_type: ModeTypeFlags(PREFERRED | DRIVER) }
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.495493Z DEBUG niri::backend::tty: couldn't reset gamma: error setting GAMMA_LUT
+5月 27 07:58:29 nixos niri[2132]: Caused by:
+5月 27 07:58:29 nixos niri[2132]:     Permission denied (os error 13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.500011Z  WARN niri::backend::tty: error creating DRM compositor, will try with invalid modifier: DrmError(Access(AccessError { errmsg: "Error testing state", dev: Some("/dev/dri/card1"), source: Os { code: 13, kind: PermissionDenied, message: "Permission denied" } }))
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.501906Z  WARN niri::backend::tty: error connecting connector: error creating DRM compositor
+5月 27 07:58:29 nixos niri[2132]: Caused by:
+5月 27 07:58:29 nixos niri[2132]:     0: The underlying drm surface encountered an error: DRM access error: Error testing state on device `Some("/dev/dri/card1")` (Permission denied (os error 13))
+5月 27 07:58:29 nixos niri[2132]:     1: DRM access error: Error testing state on device `Some("/dev/dri/card1")` (Permission denied (os error 13))
+5月 27 07:58:29 nixos niri[2132]:     2: Permission denied (os error 13)
+5月 27 07:58:29 nixos niri[2132]: 2026-05-26T23:58:29.872056Z DEBUG niri::backend::tty: pausing session
+5月 27 07:58:32 nixos niri[2132]: 2026-05-26T23:58:32.257643Z  WARN niri::handlers::layer_shell: no output for new layer surface, closing
+5月 27 07:58:32 nixos niri[2132]: 2026-05-26T23:58:32.258654Z  WARN niri::handlers::layer_shell: no output for new layer surface, closing
+5月 27 07:58:40 nixos niri[2132]: 2026-05-26T23:58:40.859908Z  WARN niri::handlers::layer_shell: no output for new layer surface, closing

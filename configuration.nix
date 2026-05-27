@@ -67,14 +67,11 @@ in
     package = pkgs.unstable.niri;
   };
 
-  # niri 官方 wiki：NixOS 会注入精简 PATH 覆盖 user-manager 的完整 PATH，
-  # 导致 niri-session 找不到用户安装的程序。必须关闭。
-  systemd.user.services.niri.enableDefaultPath = false;
 
   # niri + GNOME 共存时，文件选择器需要额外配置
-  xdg.portal.config.niri = {
-    "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
-  };
+  #xdg.portal.config.niri = {
+  #  "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+  #};
 
   # niri 的 secret service（保存 WiFi 密码、SSH key 密码等）
   services.gnome.gnome-keyring.enable = true;
