@@ -6,7 +6,7 @@ let
     version = "7.9";
     src = pkgs.fetchzip {
       url = "https://github.com/subframe7536/maple-font/releases/download/v7.9/MapleMono-NF-CN-Unhinted.zip";
-      hash = lib.fakeHash;
+      hash = "sha256-8v90s5TAolpbfoSwXdVmKCsFJ9AJ71DT/WRgBV2S94Y=";
       stripRoot = false;
     };
     installPhase = ''
