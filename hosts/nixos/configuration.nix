@@ -4,6 +4,7 @@
   imports = [
     ./hardware-configuration.nix
     ../../modules/features/niri
+    ../../modules/fonts
   ];
 
   # ---------- 引导 ----------
@@ -20,6 +21,9 @@
     enable = true;
     configFile = ../../clash.yaml;
   };
+
+  # ---------- Tailscale ----------
+  services.tailscale.enable = true;
 
   # ---------- 时区 / 区域 ----------
   time.timeZone = "Asia/Shanghai";
@@ -58,6 +62,21 @@
     systemd.enable = true;
   };
 
+  # ---------- 键盘映射: Caps → Esc(单击)/Ctrl(长按) ----------
+  services.keyd = {
+    enable = true;
+    keyboards = {
+      default = {
+        ids = [ "*" ];
+        settings = {
+          main = {
+            capslock = "overload(control, esc)";
+          };
+        };
+      };
+    };
+  };
+
   # ---------- 打印机 ----------
   services.printing.enable = true;
 
@@ -76,16 +95,26 @@
 
   # ---------- Shell ----------
   programs.fish.enable = true;
+  programs.zoxide.enable = true;
 
   # ---------- Docker ----------
   virtualisation.docker.enable = true;
+
+  # ---------- VirtualBox ----------
+  virtualisation.virtualbox.host.enable = true;
+
+  # ---------- Neovim ----------
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+  };
 
   # ---------- 用户 ----------
   users.users.calendar = {
     isNormalUser = true;
     description = "calendar";
     shell = pkgs.fish;
-    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" "vboxusers" ];
   };
 
   # ---------- 软件 ----------
@@ -93,8 +122,18 @@
   nixpkgs.config.allowUnfree = true;
 
   environment.systemPackages = with pkgs; [
-    git vim wget lsof curl htop btop ripgrep fd jq
-    gnupg p7zip fastfetch cmake clang gdb gh kitty
+    # 系统工具
+    git vim wget lsof curl htop btop ncdu
+    tree ripgrep fd jq gnupg p7zip fastfetch
+    # 开发
+    cmake clang gdb gh go nodejs python3 uv pandoc
+    # 终端
+    kitty yazi
+    # 通信
+    telegram-desktop
+    # 笔记
+    obsidian zotero
+    # 其他
     opencode
   ];
 
