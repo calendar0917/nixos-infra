@@ -1,12 +1,8 @@
 { config, lib, pkgs, inputs, ... }:
 
-let
-  dms = pkgs.unstable.dms-shell;
-in
 {
   imports = [
     ./hardware-configuration.nix
-    ../../modules/features/niri
   ];
 
   # ---------- 引导 ----------
@@ -47,22 +43,12 @@ in
     fcitx5.addons = with pkgs; [ fcitx5-rime ];
   };
 
-  # ---------- 桌面环境 ----------
+  # ---------- 桌面 (GNOME) ----------
   services.xserver.enable = true;
   services.xserver.xkb.layout = "cn";
 
   services.xserver.displayManager.gdm.enable = true;
   services.xserver.desktopManager.gnome.enable = true;
-
-  services.gnome.gnome-keyring.enable = true;
-
-  # ---------- DMS ----------
-  systemd.packages = [ dms ];
-  systemd.user.services.dms = {
-    wantedBy = [ "graphical-session.target" ];
-    path = lib.mkForce [ ];
-    restartIfChanged = false;
-  };
 
   # ---------- 打印机 ----------
   services.printing.enable = true;
@@ -94,7 +80,7 @@ in
     extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" ];
   };
 
-  # ---------- 基础软件 ----------
+  # ---------- 软件 ----------
   programs.firefox.enable = true;
   nixpkgs.config.allowUnfree = true;
 
@@ -112,6 +98,7 @@ in
     gnupg
     p7zip
     fastfetch
+    kitty
     cmake
     clang
     gdb
@@ -120,7 +107,7 @@ in
     pkgs.unstable.opencode
   ];
 
-  # ---------- Nix 配置 ----------
+  # ---------- Nix ----------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
@@ -132,6 +119,5 @@ in
     ];
   };
 
-  # ---------- 版本锁定 ----------
   system.stateVersion = "25.05";
 }
