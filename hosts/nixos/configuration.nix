@@ -93,6 +93,9 @@
   hardware.bluetooth.enable = true;
   services.blueman.enable = true;
 
+  # ---------- Home Manager ----------
+  home-manager.users.calendar = import ../../home/calendar.nix;
+
   # ---------- Shell ----------
   programs.fish.enable = true;
   programs.zoxide.enable = true;

@@ -1,8 +1,7 @@
 { config, lib, pkgs, ... }:
 
 {
-  # ---------- KDL 原生配置 ----------
-  environment.etc."niri/config.kdl".source = ./config.kdl;
+  # KDL 配置由 Home Manager 管理 → ~/.config/niri/config.kdl
 
   # ---------- niri 环境变量 ----------
   systemd.user.services.niri.environment = {
