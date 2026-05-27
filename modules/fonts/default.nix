@@ -7,6 +7,7 @@ let
     src = pkgs.fetchzip {
       url = "https://github.com/subframe7536/maple-font/releases/download/v7.9/MapleMono-NF-CN-Unhinted.zip";
       hash = lib.fakeHash;
+      stripRoot = false;
     };
     installPhase = ''
       mkdir -p $out/share/fonts/truetype
