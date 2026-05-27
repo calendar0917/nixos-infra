@@ -21,7 +21,7 @@
   environment.systemPackages = with pkgs; [
     # 终端 / 文件管理
     kitty
-    thunar
+    xfce.thunar
     # 显示器管理
     kanshi
     # 锁屏
