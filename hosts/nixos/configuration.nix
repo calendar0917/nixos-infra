@@ -124,6 +124,9 @@
   programs.firefox.enable = true;
   nixpkgs.config.allowUnfree = true;
 
+  # Flatpak（QQ/腾讯会议等在 nixpkgs 里没有的软件走这里）
+  services.flatpak.enable = true;
+
   environment.systemPackages = with pkgs; [
     # 系统工具
     git vim wget lsof curl htop btop ncdu
@@ -134,8 +137,15 @@
     kitty yazi
     # 通信
     telegram-desktop
+    wechat-uos
     # 笔记
     obsidian zotero
+    # 娱乐
+    steam
+    obs-studio
+    wl-screenrec
+    # 浏览器
+    google-chrome
     # 其他
     opencode
   ];
