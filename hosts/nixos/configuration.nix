@@ -99,6 +99,10 @@
   # ---------- Shell ----------
   programs.fish.enable = true;
   programs.zoxide.enable = true;
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
 
   # ---------- Docker ----------
   virtualisation.docker.enable = true;
