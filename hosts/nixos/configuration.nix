@@ -131,6 +131,7 @@
     # 系统工具
     git vim wget lsof curl htop btop ncdu
     tree ripgrep fd jq gnupg p7zip fastfetch
+    appimage-run
     # 开发
     cmake clang gdb gh go nodejs python3 uv pandoc
     # 终端
@@ -138,15 +139,18 @@
     # 通信
     telegram-desktop
     wechat-uos
-    # 笔记
+    # 办公 / 笔记
+    onlyoffice-desktopeditors
     obsidian zotero
     # 娱乐
     steam
     obs-studio
     wl-screenrec
+    qbittorrent
     # 浏览器
     google-chrome
-    # 其他
+    # AI
+    claude-code
     opencode
   ];
 
