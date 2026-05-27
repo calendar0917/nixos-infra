@@ -1082,3 +1082,89 @@ Nix 装： python3, go, nodejs, cargo 本体
 ```
 
 然后 `nix develop` 或配 `.envrc` + `direnv allow`。
+
+---
+
+# 自助篇：怎么做到不依赖 AI
+
+## 三十二、查选项，三板斧
+
+**板斧 1：search.nixos.org/options**
+打开网站，搜关键词。比如搜 "bluetooth"，看到 `hardware.bluetooth.enable`。点进去有描述、默认值、示例。
+
+**板斧 2：nixos-option**
+```bash
+nixos-option services.xserver.desktopManager   # 列出所有桌面管理器选项
+nixos-option hardware.bluetooth.enable          # 查看当前值和文档
+```
+
+**板斧 3：读 nixpkgs 源码**
+所有 NixOS 模块在：https://github.com/NixOS/nixpkgs/tree/nixos-unstable/nixos/modules
+按目录分类：`services/`、`programs/`、`security/`、`system/`。
+
+## 三十三、你需要的 80% 操作就这几种模式
+
+**模式 1：加一个包**
+```nix
+environment.systemPackages = with pkgs; [ 包名 ];
+# 查包名：search.nixos.org/packages
+```
+
+**模式 2：启用一个服务**
+```nix
+services.服务名.enable = true;
+# 查有没有这个服务模块：search.nixos.org/options 搜 "服务名"
+```
+
+**模式 3：写一个自定义 systemd 服务**
+```nix
+systemd.user.services.名称 = {
+  wantedBy = [ "graphical-session.target" ];
+  serviceConfig.ExecStart = "${pkgs.包名}/bin/二进制名";
+};
+```
+
+**模式 4：写一个配置文件**
+```nix
+environment.etc."路径".text = '' 内容 '';
+# 或
+environment.etc."路径".source = ./文件;
+```
+
+**模式 5：没有模块也没有包**
+```nix
+# Flatpak
+services.flatpak.enable = true;
+# 或自己写 derivation（见第十四章）
+```
+
+## 三十四、遇到报错怎么搞
+
+```bash
+# 1. 看系统日志
+journalctl -b -p3                    # 本次启动的所有错误
+
+# 2. 看服务日志
+journalctl -u niri -b               # niri 的日志
+systemctl --user status dms          # 用户服务状态
+
+# 3. 验证配置不构建
+nix flake check                     # 检查语法和类型
+
+# 4. 临时测试（重启还原）
+sudo nixos-rebuild test --flake .#nixos
+
+# 5. 崩了回滚
+# 重启 → boot 菜单选旧世代
+# 或：sudo nixos-rebuild switch --rollback
+```
+
+## 三十五、记住这几个 URL
+
+| 干什么 | 地址 |
+|--------|------|
+| 搜选项 | https://search.nixos.org/options |
+| 搜包 | https://search.nixos.org/packages |
+| 读源码 | https://github.com/NixOS/nixpkgs/tree/nixos-unstable |
+| Wiki | https://nixos.wiki |
+| 你的配置 | `~/code/nixos/` ← 看注释，看已有的模式 |
