@@ -4,7 +4,7 @@ hardware.graphics = {
 };
  
 virtualisation.docker.enable = true;
-users.users.YOUR_USER.extraGroups = [ "docker" ];
+users.users.calendar.extraGroups = [ "docker" ];
  
 security.rtkit.enable = true;
 services.pipewire = {
