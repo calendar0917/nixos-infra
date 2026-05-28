@@ -19,7 +19,7 @@
   # ---------- 代理 ----------
   services.mihomo = {
     enable = true;
-    configFile = ./clash.yaml;
+    configFile = ../../clash.yaml;
   };
 
   # ---------- Tailscale ----------
