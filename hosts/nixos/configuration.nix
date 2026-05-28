@@ -95,6 +95,7 @@
   services.blueman.enable = true;
 
   # ---------- Home Manager ----------
+  home-manager.backupFileExtension = "hm-backup";  # 冲突时自动备份旧文件
   home-manager.users.calendar = import ../../home/calendar.nix;
 
   # ---------- Shell ----------
