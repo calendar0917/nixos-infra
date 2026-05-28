@@ -27,3 +27,4 @@
 - Flatpak for QQ, WeChat, wemeet
 - stow for editable configs, HM for static ones
 - Build only with `nix flake check` passed first
+- Laptop lid close action: ignore (no action)

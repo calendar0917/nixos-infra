@@ -90,6 +90,14 @@
     pulse.enable = true;
   };
 
+  # ---------- 电源管理 ----------
+  # 笔记本合盖无动作
+  services.logind.settings.Login = {
+    HandleLidSwitch = "ignore";
+    HandleLidSwitchExternalPower = "ignore";
+    HandleLidSwitchDocked = "ignore";
+  };
+
   # ---------- 蓝牙 ----------
   hardware.bluetooth.enable = true;
   services.blueman.enable = true;
