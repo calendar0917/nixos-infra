@@ -1168,3 +1168,224 @@ sudo nixos-rebuild test --flake .#nixos
 | 读源码 | https://github.com/NixOS/nixpkgs/tree/nixos-unstable |
 | Wiki | https://nixos.wiki |
 | 你的配置 | `~/code/nixos/` ← 看注释，看已有的模式 |
+
+---
+
+# 底层模型篇
+
+## 三十六、物理视角：文件到底在哪
+
+```
+/nix/store/
+├── abc123-linux-pam-1.7.1/          # PAM 模块
+│   └── lib/security/pam_unix.so
+├── def456-gnome-keyring-50.0/       # GNOME Keyring
+│   └── lib/security/pam_gnome_keyring.so
+├── ghi789-kitty-0.46.2/
+│   ├── bin/kitty                     # 二进制
+│   └── share/applications/kitty.desktop
+├── jkl012-firefox-151.0.1/
+│   ├── bin/firefox                   # 二进制（实际是个包装脚本）
+│   └── lib/firefox/
+├── mno345-systemd-260.1/
+│   ├── bin/systemctl
+│   └── lib/security/pam_systemd.so
+└── pqr678-xdg-desktop-portal-1.20/
+    └── libexec/xdg-desktop-portal
+
+/etc/           → 符号链接到 /nix/store（NixOS 自动生成）
+  ├── pam.d/login      → /nix/store/...-login.pam
+  ├── niri/config.kdl  → /nix/store/...-config.kdl
+  └── profile.d/       → 环境变量片段
+
+/run/current-system/  → 符号链接到当前世代的 /nix/store 路径
+  └── sw/bin/kitty     → /nix/store/ghi789-kitty-0.46.2/bin/kitty
+```
+
+**关键规则：** /nix/store 里的东西是**不可变的、只读的**。改了什么都会变成新路径。这是回滚和可复现的物理基础。
+
+## 三十七、程序是怎么找到彼此的
+
+### 终端里执行 `kitty`
+
+```
+1. Shell 解析命令 "kitty"
+2. 在 PATH 里搜索:
+   PATH=/run/current-system/sw/bin:...
+3. 找到 /run/current-system/sw/bin/kitty
+   ↓ 符号链接 → /nix/store/ghi789-kitty-0.46.2/bin/kitty
+4. 内核加载 ELF 二进制
+5. ld-linux 读取 kitty 的 RPATH（内嵌在 ELF 里）:
+   RPATH=/nix/store/...libX11-1.8:/nix/store/...libglib-2.0:...
+6. 按 RPATH 逐一搜索，加载所有 .so 依赖
+7. kitty 启动
+```
+
+**Traditional Linux（Arch）对比：**
+```
+PATH=/usr/bin:/usr/local/bin        ← 全局共享
+ld-linux 搜索 /lib, /usr/lib        ← 全局共享
+所有程序共用一套库                   ← 升级一个库可能破坏所有程序
+```
+
+**NixOS：**
+```
+PATH=每个包独立路径                   ← 没有全局 /usr/bin
+RPATH 内嵌在 ELF 里                   ← 编译时写死，不依赖环境变量
+每个程序自带依赖                      ← 升级不影响其他程序
+```
+
+### systemd 服务里的 `ExecStart=${pkgs.kanshi}/bin/kanshi`
+
+systemd 不会搜索 PATH。所以必须写**绝对路径**。构建时 `${pkgs.kanshi}` 被替换为 `/nix/store/...-kanshi-1.8.0`。
+
+## 三十八、配置文件怎么到位的
+
+### `environment.etc."niri/config.kdl".source = ./config.kdl`
+
+```
+构建时:
+  ./config.kdl  →  复制到 /nix/store/xxx-config.kdl
+
+激活时:
+  /etc/niri/config.kdl  →  符号链接到 /nix/store/xxx-config.kdl
+
+niri 启动时:
+  读取 /etc/niri/config.kdl  →  跟随符号链接 → /nix/store/...-config.kdl
+```
+
+**为什么是只读：** /etc/niri/config.kdl 是指向 /nix/store 的符号链接。nix store 不可变，所以"编辑 /etc/niri/config.kdl"在 NixOS 上做不到。改配置 = 改源码 .nix 文件 → rebuild。
+
+### `xdg.configFile."niri/config.kdl".source = ./config.kdl`（Home Manager）
+
+```
+HM 激活时:
+  ~/.config/niri/config.kdl  →  HM 的符号链接 → /nix/store/xxx-config.kdl
+```
+
+同样是只读。不过 HM 也支持 `text` 字段（直接在 `.nix` 里写内容）。
+
+## 三十九、环境变量是怎么流动的
+
+NixOS 的 env 分层：
+
+```
+第 1 层: 系统级（每用户可见）
+  environment.variables.XXX = "value"
+  environment.sessionVariables.XXX = "value"  ← 还有这个
+  → 写入 /etc/profile.d/ + /etc/set-environment
+
+第 2 层: 用户 shell
+  ~/.bashrc, ~/.config/fish/config.fish
+  → 你自己写的，NixOS 不碰
+
+第 3 层: systemd 服务
+  systemd.user.services.xxx.environment.XXX = "value"
+  → 写进该服务的 systemd drop-in
+
+第 4 层: 进程自己
+  程序内部 setenv()
+  → NixOS 不干涉
+```
+
+**关键区别：**
+- `environment.variables` → 对所有 shell 生效（/etc/profile 读取）
+- `systemd.user.services.xxx.environment` → 只对这个 systemd 服务生效
+
+比如说你配了 `systemd.user.services.niri.environment.GDK_BACKEND = "wayland"`，那 GDK_BACKEND 只在 niri 及其子进程里存在，你的 fish shell 里没有。
+
+## 四十、derivation 模型（当你说"构建"时发生了什么）
+
+```
+源代码 + 构建脚本 → derivation（"配方"）→ 构建 → /nix/store/xxx-结果
+```
+
+**derivation 里的核心字段：**
+
+```
+{
+  name = "kitty-0.46.2";
+  system = "x86_64-linux";
+  builder = "/nix/store/...-bash/bin/bash";          # 用哪个程序构建
+  args = [ "-c", "make && make install" ];           # 构建命令
+  inputs = [                                           # 依赖
+    "/nix/store/...-source.tar.gz",                    # 源码
+    "/nix/store/...-glib-2.0",                         # 编译依赖
+    "/nix/store/...-libX11-1.8",                       # 链接依赖
+  ];
+  env = { ... };                                      # 构建时的环境变量
+  outputHash = "abc123...";                           # 输出哈希（决定了 nix store 路径）
+}
+```
+
+**关键洞察：** store 路径由输入的哈希决定。输入变了 → 哈希变了 → 新路径。输入没变 → 哈希没变 → 复用旧路径（这就是缓存——如果依赖没变，不需要重新编译）。
+
+## 四十一、FHS 兼容：为什么 Arch 的二进制跑不了
+
+你之前看到的：
+```
+Could not start dynamically linked executable: /home/calendar/miniforge3/bin/mamba
+NixOS cannot run dynamically linked executables intended for generic linux environments
+```
+
+原因：Arch 的二进制期望 ld-linux 在 `/lib64/ld-linux-x86-64.so.2`，但 NixOS 没有 `/lib64/`。ld-linux 在 `/nix/store/...-glibc/lib/ld-linux-x86-64.so.2`。
+
+NixOS 的每个二进制在编译时**内嵌了正确的 ld-linux 路径到 ELF 的 INTERP 段**。Arch 的二进制写的是 `/lib64/ld-linux-x86-64.so.2`——这个路径不存在，所以内核拒绝加载。
+
+**这就是 appimage-run / buildFHSEnv 做的事：** 创建一个迷你环境，把 `/lib64`、`/usr/lib` 等 FHS 路径映射到 /nix/store 下的实际文件。
+
+## 四十二、激活过程（nixos-rebuild switch 到底做了什么）
+
+```
+1. 评估 → 算出一个完整的 "system" 属性集
+2. 构建 → 把所有需要的文件都放进 /nix/store
+3. 激活 → switch-to-configuration:
+   a. 对比新旧世代的所有文件
+   b. 更新 /etc 符号链接（只变更改动的文件）
+   c. 对比 systemd unit 文件
+      - unit 内容变了 → restart 对应服务
+      - unit 没变，但依赖变了 → reload
+      - unit 删了 → stop
+   d. 更新 /run/current-system 符号链接 → 新世代
+   e. 启动新服务、停止旧服务
+```
+
+系统崩了还能回滚，就是因为步骤 3 只是改了符号链接——旧世代的所有文件还在 /nix/store 里，boot 菜单选旧世代 = 让 /run/current-system 指回旧路径。
+
+## 四十三、一图总结
+
+```
+                   flake.nix
+                      │
+              ┌───────┴────────┐
+              │   nixpkgs      │  (包定义)
+              │   (pkgs.foo)   │
+              └───────┬────────┘
+                      │ evaluation
+                      ▼
+              ┌───────────────┐
+              │   config 属性集 │  所有选项合并后的结果
+              └───────┬───────┘
+                      │ build
+                      ▼
+        ┌─────────────────────────┐
+        │      /nix/store/        │
+        │  abc-firefox-151        │  不可变的二进制和配置
+        │  def-kitty-0.46         │
+        │  ghi-config.kdl         │
+        │  jkl-system-fish.path   │
+        └────────┬────────────────┘
+                 │ activation (符号链接)
+                 ▼
+    ┌────────────────────────────┐
+    │  /etc/       符号链接→store │  运行时配置
+    │  /run/current-system/sw/   │  当前系统 PATH
+    │  systemd units             │  当前运行的服务
+    └────────────┬───────────────┘
+                 │ exec
+                 ▼
+          ┌─────────────┐
+          │   进程 进程   │
+          │   进程 进程   │  ← 这是你实际"使用"的东西
+          └─────────────┘
+```
