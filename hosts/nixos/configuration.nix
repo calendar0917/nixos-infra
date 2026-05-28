@@ -17,28 +17,9 @@
   networking.firewall.enable = false;
 
   # ---------- 代理 ----------
-  #services.mihomo = {
-  #  enable = true;
-  #  configFile = ../../clash.yaml;
-  #};
-
-  # ---------- Tailscale ----------
-  services.tailscale.enable = true;
-
-  # ---------- 时区 / 区域 ----------
-  time.timeZone = "Asia/Shanghai";
-  i18n.defaultLocale = "zh_CN.UTF-8";
-
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS = "zh_CN.UTF-8";
-    LC_IDENTIFICATION = "zh_CN.UTF-8";
-    LC_MEASUREMENT = "zh_CN.UTF-8";
-    LC_MONETARY = "zh_CN.UTF-8";
-    LC_NAME = "zh_CN.UTF-8";
-    LC_NUMERIC = "zh_CN.UTF-8";
-    LC_PAPER = "zh_CN.UTF-8";
-    LC_TELEPHONE = "zh_CN.UTF-8";
-    LC_TIME = "zh_CN.UTF-8";
+  services.mihomo = {
+    enable = true;
+    configFile = ../../clash.yaml;  # TUN 在 clash.yaml 里配置
   };
 
   # ---------- 中文输入法 ----------
