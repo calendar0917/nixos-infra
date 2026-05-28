@@ -17,10 +17,10 @@
   networking.firewall.enable = false;
 
   # ---------- 代理 ----------
-  services.mihomo = {
-    enable = true;
-    configFile = ../../clash.yaml;
-  };
+  #services.mihomo = {
+  #  enable = true;
+  #  configFile = ../../clash.yaml;
+  #};
 
   # ---------- Tailscale ----------
   services.tailscale.enable = true;
