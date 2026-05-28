@@ -7,8 +7,10 @@
 fish_add_path $HOME/.npm-global/bin
 fish_add_path $HOME/.cargo/bin
 fish_add_path $HOME/go/bin
-# fnm 初始化
-fnm env --use-on-cd --shell fish | source
+# fnm 初始化（仅 Arch）
+if not test -e /etc/NIXOS
+    fnm env --use-on-cd --shell fish | source
+end
 # pnpm
 set -gx PNPM_HOME "/home/calendar/.local/share/pnpm"
 if not string match -q -- $PNPM_HOME $PATH
@@ -96,9 +98,10 @@ function y
     rm -f -- "$tmp"
 end
 
-# >>> mamba initialize >>>
-# !! Contents within this block are managed by 'mamba shell init' !!
-set -gx MAMBA_EXE /home/calendar/miniforge3/bin/mamba
-set -gx MAMBA_ROOT_PREFIX /home/calendar/miniforge3
-$MAMBA_EXE shell hook --shell fish --root-prefix $MAMBA_ROOT_PREFIX | source
+# >>> mamba initialize >>> (仅 Arch)
+if not test -e /etc/NIXOS
+    set -gx MAMBA_EXE /home/calendar/miniforge3/bin/mamba
+    set -gx MAMBA_ROOT_PREFIX /home/calendar/miniforge3
+    $MAMBA_EXE shell hook --shell fish --root-prefix $MAMBA_ROOT_PREFIX | source
+end
 # <<< mamba initialize <<<
