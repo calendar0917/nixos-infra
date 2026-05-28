@@ -20,6 +20,28 @@
   # 使用 clash-verge-rev GUI 管理（systemPackages 里已安装）
   # TUN 模式在 NixOS 上需要 root 权限，暂不支持，用系统代理即可
 
+  # ---------- Tailscale ----------
+  services.tailscale.enable = true;
+
+  # ---------- 时区 / 区域 ----------
+  time.timeZone = "Asia/Shanghai";
+  i18n.defaultLocale = "zh_CN.UTF-8";
+
+  i18n.extraLocaleSettings = {
+    LC_ADDRESS = "zh_CN.UTF-8";
+    LC_COLLATE = "zh_CN.UTF-8";
+    LC_CTYPE = "zh_CN.UTF-8";
+    LC_IDENTIFICATION = "zh_CN.UTF-8";
+    LC_MEASUREMENT = "zh_CN.UTF-8";
+    LC_MESSAGES = "zh_CN.UTF-8";
+    LC_MONETARY = "zh_CN.UTF-8";
+    LC_NAME = "zh_CN.UTF-8";
+    LC_NUMERIC = "zh_CN.UTF-8";
+    LC_PAPER = "zh_CN.UTF-8";
+    LC_TELEPHONE = "zh_CN.UTF-8";
+    LC_TIME = "zh_CN.UTF-8";
+  };
+
   # ---------- 中文输入法 ----------
   i18n.inputMethod = {
     enable = true;
