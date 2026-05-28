@@ -17,10 +17,8 @@
   networking.firewall.enable = false;
 
   # ---------- 代理 ----------
-  services.mihomo = {
-    enable = true;
-    configFile = ../../clash.yaml;  # TUN 在 clash.yaml 里配置
-  };
+  # 使用 clash-verge-rev GUI 管理（systemPackages 里已安装）
+  # TUN 模式在 NixOS 上需要 root 权限，暂不支持，用系统代理即可
 
   # ---------- 中文输入法 ----------
   i18n.inputMethod = {
