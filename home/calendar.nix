@@ -14,11 +14,9 @@
   # ---------- kanshi ----------
   xdg.configFile."kanshi/config".source = ../modules/features/kanshi/config;
 
-  # ---------- fish ----------
-  xdg.configFile."fish".source = ../modules/features/fish;
-
-  # 不在 HM 管理：
-  #   nvim → LazyVim 自管理
+  # 不在 HM 管理（手动维护，随时可改）：
+  #   fish  → ~/.config/fish/    改得频繁，rebuild 太慢
+  #   nvim  → LazyVim 自管理插件  和 HM 冲突
 
   home.packages = with pkgs; [
   ];
