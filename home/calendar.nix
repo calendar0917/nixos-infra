@@ -4,7 +4,7 @@
   home.username = "calendar";
   home.homeDirectory = "/home/calendar";
 
-  # ---------- niri（主配置 + dms 子配置）----------
+  # ---------- niri ----------
   xdg.configFile."niri/config.kdl".source = ../modules/features/niri/config.kdl;
   xdg.configFile."niri/dms".source = ../modules/features/niri/dms;
 
@@ -15,11 +15,10 @@
   xdg.configFile."kanshi/config".source = ../modules/features/kanshi/config;
 
   # ---------- fish ----------
-  programs.fish.enable = true;
+  xdg.configFile."fish".source = ../modules/features/fish;
 
-  # 以下不在 HM 管理范围，直接留 ~/.config/ 下：
-  #   nvim  → LazyVim 自管理插件，不适合声明式
-  #   fish  → config.fish 已手动维护，Arch/NixOS 共用
+  # 不在 HM 管理：
+  #   nvim → LazyVim 自管理
 
   home.packages = with pkgs; [
   ];
