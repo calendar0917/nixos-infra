@@ -21,7 +21,7 @@
   services.mihomo = {
     enable = true;
     tunMode = true;  # 启用 TUN 模式，需要 CAP_NET_ADMIN
-    configFile = "/home/calendar/.config/mihomo/config.yaml";
+    configFile = "/etc/mihomo/config.yaml";
     webui = pkgs.metacubexd;  # Web UI: http://127.0.0.1:9090/ui
   };
 
