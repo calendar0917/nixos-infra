@@ -6,7 +6,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://github.com/SaladDay/cc-switch-cli/releases/download/v5.6.1/cc-switch-cli-linux-x64.tar.gz";
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = "sha256-6y1WUaJ+y+/QtzjVshbkYuI6Q/2laUFycRl9AItJcIM=";
   };
 
   nativeBuildInputs = [ autoPatchelfHook ];
