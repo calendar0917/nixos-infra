@@ -17,8 +17,13 @@
   networking.firewall.enable = false;
 
   # ---------- 代理 ----------
-  # 使用 clash-verge-rev GUI 管理（systemPackages 里已安装）
-  # TUN 模式在 NixOS 上需要 root 权限，暂不支持，用系统代理即可
+  # mihomo 系统服务 + TUN 模式
+  services.mihomo = {
+    enable = true;
+    tunMode = true;  # 启用 TUN 模式，需要 CAP_NET_ADMIN
+    configFile = "/home/calendar/.config/mihomo/config.yaml";
+    webui = pkgs.metacubexd;  # Web UI: http://127.0.0.1:9090/ui
+  };
 
   # ---------- Tailscale ----------
   services.tailscale.enable = true;
@@ -165,6 +170,7 @@
     # AI
     claude-code
     opencode
+    cc-switch-cli
     # 代理 GUI（可选）
     clash-verge-rev
   ];
