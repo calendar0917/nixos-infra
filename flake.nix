@@ -16,15 +16,6 @@
       modules = [
         ./hosts/nixos
         home-manager.nixosModules.home-manager
-
-        # Overlay: 注入自定义包
-        ({ pkgs, ... }: {
-          nixpkgs.overlays = [
-            (final: prev: {
-              cc-switch-cli = final.callPackage ./pkgs/cc-switch-cli.nix {};
-            })
-          ];
-        })
       ];
     };
   };

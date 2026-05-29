@@ -170,7 +170,6 @@
     # AI
     claude-code
     opencode
-    cc-switch-cli
     # 代理 GUI（可选）
     clash-verge-rev
   ];
