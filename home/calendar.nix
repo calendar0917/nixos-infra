@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, cc-switch-cli, ... }:
 
 {
   home.username = "calendar";
@@ -12,6 +12,7 @@
   #   kitty, kanshi, fish, nvim
 
   home.packages = with pkgs; [
+    cc-switch-cli
   ];
 
   home.stateVersion = "25.05";

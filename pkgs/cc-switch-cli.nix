@@ -1,4 +1,4 @@
-{ lib, stdenv, fetchurl, autoPatchelfHook, gcc-unwrapped, openssl, zlib }:
+{ lib, stdenv, fetchurl, autoPatchelfHook, gcc-unwrapped, openssl, zlib, xz }:
 
 stdenv.mkDerivation {
   pname = "cc-switch-cli";
@@ -10,7 +10,7 @@ stdenv.mkDerivation {
   };
 
   nativeBuildInputs = [ autoPatchelfHook ];
-  buildInputs = [ gcc-unwrapped.lib openssl zlib ];
+  buildInputs = [ gcc-unwrapped.lib openssl zlib xz ];
 
   sourceRoot = ".";
   installPhase = ''

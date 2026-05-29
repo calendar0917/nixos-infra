@@ -109,7 +109,8 @@
 
   # ---------- Home Manager ----------
   home-manager.backupFileExtension = "hm-backup";  # 冲突时自动备份旧文件
-  home-manager.users.calendar = import ../../home/calendar.nix;
+  home-manager.extraSpecialArgs = { inherit (pkgs) cc-switch-cli; };
+  home-manager.users.calendar = ../../home/calendar.nix;
 
   # ---------- Shell ----------
   programs.fish.enable = true;

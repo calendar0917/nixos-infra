@@ -44,9 +44,9 @@ zoxide init fish | source
 # 代理设置
 # 开启代理函数
 function pon
-    set -gx http_proxy http://127.0.0.1:7897
-    set -gx https_proxy http://127.0.0.1:7897
-    set -gx all_proxy socks5://127.0.0.1:7897
+    set -gx http_proxy http://127.0.0.1:7890
+    set -gx https_proxy http://127.0.0.1:7890
+    set -gx all_proxy socks5://127.0.0.1:7890
     echo 终端代理已开启
 end
 
