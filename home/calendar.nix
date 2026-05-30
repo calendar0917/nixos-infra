@@ -13,6 +13,7 @@
 
   home.packages = with pkgs; [
     cc-switch-cli
+    hugo
   ];
 
   home.stateVersion = "25.05";

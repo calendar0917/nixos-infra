@@ -14,8 +14,19 @@
 ## Proxy
 - mihomo 系统服务 + TUN 模式（systemd 服务）
 - Web UI: metacubexd (http://127.0.0.1:9090/ui)
-- Clash config file: /etc/mihomo/config.yaml
+- Clash config: managed by sops-nix, stored encrypted at secrets/secrets.yaml
+  - Decrypted by sops-nix at runtime, key path: `config.sops.secrets."mihomo-config".path`
+  - Edit with: `just edit-secrets`
 - GeoIP 数据库需手动下载到 /var/lib/private/mihomo/
+
+## Secrets
+- sops-nix with age encryption
+- Key files:
+  - `~/.config/sops/age/keys.txt` — age 私钥（sops CLI 和 sops-nix 都用这个）
+  - `~/.ssh/id_ed25519` — SSH 私钥（可以转换为 age key，作为备份参考）
+  - **必须备份这两个文件**，丢失 = 所有加密的 secrets 无法恢复
+- Edit secrets: `just edit-secrets`
+- Encrypted file: `secrets/secrets.yaml`
 
 ## Known issues
 - GNOME 50 crashes → use KDE or niri

@@ -7,9 +7,13 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, home-manager, ... } @ inputs: {
+  outputs = { nixpkgs, home-manager, sops-nix, ... } @ inputs: {
     nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
@@ -24,6 +28,7 @@
         })
 
         ./hosts/nixos
+        sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
       ];
     };

@@ -21,13 +21,9 @@ end
 set -gx JAVA_TOOL_OPTIONS "-Dsun.java2d.uiScale=2.0 -Dsun.java2d.dpiaware=false"
 set -g GTK_CSD 0
 
-# Cargo 路径配置
-if test -d $HOME/.cargo/bin
-    set -gx PATH $HOME/.cargo/bin $PATH
-end
+
 
 # 路径跳转
-zoxide init fish | source
 
 # vim 模式
 #set -g fish_key_bindings fish_vi_key_bindings
@@ -83,6 +79,27 @@ abbr -a ycon 'y ~/Project/quartz/content'
 abbr -a ga 'git add .'
 abbr -a gm 'git commit -m'
 abbr -a gp 'git push'
+
+# NixOS 相关 alias
+alias nrs='sudo nixos-rebuild switch --flake .'
+alias nrt='sudo nixos-rebuild test --flake .'
+alias nix-gc='sudo nix-collect-garbage -d'
+alias nix-search='nix search nixpkgs'
+alias nix-check='nix flake check'
+alias nix-shell-p='nix-shell -p'
+
+# 代理状态检查
+function pstatus
+    echo "代理环境变量状态："
+    echo "http_proxy: $http_proxy"
+    echo "https_proxy: $https_proxy"
+    echo "all_proxy: $all_proxy"
+    if test -n "$http_proxy"
+        echo "终端代理已开启"
+    else
+        echo "终端代理已关闭"
+    end
+end
 
 if status is-interactive
     # 禁用 Fish 默认的问候语

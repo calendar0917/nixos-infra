@@ -16,12 +16,19 @@
   networking.networkmanager.enable = true;
   networking.firewall.enable = false;
 
+  # ---------- sops-nix ----------
+  sops.age.keyFile = "/home/calendar/.config/sops/age/keys.txt";
+
+  sops.secrets."mihomo-config" = {
+    sopsFile = ../../secrets/secrets.yaml;
+  };
+
   # ---------- 代理 ----------
   # mihomo 系统服务 + TUN 模式
   services.mihomo = {
     enable = true;
-    tunMode = true;  # 启用 TUN 模式，需要 CAP_NET_ADMIN
-    configFile = "/etc/mihomo/config.yaml";
+    tunMode = true;
+    configFile = config.sops.secrets."mihomo-config".path;
     webui = pkgs.metacubexd;  # Web UI: http://127.0.0.1:9090/ui
   };
 

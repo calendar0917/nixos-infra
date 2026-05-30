@@ -1,4 +1,4 @@
 result
 result-*
 .direnv
-clash.yaml
+secrets/secrets.yaml
