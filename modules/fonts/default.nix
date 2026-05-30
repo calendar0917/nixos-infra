@@ -23,4 +23,6 @@ in
     noto-fonts-color-emoji
     maple-mono
   ];
+
+  fonts.fontconfig.localConf = builtins.readFile ./fontconfig-cjk.xml;
 }

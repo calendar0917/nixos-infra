@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+
+  <!-- 默认字体回退列表中追加 CJK 字体，确保非 CJK 字体缺少的字形能回退到 CJK -->
+  <alias>
+    <family>sans-serif</family>
+    <prefer>
+      <family>Noto Sans</family>
+      <family>Noto Sans CJK SC</family>
+    </prefer>
+  </alias>
+
+  <alias>
+    <family>serif</family>
+    <prefer>
+      <family>Noto Serif</family>
+      <family>Noto Serif CJK SC</family>
+    </prefer>
+  </alias>
+
+  <alias>
+    <family>monospace</family>
+    <prefer>
+      <family>Hack</family>
+      <family>Noto Sans Mono</family>
+      <family>Noto Sans Mono CJK SC</family>
+    </prefer>
+  </alias>
+
+  <!-- CJK 字体族名映射到实际可用的 CJK 字体 -->
+  <alias>
+    <family>宋体</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>SimSun</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>新宋体</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>NSimSun</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>黑体</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>SimHei</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>微软雅黑</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>Microsoft YaHei</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>楷体</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>KaiTi</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>仿宋</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>FangSong</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>等线</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>DengXian</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>方正书宋</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>方正仿宋</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>方正楷体</family>
+    <prefer><family>Noto Serif CJK SC</family></prefer>
+  </alias>
+  <alias>
+    <family>方正黑体</family>
+    <prefer><family>Noto Sans CJK SC</family></prefer>
+  </alias>
+
+</fontconfig>
