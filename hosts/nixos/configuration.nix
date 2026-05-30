@@ -169,7 +169,7 @@
     # 通信（微信走 Flatpak：com.tencent.WeChat）
     telegram-desktop
     # 办公 / 笔记
-    onlyoffice-desktopeditors
+    libreoffice
     obsidian zotero
     # 娱乐
     steam
