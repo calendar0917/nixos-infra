@@ -8,7 +8,7 @@ fish_add_path $HOME/.npm-global/bin
 fish_add_path $HOME/.cargo/bin
 fish_add_path $HOME/go/bin
 # fnm 初始化
-# fnm env --use-on-cd --shell fish | source
+fnm env --use-on-cd --shell fish | source
 # pnpm
 set -gx PNPM_HOME "/home/calendar/.local/share/pnpm"
 if not string match -q -- $PNPM_HOME $PATH
@@ -56,7 +56,7 @@ function poff
     echo 终端代理已关闭
 end
 # 路径跳转
-alias cdot='cd ~/infra/nixos/dotfiles'
+alias cdot='cd ~/dotfiles/'
 alias cc='cd ~/code'
 alias cdon='cd ~/Downloads/'
 alias ccon='cd ~/Documents/quartz/content'
@@ -98,7 +98,7 @@ end
 
 # >>> mamba initialize >>>
 # !! Contents within this block are managed by 'mamba shell init' !!
-#set -gx MAMBA_EXE /home/calendar/miniforge3/bin/mamba
-#set -gx MAMBA_ROOT_PREFIX /home/calendar/miniforge3
-#$MAMBA_EXE shell hook --shell fish --root-prefix $MAMBA_ROOT_PREFIX | source
+set -gx MAMBA_EXE /home/calendar/miniforge3/bin/mamba
+set -gx MAMBA_ROOT_PREFIX /home/calendar/miniforge3
+$MAMBA_EXE shell hook --shell fish --root-prefix $MAMBA_ROOT_PREFIX | source
 # <<< mamba initialize <<<

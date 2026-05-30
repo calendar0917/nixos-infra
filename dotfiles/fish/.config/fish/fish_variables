@@ -1,5 +1,4 @@
 # This file contains fish universal variable definitions.
 # VERSION: 3.0
 SETUVAR __fish_initialized:4300
-SETUVAR __fish_webconfig_theme_notification:set\x2dtheme\x2dv1\x2d\x233
-SETUVAR fish_user_paths:/home/calendar/miniforge3/condabin\x1e/home/calendar/go/bin\x1e/home/calendar/\x2eemacs\x2ed/bin\x1e/home/calendar/\x2ecargo/bin\x1e/home/calendar/\x2enpm\x2dglobal/bin\x1e/home/calendar/\x2econfig/emacs/bin
+SETUVAR fish_user_paths:/home/calendar/go/bin\x1e/home/calendar/\x2ecargo/bin\x1e/home/calendar/\x2enpm\x2dglobal/bin

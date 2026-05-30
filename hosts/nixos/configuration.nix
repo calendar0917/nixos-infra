@@ -54,6 +54,9 @@
     LC_TIME = "zh_CN.UTF-8";
   };
 
+  # ---------- XWayland ----------
+  programs.xwayland.enable = true;
+
   # ---------- 中文输入法 ----------
   i18n.inputMethod = {
     enable = true;
@@ -180,6 +183,8 @@
     opencode
     # 代理 GUI（可选）
     clash-verge-rev
+    # XWayland（niri 需要 xwayland-satellite 来运行 X11 应用如 OnlyOffice）
+    xwayland-satellite
   ];
 
   # ---------- Nix ----------
