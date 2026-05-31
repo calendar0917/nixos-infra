@@ -14,6 +14,8 @@
   home.packages = with pkgs; [
     cc-switch-cli
     hugo
+    taskwarrior3
+    taskwarrior-tui
   ];
 
   home.stateVersion = "25.05";

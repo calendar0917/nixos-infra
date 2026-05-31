@@ -147,11 +147,16 @@
     isNormalUser = true;
     description = "calendar";
     shell = pkgs.fish;
-    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" "vboxusers" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "video" "render" "vboxusers" "wireshark"];
   };
 
   # ---------- 软件 ----------
   programs.firefox.enable = true;
+  programs.wireshark = {
+      enable = true;
+      package = pkgs.wireshark;
+    };
+
   nixpkgs.config.allowUnfree = true;
 
   # Flatpak（QQ/腾讯会议等在 nixpkgs 里没有的软件走这里）
