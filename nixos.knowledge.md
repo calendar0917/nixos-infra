@@ -7,8 +7,8 @@
 - DM: SDDM
 
 ## Configuration management
-- **HM manages:** niri (config.kdl + dms/), cc-switch-cli
-- **stow manages:** fish, kitty, kanshi, nvim (dotfiles/ directory)
+- **HM manages all dotfiles** — niri, DMS, fish, kitty, kanshi, nvim
+- **`mkOutOfStoreSymlink`** — 所有配置都是直接 symlink 到 repo 里的源文件，改了即时生效，不用 rebuild
 - HM type: NixOS module (not standalone), with `home-manager.backupFileExtension = "hm-backup"`
 
 ## Proxy

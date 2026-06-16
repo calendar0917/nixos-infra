@@ -1,21 +1,19 @@
-{ config, pkgs, cc-switch-cli, ... }:
-
-{
+{ config, lib, pkgs, cc-switch-cli, ... }:
+let
+  out = config.lib.file.mkOutOfStoreSymlink;
+in {
   home.username = "calendar";
   home.homeDirectory = "/home/calendar";
 
-  # ---------- niri（唯一由 HM 管理的配置）----------
-  xdg.configFile."niri/config.kdl".source = ../modules/features/niri/config.kdl;
-  xdg.configFile."niri/dms".source = ../modules/features/niri/dms;
+  # 改了即时生效，不用 rebuild
   xdg.configFile = {
-  fish.source   = ../dotfiles/fish/.config/fish;
-  kitty.source  = ../dotfiles/kitty/.config/kitty;
-  kanshi.source = ../dotfiles/kanshi/.config/kanshi;
-  nvim.source   = ../dotfiles/nvim/.config/nvim;
-};
-
-  # 以下由 stow 管理（dotfiles/ 目录，改了立即生效）：
-  #   kitty, kanshi, fish, nvim
+    "niri/config.kdl".source = out "${config.home.homeDirectory}/nixos/modules/features/niri/config.kdl";
+    "niri/dms".source       = out "${config.home.homeDirectory}/nixos/modules/features/niri/dms";
+    fish.source              = out "${config.home.homeDirectory}/nixos/dotfiles/fish/.config/fish";
+    kitty.source             = out "${config.home.homeDirectory}/nixos/dotfiles/kitty/.config/kitty";
+    kanshi.source            = out "${config.home.homeDirectory}/nixos/dotfiles/kanshi/.config/kanshi";
+    nvim.source              = out "${config.home.homeDirectory}/nixos/dotfiles/nvim/.config/nvim";
+  };
 
   home.packages = with pkgs; [
     cc-switch-cli
