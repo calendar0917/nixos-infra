@@ -7,6 +7,12 @@
   # ---------- niri（唯一由 HM 管理的配置）----------
   xdg.configFile."niri/config.kdl".source = ../modules/features/niri/config.kdl;
   xdg.configFile."niri/dms".source = ../modules/features/niri/dms;
+  xdg.configFile = {
+  fish.source   = ../dotfiles/fish/.config/fish;
+  kitty.source  = ../dotfiles/kitty/.config/kitty;
+  kanshi.source = ../dotfiles/kanshi/.config/kanshi;
+  nvim.source   = ../dotfiles/nvim/.config/nvim;
+};
 
   # 以下由 stow 管理（dotfiles/ 目录，改了立即生效）：
   #   kitty, kanshi, fish, nvim

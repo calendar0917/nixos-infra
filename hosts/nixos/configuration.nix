@@ -192,9 +192,25 @@
     xwayland-satellite
   ];
 
+  # ---------- Windows 分区挂载 ----------
+  boot.supportedFilesystems = [ "ntfs" ];
+
+  fileSystems."/mnt/c" = {
+    device = "/dev/disk/by-uuid/7A0C392C0C38E533";
+    fsType = "ntfs3";
+    options = [ "rw" "uid=1000" "gid=100" "umask=022" ];
+  };
+
+  fileSystems."/mnt/d" = {
+    device = "/dev/disk/by-uuid/4A0EEC030EEBE5C3";
+    fsType = "ntfs3";
+    options = [ "rw" "uid=1000" "gid=100" "umask=022" ];
+  };
+
   # ---------- Nix ----------
   nix = {
     settings = {
+      trusted-users = [ "root" "@wheel" ];
       experimental-features = [ "nix-command" "flakes" ];
       auto-optimise-store = true;   # 文件级去重，省 30-50% 空间
       substituters = [
