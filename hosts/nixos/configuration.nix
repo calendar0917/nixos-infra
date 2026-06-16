@@ -13,10 +13,10 @@
 
   # Windows 双启动：把 Windows 的 EFI 文件复制到 NixOS ESP
   boot.loader.systemd-boot.extraInstallCommands = ''
-    mkdir -p /boot/EFI
-    mount /dev/nvme0n1p1 /mnt
-    cp -r /mnt/EFI/Microsoft /boot/EFI/
-    umount /mnt
+    ${pkgs.coreutils}/bin/mkdir -p /boot/EFI
+    ${pkgs.util-linux}/bin/mount /dev/nvme0n1p1 /mnt
+    ${pkgs.coreutils}/bin/cp -r /mnt/EFI/Microsoft /boot/EFI/
+    ${pkgs.util-linux}/bin/umount /mnt
   '';
 
   boot.loader.systemd-boot.extraEntries = {
