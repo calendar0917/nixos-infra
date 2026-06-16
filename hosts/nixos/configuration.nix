@@ -11,6 +11,21 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # Windows 双启动：把 Windows 的 EFI 文件复制到 NixOS ESP
+  boot.loader.systemd-boot.extraInstallCommands = ''
+    mkdir -p /boot/EFI
+    mount /dev/nvme0n1p1 /mnt
+    cp -r /mnt/EFI/Microsoft /boot/EFI/
+    umount /mnt
+  '';
+
+  boot.loader.systemd-boot.extraEntries = {
+    "windows.conf" = ''
+      title   Windows
+      efi     /EFI/Microsoft/Boot/bootmgfw.efi
+    '';
+  };
+
   # ---------- 网络 ----------
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
