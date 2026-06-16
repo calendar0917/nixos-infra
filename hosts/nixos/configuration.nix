@@ -73,6 +73,13 @@
 
   # niri + dms
   programs.niri.enable = true;
+
+  # U 盘 / 移动硬盘自动挂载
+  services.udisks2.enable = true;
+  services.gvfs.enable = true;
+
+  # gvfs 默认不自动启动，手动加依赖让它在 session 启动时拉起
+  systemd.user.services.gvfs-daemon.wantedBy = [ "graphical-session.target" ];
   programs.dms-shell = {
     enable = true;
     systemd.enable = true;
