@@ -212,6 +212,14 @@
     clash-verge-rev
     # XWayland（niri 需要 xwayland-satellite 来运行 X11 应用如 OnlyOffice）
     xwayland-satellite
+    # LaTeX
+    (texlive.combine {
+      inherit (texlive)
+        scheme-small
+        collection-latexextra
+        collection-langchinese
+        collection-fontsrecommended;
+    })
   ];
 
   # ---------- Windows 分区挂载 ----------
