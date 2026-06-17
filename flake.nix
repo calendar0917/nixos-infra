@@ -17,16 +17,8 @@
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
       modules = [
-         # Overlay: # 注入自定义包（必须在 HM 之前）
-        ({ pkgs, ... }: {
-          nixpkgs.overlays = [
-            (final: prev: {
-              cc-switch-cli = final.callPackage ./pkgs/cc-switch-cli.nix {};
-            })
-          ];
-        })
-
-        ./hosts/nixos
+        ./overlays
+        ./hosts/nixos/configuration.nix
         sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
       ];

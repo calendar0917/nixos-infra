@@ -188,7 +188,7 @@
     # 系统工具
     git vim wget lsof curl htop btop ncdu
     tree ripgrep fd jq gnupg p7zip fastfetch
-    appimage-run stow
+    appimage-run stow tree-sitter
     # 开发
     cmake clang gdb gh go nodejs python3 uv pandoc
     # 终端
