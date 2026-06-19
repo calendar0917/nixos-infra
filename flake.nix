@@ -10,9 +10,10 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    llm-agents.url = "github:numtide/llm-agents.nix";
   };
 
-  outputs = { nixpkgs, home-manager, sops-nix, ... } @ inputs: {
+  outputs = { nixpkgs, home-manager, sops-nix, llm-agents, ... } @ inputs: {
     nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
@@ -21,6 +22,9 @@
         ./hosts/nixos/configuration.nix
         sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager
+        {
+          nixpkgs.overlays = [ llm-agents.overlays.default ];
+        }
       ];
     };
   };

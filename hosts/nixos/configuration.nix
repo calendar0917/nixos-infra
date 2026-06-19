@@ -7,6 +7,14 @@
     ../../modules/fonts
   ];
 
+  # ---------- 二进制缓存 ----------
+  nix.settings = {
+    extra-substituters = [ "https://cache.numtide.com" ];
+    extra-trusted-public-keys = [
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    ];
+  };
+
   # ---------- 引导 ----------
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -220,9 +228,12 @@
     qbittorrent
     # 浏览器
     google-chrome
-    # AI
-    claude-code
-    opencode
+    # AI (from llm-agents.nix)
+    pkgs.llm-agents.claude-code
+    pkgs.llm-agents.opencode
+    pkgs.llm-agents.codex
+    pkgs.llm-agents.pi
+    pkgs.llm-agents.cc-switch-cli
     # 代理 GUI（可选）
     clash-verge-rev
     # XWayland（niri 需要 xwayland-satellite 来运行 X11 应用如 OnlyOffice）

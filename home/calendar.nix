@@ -1,4 +1,4 @@
-{ config, lib, pkgs, cc-switch-cli, ... }:
+{ config, lib, pkgs, ... }:
 let
   out = config.lib.file.mkOutOfStoreSymlink;
 in {
@@ -16,7 +16,6 @@ in {
   };
 
   home.packages = with pkgs; [
-    cc-switch-cli
     hugo
     taskwarrior3
     taskwarrior-tui
