@@ -49,6 +49,10 @@
 
   # ---------- Tailscale ----------
   services.tailscale.enable = true;
+  systemd.services.tailscaled.environment = {
+  HTTP_PROXY = "http://127.0.0.1:7890";
+  HTTPS_PROXY = "http://127.0.0.1:7890";
+};
 
   # ---------- 时区 / 区域 ----------
   time.timeZone = "Asia/Shanghai";
@@ -147,7 +151,17 @@
   # ---------- Shell ----------
   programs.fish.enable = true;
   programs.zoxide.enable = true;
-  programs.nix-ld.enable = true;
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      stdenv.cc.cc.lib
+      zlib
+      xz
+      bzip2
+      libffi
+      openssl
+    ];
+  };
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true;
