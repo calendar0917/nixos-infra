@@ -246,6 +246,9 @@
         collection-langchinese
         collection-fontsrecommended;
     })
+    # winapps
+    inputs.winapps.packages.${pkgs.system}.winapps
+    inputs.winapps.packages.${pkgs.system}.winapps-launcher
   ];
 
   # ---------- Windows 分区挂载 ----------
@@ -272,9 +275,11 @@
       substituters = [
         "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
         "https://cache.nixos.org/"
+        "https://winapps.cachix.org/"
       ];
       trusted-public-keys = [
         "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+        "winapps.cachix.org-1:HI82jWrXZsQRar/PChgIx1unmuEsiQMQq+zt05CD36g="
       ];
     };
     gc = {
