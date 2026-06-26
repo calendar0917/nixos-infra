@@ -249,6 +249,7 @@
     # winapps
     inputs.winapps.packages.${pkgs.system}.winapps
     inputs.winapps.packages.${pkgs.system}.winapps-launcher
+    freerdp3
   ];
 
   # ---------- Windows 分区挂载 ----------
