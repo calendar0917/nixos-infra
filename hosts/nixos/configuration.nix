@@ -127,6 +127,9 @@
     };
   };
 
+  # ---------- SSD TRIM ----------
+  services.fstrim.enable = true;
+
   # ---------- 打印机 ----------
   services.printing.enable = true;
 
@@ -234,6 +237,8 @@
     pkgs.llm-agents.codex
     pkgs.llm-agents.pi
     pkgs.llm-agents.cc-switch-cli
+    # 密钥管理
+    sops
     # 代理 GUI（可选）
     clash-verge-rev
     # XWayland（niri 需要 xwayland-satellite 来运行 X11 应用如 OnlyOffice）
