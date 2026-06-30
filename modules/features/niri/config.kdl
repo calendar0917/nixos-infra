@@ -441,7 +441,7 @@ binds {
     // 急救键，重启 noctalia
     // Mod+Shift+Escape { spawn "sh" "-c" "systemctl --user restart noctalia.service; pkill waypaper; waypaper"; }
 
-    Mod+E {spawn "thunar";}
+    Mod+E {spawn "dolphin";}
     Mod+P { spawn-sh "niri msg output eDP-1 off"; }
     // Super + Alt + I: 启用内置显示器
     Mod+Alt+P { spawn-sh "niri msg output eDP-1 on"; }
