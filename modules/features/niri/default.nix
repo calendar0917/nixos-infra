@@ -12,8 +12,10 @@
 
   # ---------- niri 周边工具 ----------
   environment.systemPackages = with pkgs; [
-    # 终端 / 文件管理
-    thunar
+    # 文件管理
+    yazi
+    # 看图
+    loupe
     # 显示器管理
     kanshi
     # 锁屏
