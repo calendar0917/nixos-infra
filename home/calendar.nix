@@ -37,6 +37,7 @@ in {
     hugo
     taskwarrior3
     taskwarrior-tui
+    jetbrains.idea
   ];
 
   home.stateVersion = "25.05";
