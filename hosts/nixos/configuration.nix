@@ -237,6 +237,7 @@
     pkgs.llm-agents.codex
     pkgs.llm-agents.pi
     pkgs.llm-agents.cc-switch-cli
+    pkgs.llm-agents.grok
     # 密钥管理
     sops
     # 代理 GUI（可选）
