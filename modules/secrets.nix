@@ -10,8 +10,10 @@
   #   sudo install -d -m 0700 /var/lib/sops-nix
   #   sudo install -m 0600 ~/.config/sops/age/keys.txt /var/lib/sops-nix/keys.txt
   #
-  # `sops` secrets are declared where they are consumed (e.g. mihomo in
-  # modules/network.nix), so a build without that feature needs no key.
+  # Declare `sops.secrets."<name>"` next to the module that consumes it. The
+  # old `mihomo-config` ciphertext in secrets/secrets.yaml is intentionally
+  # preserved for manual migration to Clash Verge Rev, but nothing decrypts
+  # or loads it until a real consumer is added.
   sops = {
     age.keyFile = "/var/lib/sops-nix/keys.txt";
     validateSopsFiles = true;

@@ -12,6 +12,12 @@ in
   options.my.desktop.sway.enable = lib.mkEnableOption "Sway fallback desktop";
 
   config = lib.mkIf cfg.enable {
+    # Sway is launched directly by SDDM rather than through a desktop
+    # manager. Pull the XDG autostart target into the session so Clash Verge
+    # starts here as well as under niri; fcitx5's package autostart entry is
+    # masked by Home Manager to avoid a second input-method process.
+    systemd.user.targets.sway-session.wants = [ "xdg-desktop-autostart.target" ];
+
     programs.sway = {
       enable = true;
       wrapperFeatures.gtk = true;

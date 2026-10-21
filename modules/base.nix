@@ -36,8 +36,15 @@
       ];
     };
 
-    # Keep 20 boot generations and 30 days of store paths. This is deliberately
-    # not aggressive: rollback is more valuable than a few gigabytes.
+    # `--delete-older-than 30d` deletes every profile generation older than
+    # 30 days as well as unreachable store paths. It does NOT mean "keep all
+    # generations for 30 days": a generation becomes eligible based on its
+    # creation time, and deleting it can remove the last known-good rollback
+    # target. The current generation is kept.
+    #
+    # hosts/nixos/default.nix keeps automatic GC disabled for the first
+    # deployment. Enable it only after a successful reboot and a tested
+    # rollback candidate.
     gc = {
       automatic = true;
       dates = "weekly";

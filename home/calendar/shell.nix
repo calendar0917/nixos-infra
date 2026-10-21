@@ -18,6 +18,25 @@
     '';
   };
 
+  # Yazi is the terminal file manager. The Home Manager module provides the
+  # fish `y` function (--cwd-file), so leaving Yazi changes the shell to the
+  # last visited directory. Keep only small preview helpers; no plugin or
+  # theme collection is installed here.
+  programs.yazi = {
+    enable = true;
+    enableFishIntegration = true;
+    shellWrapperName = "y";
+    extraPackages = with pkgs; [
+      fd
+      ffmpegthumbnailer
+      file
+      fzf
+      imagemagick
+      poppler-utils
+      ripgrep
+    ];
+  };
+
   programs.starship = {
     enable = true;
     enableFishIntegration = true;

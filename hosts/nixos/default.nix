@@ -28,16 +28,22 @@
     plasma.enable = false;
   };
 
-  # Mihomo needs a real subscription in the SOPS-managed secret. Keep it off
-  # until that secret and the age key have been installed on the machine.
-  my.network.mihomo.enable = false;
-
-  # Restic is manual-only. The path is checked again by the wrapper script and
-  # by a systemd mount-point condition before anything is written.
-  my.backup = {
+  # Clash Verge Rev is the only proxy implementation. The NixOS module
+  # installs the GUI, the service-mode daemon and TUN capabilities; the
+  # subscription and profiles are imported through the GUI.
+  my.network.clashVerge = {
     enable = true;
+    # Confirm with `ip -brief link show type tun` after enabling TUN. The
+    # bundled Mihomo 1.19.x core defaults to "Meta".
+    tunInterface = "Meta";
+  };
+
+  # Restic is manual-only and intentionally disabled until the real backup USB
+  # UUID is known. Enable it only after setting usbUuid below; the module
+  # refuses to configure the service with a null UUID.
+  my.backup = {
+    enable = false;
     mountPoint = "/run/media/calendar/NIXOS-BACKUP";
-    # Set this to the filesystem UUID of the backup USB once it is known.
     usbUuid = null;
   };
 
@@ -50,7 +56,7 @@
       "wheel"
       "video"
       "render"
-    ];
+    ] ++ lib.optionals config.my.network.clashVerge.enable [ "clash-verge" ];
   };
 
   home-manager = {
@@ -59,6 +65,12 @@
     backupFileExtension = "hm-backup";
     users.calendar = import ../../home/calendar;
   };
+
+  # First deployment: postpone automatic GC until the installation has
+  # rebooted successfully and at least one rollback candidate has been tested.
+  # The base policy uses --delete-older-than 30d and deletes old generations;
+  # see README/RECOVERY before re-enabling it.
+  nix.gc.automatic = lib.mkForce false;
 
   # First installation version. Do not bump this when upgrading nixpkgs.
   system.stateVersion = "25.05";

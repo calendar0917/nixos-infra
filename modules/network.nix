@@ -31,7 +31,7 @@ in
         default = false;
         description = ''
           Accept subnet routes advertised by Tailscale. Disabled by default so
-          Tailscale cannot silently override routes that Mihomo needs.
+          Tailscale cannot silently override routes that the local proxy needs.
         '';
       };
 
@@ -41,35 +41,32 @@ in
         description = ''
           Let Tailscale manage DNS through systemd-resolved. Disabled by
           default: systemd-resolved remains the single DNS owner, avoiding a
-          second resolver and a possible Mihomo TUN DNS loop.
+          second resolver and a possible Clash Verge TUN DNS loop.
         '';
       };
     };
 
-    mihomo = {
-      enable = lib.mkEnableOption "Mihomo system proxy with TUN mode";
+    clashVerge = {
+      enable = lib.mkEnableOption "Clash Verge Rev GUI proxy";
 
-      configFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
+      tunInterface = lib.mkOption {
+        type = lib.types.str;
+        default = "Meta";
         description = ''
-          Optional override for the Mihomo config. By default the SOPS secret
-          `mihomo-config` is used and is never copied into the Nix store.
+          Linux TUN interface name created by the bundled Mihomo core. The
+          current package defaults to `Meta`; verify with
+          `ip -brief link show type tun` after enabling TUN in the GUI. The
+          firewall trusts only this interface, so change this option if the
+          GUI or a profile overrides `tun.device`.
         '';
-      };
-
-      webui = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Install the metacubexd web UI for the local controller.";
       };
     };
   };
 
   config = {
     # NetworkManager owns interfaces and Wi-Fi/Ethernet profiles. systemd-
-    # resolved is the only local DNS stub; Tailscale and Mihomo must not bind
-    # port 53 on the same addresses.
+    # resolved is the only local DNS stub; the proxy must not bind the host
+    # port 53.
     networking.networkmanager.enable = true;
     networking.networkmanager.dns = "systemd-resolved";
 
@@ -81,10 +78,32 @@ in
       };
     };
 
-    # The host firewall stays enabled. Tailscale traffic is trusted on its own
-    # interface; no global firewall bypass is needed.
+    # Keep one firewall implementation so the narrow TUN exceptions below use
+    # the same nftables ruleset that protects the rest of the host. The
+    # firewall itself is never disabled.
+    networking.nftables.enable = true;
     networking.firewall.enable = true;
-    networking.firewall.trustedInterfaces = lib.mkIf cfg.tailscale.enable [ "tailscale0" ];
+
+    networking.firewall.trustedInterfaces =
+      lib.optionals cfg.tailscale.enable [ "tailscale0" ]
+      ++ lib.optionals cfg.clashVerge.enable [ cfg.clashVerge.tunInterface ];
+
+    # nixpkgs issue #477636: TUN packets are dropped by the nftables rpfilter
+    # chain and input chain unless the TUN interface is explicitly trusted.
+    # Keep the exception limited to the single interface created by Clash
+    # Verge's bundled Mihomo core.
+    networking.firewall.extraReversePathFilterRules = lib.mkIf cfg.clashVerge.enable ''
+      iifname "${cfg.clashVerge.tunInterface}" accept comment "clash-verge tun"
+    '';
+
+    # programs.clash-verge.tunMode requires this; do not set `false`, which
+    # would disable reverse-path filtering for every interface.
+    networking.firewall.checkReversePath = lib.mkIf cfg.clashVerge.enable "loose";
+
+    # Do not let NetworkManager try to manage the TUN device.
+    networking.networkmanager.unmanaged = lib.mkIf cfg.clashVerge.enable [
+      "interface-name:${cfg.clashVerge.tunInterface}"
+    ];
 
     services.tailscale = lib.mkIf cfg.tailscale.enable {
       enable = true;
@@ -97,24 +116,24 @@ in
         ++ lib.optionals (!cfg.tailscale.acceptRoutes) [ "--accept-routes=false" ];
     };
 
-    # Mihomo is opt-in: it needs a real subscription and an age key. Keeping
-    # it disabled leaves a fully usable direct network for builds and rescue.
-    services.mihomo = lib.mkIf cfg.mihomo.enable {
+    # Clash Verge Rev is a GUI application. NixOS installs the package and the
+    # privileged service; subscriptions, profiles, nodes and rules are managed
+    # by the GUI under the user's data directory, not by this file.
+    programs.clash-verge = lib.mkIf cfg.clashVerge.enable {
       enable = true;
+      package = pkgs.clash-verge-rev;
+      serviceMode = true;
       tunMode = true;
-      configFile =
-        if cfg.mihomo.configFile != null
-        then cfg.mihomo.configFile
-        else config.sops.secrets."mihomo-config".path;
-      webui = if cfg.mihomo.webui then pkgs.metacubexd else null;
+      autoStart = true;
+      group = "clash-verge";
     };
 
-    sops.secrets."mihomo-config" = lib.mkIf (cfg.mihomo.enable && cfg.mihomo.configFile == null) {
-      sopsFile = ../secrets/secrets.yaml;
-      owner = "root";
-      group = "root";
-      mode = "0400";
-      restartUnits = [ "mihomo.service" ];
+    # Dedicated group for the service-mode IPC socket. The host adds only the
+    # interactive user to this group; ordinary users get no access.
+    users.groups.clash-verge = lib.mkIf cfg.clashVerge.enable { };
+
+    systemd.services.clash-verge.serviceConfig = lib.mkIf cfg.clashVerge.enable {
+      RuntimeDirectoryMode = "0750";
     };
   };
 }

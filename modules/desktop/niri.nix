@@ -14,9 +14,10 @@ in
   config = lib.mkIf cfg.enable {
     programs.niri = {
       enable = true;
-      # We use Dolphin for the file-manager shortcut. The GTK portal handles
-      # file chooser dialogs, so Nautilus is not pulled in just for that.
-      useNautilus = false;
+      # The NixOS niri module uses Nautilus for the GNOME portal's file
+      # chooser and exposes its D-Bus service. Nautilus itself is installed
+      # by desktop/common.nix for both niri and Sway.
+      useNautilus = true;
     };
 
     # DMS is a shell for niri, not a system-wide graphical service. Binding
@@ -35,7 +36,6 @@ in
 
     environment.systemPackages = with pkgs; [
       brightnessctl
-      kdePackages.dolphin
       grim
       orca
       playerctl

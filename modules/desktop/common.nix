@@ -8,7 +8,8 @@
 {
   # ---------- Login manager ----------
   # SDDM presents every enabled Wayland session. The list comes from the
-  # niri/sway/plasma modules, so switching desktops does not require a rebuild.
+  # niri/sway/plasma modules; enabling or disabling a session requires a
+  # rebuild, but choosing among enabled sessions at login does not.
   services.xserver.enable = true;
   services.xserver.xkb.layout = "cn";
   services.displayManager.sddm = {
@@ -50,13 +51,17 @@
     };
   };
 
+  # fcitx5 must stay in the foreground: `-d` daemonizes, which makes systemd
+  # see the original process exit and repeatedly restart the unit. Both niri
+  # and Sway start graphical-session.target, so this one unit serves both.
   systemd.user.services.fcitx5 = {
     description = "Fcitx5 input method";
     wantedBy = [ "graphical-session.target" ];
     partOf = [ "graphical-session.target" ];
     after = [ "graphical-session.target" ];
     serviceConfig = {
-      ExecStart = "${config.i18n.inputMethod.package}/bin/fcitx5 -d --replace";
+      Type = "simple";
+      ExecStart = "${config.i18n.inputMethod.package}/bin/fcitx5";
       Restart = "on-failure";
       RestartSec = 2;
     };
@@ -99,5 +104,12 @@
   # kitty is the terminal in both niri and sway. Home Manager adds its
   # configuration; installing it system-wide also makes it available from a
   # plain TTY rescue session.
-  environment.systemPackages = [ pkgs.kitty ];
+  #
+  # Nautilus is the graphical file manager for both desktops. Installing the
+  # package does not install the GNOME desktop; gvfs, udisks2, the keyring and
+  # the desktop portals are enabled separately below and in base.nix.
+  environment.systemPackages = [
+    pkgs.kitty
+    pkgs.nautilus
+  ];
 }

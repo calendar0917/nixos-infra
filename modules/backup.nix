@@ -8,8 +8,10 @@
 let
   cfg = config.my.backup;
 
-  backupScript = pkgs.writeShellApplication {
-    name = "backup-to-usb";
+  expectedUuid = if cfg.usbUuid != null then cfg.usbUuid else "";
+
+  verifyScript = pkgs.writeShellApplication {
+    name = "verify-usb-backup-target";
     runtimeInputs = with pkgs; [
       coreutils
       findutils
@@ -22,7 +24,7 @@ let
       set -euo pipefail
 
       MOUNT_POINT=${lib.escapeShellArg cfg.mountPoint}
-      EXPECTED_UUID=${lib.escapeShellArg (if cfg.usbUuid != null then cfg.usbUuid else "")}
+      EXPECTED_UUID=${lib.escapeShellArg expectedUuid}
       PASSWORD_FILE=${lib.escapeShellArg cfg.passwordFile}
       MARKER=".nixos-backup-target"
 
@@ -31,87 +33,122 @@ let
         exit 1
       }
 
-      require_root() {
-        [ "$(id -u)" -eq 0 ] || die "run this command with sudo"
-      }
+      [ "$(id -u)" -eq 0 ] || die "run this command with sudo"
 
-      verify_usb() {
-        [ -d "$MOUNT_POINT" ] || die "mount point does not exist: $MOUNT_POINT"
-        findmnt --mountpoint "$MOUNT_POINT" >/dev/null 2>&1 \
-          || die "$MOUNT_POINT is not a mount point; insert and mount the backup USB first"
+      # This is a mandatory identity check, not a warning. A null value means
+      # the real USB UUID has not been configured yet.
+      [ -n "$EXPECTED_UUID" ] \
+        || die "my.backup.usbUuid is empty; set the real backup USB UUID before enabling or starting the service"
+      [ -d "$MOUNT_POINT" ] || die "mount point does not exist: $MOUNT_POINT"
+      findmnt --mountpoint "$MOUNT_POINT" >/dev/null 2>&1 \
+        || die "$MOUNT_POINT is not a mount point; insert and mount the backup USB first"
 
-        local source target dev parent removable transport root_source root_dev root_parent actual_uuid
-        source="$(findmnt -n -o SOURCE --mountpoint "$MOUNT_POINT")"
-        target="$(findmnt -n -o TARGET --mountpoint "$MOUNT_POINT")"
-        [ "$(readlink -f "$MOUNT_POINT")" = "$(readlink -f "$target")" ] \
-          || die "$MOUNT_POINT resolves to $target, refusing to continue"
+      source="$(findmnt -n -o SOURCE --mountpoint "$MOUNT_POINT")"
+      target="$(findmnt -n -o TARGET --mountpoint "$MOUNT_POINT")"
+      [ "$(readlink -f "$MOUNT_POINT")" = "$(readlink -f "$target")" ] \
+        || die "$MOUNT_POINT resolves to $target, refusing to continue"
 
-        # btrfs may report /dev/sdb1[/subvol]; resolve the block device part.
-        source="''${source%%\[*}"
-        dev="$(readlink -f "$source")"
-        parent="$(lsblk -no PKNAME "$dev" | head -n1)"
-        parent="''${parent:+/dev/$parent}"
-        parent="''${parent:-$dev}"
+      # btrfs may report /dev/sdb1[/subvol]; compare the block device itself.
+      source="''${source%%\[*}"
+      dev="$(readlink -f "$source")"
+      [ -b "$dev" ] || die "$source is not a block device"
+      parent="$(lsblk -no PKNAME "$dev" | head -n1)"
+      parent="''${parent:+/dev/$parent}"
+      parent="''${parent:-$dev}"
 
-        if ! read -r removable transport < <(lsblk -ndo RM,TRAN "$parent"); then
-          die "cannot inspect device $parent with lsblk"
-        fi
-        if [ "$removable" != "1" ] && [ "$transport" != "usb" ]; then
-          die "$source is not a removable USB device (RM=$removable, TRAN=$transport)"
-        fi
+      if ! read -r removable transport < <(lsblk -ndo RM,TRAN "$parent"); then
+        die "cannot inspect device $parent with lsblk"
+      fi
+      if [ "$removable" != "1" ] && [ "$transport" != "usb" ]; then
+        die "$source is not a removable USB device (RM=$removable, TRAN=$transport)"
+      fi
 
-        root_source="$(findmnt -n -o SOURCE /)"
-        root_dev="$(readlink -f "$root_source")"
-        root_parent="$(lsblk -no PKNAME "$root_dev" | head -n1)"
-        root_parent="''${root_parent:+/dev/$root_parent}"
-        [ -z "$root_parent" ] || [ "$parent" != "$root_parent" ] \
-          || die "refusing to write a backup to the system disk ($parent)"
+      root_source="$(findmnt -n -o SOURCE /)"
+      root_source="''${root_source%%\[*}"
+      root_dev="$(readlink -f "$root_source")"
+      root_parent="$(lsblk -no PKNAME "$root_dev" | head -n1)"
+      root_parent="''${root_parent:+/dev/$root_parent}"
+      [ -z "$root_parent" ] || [ "$parent" != "$root_parent" ] \
+        || die "refusing to write a backup to the system disk ($parent)"
 
-        [ -f "$MOUNT_POINT/$MARKER" ] \
-          || die "marker $MOUNT_POINT/$MARKER is missing; this is not the backup USB"
+      [ -f "$MOUNT_POINT/$MARKER" ] \
+        || die "marker $MOUNT_POINT/$MARKER is missing; this is not the backup USB"
 
-        if [ -n "$EXPECTED_UUID" ]; then
-          actual_uuid="$(lsblk -ndo UUID "$dev" | head -n1)"
-          [ "$actual_uuid" = "$EXPECTED_UUID" ] \
-            || die "USB UUID mismatch: expected $EXPECTED_UUID, got $actual_uuid"
-        fi
+      actual_uuid="$(lsblk -ndo UUID "$dev" | head -n1)"
+      [ "$actual_uuid" = "$EXPECTED_UUID" ] \
+        || die "USB UUID mismatch: expected $EXPECTED_UUID, got ''${actual_uuid:-<none>}"
 
-        [ -r "$PASSWORD_FILE" ] \
-          || die "restic password file is not readable: $PASSWORD_FILE"
+      [ -r "$PASSWORD_FILE" ] \
+        || die "restic password file is not readable: $PASSWORD_FILE"
 
-        command -v restic-usb >/dev/null 2>&1 \
-          || die "restic-usb wrapper not found; is my.backup.enable set?"
+      # Missing critical data is a hard failure, not a warning. This runs on
+      # every start, including a direct `systemctl start`.
+      for path in ${lib.escapeShellArgs cfg.paths}; do
+        [ -e "$path" ] || die "required backup path missing: $path"
+      done
 
-        printf 'verified backup target: %s (%s, %s)\n' "$MOUNT_POINT" "$source" "$parent"
-      }
+      printf 'verified backup target: %s (%s, %s, UUID %s)\n' \
+        "$MOUNT_POINT" "$source" "$parent" "$actual_uuid"
+    '';
+  };
 
-      ensure_repository() {
-        if ! restic-usb cat config >/dev/null 2>&1; then
-          printf 'initializing restic repository under %s/restic\n' "$MOUNT_POINT"
-          restic-usb init
-        fi
-      }
+  backupScript = pkgs.writeShellApplication {
+    name = "backup-to-usb";
+    runtimeInputs = with pkgs; [
+      coreutils
+      systemd
+    ];
+    text = ''
+      set -euo pipefail
 
       usage() {
-        cat <<'EOF'
-      Usage: sudo backup-to-usb [--check|--snapshots]
+        cat <<'USAGE'
+      Usage: sudo backup-to-usb [--init|--check|--snapshots]
 
-        (no option)  verify the USB, initialize the repository if needed,
-                     then run the manual restic backup service
+        (no option)  verify the USB, then run the manual restic backup service
+        --init       verify the USB and initialize a new restic repository
         --check      run `restic check --read-data-subset=5%`
         --snapshots  list snapshots without creating a new one
-      EOF
+
+      The repository is never initialized implicitly. Run --init exactly once
+      for a new backup USB, and only after the UUID in my.backup.usbUuid has
+      been verified.
+      USAGE
       }
 
-      require_root
-      verify_usb
+      case "''${1:-}" in
+        --help|-h )
+          usage
+          exit 0
+          ;;
+      esac
+
+      ${verifyScript}/bin/verify-usb-backup-target
 
       case "''${1:-}" in
         "" )
-          ensure_repository
           systemctl start restic-backups-usb.service
           printf '\nsnapshots after backup:\n'
           restic-usb snapshots
+          ;;
+        --init )
+          set +e
+          restic-usb cat config >/dev/null 2>&1
+          status=$?
+          set -e
+          case "$status" in
+            0)
+              printf 'error: restic repository already exists; refusing to reinitialize\n' >&2
+              exit 1
+              ;;
+            10)
+              restic-usb init
+              ;;
+            * )
+              printf 'error: cannot inspect the repository (restic exit %s); refusing to initialize\n' "$status" >&2
+              exit 1
+              ;;
+          esac
           ;;
         --check )
           restic-usb check --read-data-subset=5%
@@ -119,11 +156,8 @@ let
         --snapshots )
           restic-usb snapshots
           ;;
-        --help|-h )
-          usage
-          ;;
         * )
-          usage
+          usage >&2
           exit 1
           ;;
       esac
@@ -144,8 +178,9 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = ''
-        Optional filesystem UUID. When set, the backup wrapper refuses any
-        other device even if it happens to be mounted at `mountPoint`.
+        Filesystem UUID of the backup USB. Required when `enable` is true. The
+        UUID is checked by the systemd service itself before every backup, not
+        only by the `backup-to-usb` wrapper.
       '';
     };
 
@@ -169,10 +204,13 @@ in
         "/home/calendar/.ssh"
         "/home/calendar/.gnupg"
         "/home/calendar/.local/share/keyrings"
+        "/home/calendar/.local/share/io.github.clash-verge-rev.clash-verge-rev"
       ];
       description = ''
-        Paths to include. Missing paths produce a warning and are skipped.
-        Git repositories and their .git directories are included in full.
+        Paths to include. Every configured path must exist: a missing path
+        aborts the backup instead of silently producing an incomplete archive.
+        The Clash Verge directory contains GUI-managed profiles and
+        subscriptions; its logs and local backups are excluded below.
       '';
     };
 
@@ -187,29 +225,45 @@ in
         "**/.pytest_cache"
         "**/.mypy_cache"
         "**/.ruff_cache"
+        "**/io.github.clash-verge-rev.clash-verge-rev/logs"
+        "**/io.github.clash-verge-rev.clash-verge-rev/clash-verge-rev-backup"
       ];
       description = ''
-        Only re-creatable cache/build directories are excluded. Do not add
-        broad patterns such as `code`, `build`, `dist`, or `.git`: they can
-        hide real source and uncommitted work.
+        Only re-creatable caches, logs and local app backups are excluded. Do
+        not add broad patterns such as `code`, `build`, `dist`, or `.git`:
+        they can hide real source and uncommitted work.
       '';
     };
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.usbUuid != null && cfg.usbUuid != "";
+        message = "my.backup.usbUuid must be set to the real backup USB filesystem UUID before enabling backups.";
+      }
+    ];
+
     services.restic.backups.usb = {
       repository = "${cfg.mountPoint}/restic";
       passwordFile = cfg.passwordFile;
       exclude = cfg.exclude;
+
+      # The script exits non-zero when any configured path is missing. The
+      # restic module runs this after backupPrepareCommand and before restic.
       dynamicFilesFrom = ''
         for path in ${lib.escapeShellArgs cfg.paths}; do
-          if [ -e "$path" ]; then
-            printf '%s\n' "$path"
-          else
-            printf 'warning: backup path missing: %s\n' "$path" >&2
+          if [ ! -e "$path" ]; then
+            printf 'error: required backup path missing: %s\n' "$path" >&2
+            exit 1
           fi
+          printf '%s\n' "$path"
         done
       '';
+
+      # Every service start, including `systemctl start`, runs this identity
+      # check. There is deliberately no implicit `restic init`.
+      backupPrepareCommand = "${verifyScript}/bin/verify-usb-backup-target";
 
       # No timer. This is intentionally a manual, attended operation.
       timerConfig = null;
@@ -219,17 +273,13 @@ in
       extraBackupArgs = [ "--tag" "manual-usb" ];
     };
 
-    # Even if someone starts the unit directly, systemd must confirm the USB
-    # is mounted and carries the marker file.
-    systemd.services."restic-backups-usb".unitConfig = {
-      ConditionPathIsMountPoint = cfg.mountPoint;
-      ConditionPathExists = "${cfg.mountPoint}/.nixos-backup-target";
-    };
-
     systemd.tmpfiles.rules = [
       "d /var/lib/secrets 0700 root root -"
     ];
 
-    environment.systemPackages = [ backupScript ];
+    environment.systemPackages = [
+      backupScript
+      verifyScript
+    ];
   };
 }

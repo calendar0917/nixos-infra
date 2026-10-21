@@ -54,7 +54,7 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     Mod+T hotkey-overlay-title="Terminal: kitty" { spawn "kitty"; }
-    Mod+E hotkey-overlay-title="File manager: dolphin" { spawn "dolphin"; }
+    Mod+E hotkey-overlay-title="File manager: Nautilus" { spawn "nautilus"; }
     Mod+D hotkey-overlay-title="Application launcher" { spawn "dms" "ipc" "call" "spotlight" "toggle"; }
     Alt+Space hotkey-overlay-title="Spotlight bar" { spawn "dms" "ipc" "call" "spotlight-bar" "toggle"; }
     Mod+S hotkey-overlay-title="DMS settings" { spawn "dms" "ipc" "call" "settings" "focusOrToggle"; }
