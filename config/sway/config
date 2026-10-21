@@ -1,0 +1,127 @@
+# Sway fallback desktop. It intentionally has no DMS dependency.
+# Waybar, mako and fuzzel are started only from this file, so they are scoped
+# to a Sway session and cannot appear in niri or Plasma.
+
+set $mod Mod4
+set $term kitty
+set $menu fuzzel
+
+# ---------- Session environment ----------
+exec dbus-update-activation-environment --systemd WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP
+exec waybar
+exec mako
+exec swaybg -c '#1e1e2e'
+
+# ---------- Appearance ----------
+default_border pixel 2
+default_floating_border pixel 2
+smart_gaps on
+gaps inner 4
+gaps outer 4
+focus_follows_mouse no
+mouse_warping output
+workspace_auto_back_and_forth yes
+
+# ---------- Input ----------
+input type:keyboard {
+    xkb_layout cn
+    repeat_delay 250
+    repeat_rate 30
+}
+
+input type:touchpad {
+    tap enabled
+    natural_scroll enabled
+    dwt enabled
+}
+
+# ---------- Launchers and session ----------
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+q kill
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit Sway?' -B 'Yes, exit' 'swaymsg exit'
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+bindsym $mod+Escape exec swaylock -f
+bindsym $mod+Shift+p exec swaylock -f
+
+# ---------- Focus ----------
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Tab focus next
+bindsym $mod+Shift+Tab focus prev
+
+# ---------- Movement ----------
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+# ---------- Workspaces ----------
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+
+# ---------- Layout ----------
+bindsym $mod+b split h
+bindsym $mod+v split v
+bindsym $mod+f fullscreen toggle
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+a focus parent
+
+# ---------- Media ----------
+bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0
+bindsym --locked XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-
+bindsym --locked XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym --locked XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+bindsym --locked XF86AudioPlay exec playerctl play-pause
+bindsym --locked XF86AudioPrev exec playerctl previous
+bindsym --locked XF86AudioNext exec playerctl next
+bindsym --locked XF86MonBrightnessUp exec brightnessctl --class=backlight set 10%+
+bindsym --locked XF86MonBrightnessDown exec brightnessctl --class=backlight set 10%-
+
+# ---------- Screenshots ----------
+bindsym Print exec sh -c 'grim -g "$(slurp)" - | wl-copy'
+bindsym Ctrl+Print exec sh -c 'grim - | wl-copy'
+bindsym $mod+Print exec sh -c 'grim -g "$(slurp)" - | wl-copy'
+
+# ---------- Resize mode ----------
+mode "resize" {
+    bindsym Left resize shrink width 10 px
+    bindsym Down resize grow height 10 px
+    bindsym Up resize shrink height 10 px
+    bindsym Right resize grow width 10 px
+    bindsym h resize shrink width 10 px
+    bindsym j resize grow height 10 px
+    bindsym k resize shrink height 10 px
+    bindsym l resize grow width 10 px
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "resize"

@@ -1,0 +1,14 @@
+max-icon-size=48
+default-timeout=5000
+max-visible=5
+width=420
+height=160
+margin=8
+padding=10
+border-size=1
+border-color=#89b4fa
+background-color=#1e1e2e
+text-color=#cdd6f4
+font=JetBrains Mono 10
+anchor=top-right
+layer=overlay

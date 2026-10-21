@@ -1,0 +1,79 @@
+@define-color base #1e1e2e;
+@define-color mantle #181825;
+@define-color surface #313244;
+@define-color text #cdd6f4;
+@define-color subtext #a6adc8;
+@define-color blue #89b4fa;
+@define-color green #a6e3a1;
+@define-color yellow #f9e2af;
+@define-color red #f38ba8;
+
+* {
+  font-family: "JetBrains Mono", "Noto Sans CJK SC", sans-serif;
+  font-size: 12px;
+  min-height: 0;
+}
+
+window#waybar {
+  background: @base;
+  color: @text;
+  border-bottom: 2px solid @surface;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  padding: 0 8px;
+}
+
+#workspaces button {
+  padding: 0 8px;
+  color: @subtext;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+#workspaces button.focused,
+#workspaces button.active {
+  color: @base;
+  background: @blue;
+}
+
+#workspaces button.urgent {
+  color: @base;
+  background: @red;
+}
+
+#mode {
+  color: @yellow;
+  padding: 0 8px;
+}
+
+#window {
+  color: @subtext;
+}
+
+#custom-launcher,
+#cpu,
+#memory,
+#pulseaudio,
+#network,
+#battery,
+#clock,
+#tray {
+  padding: 0 8px;
+  color: @text;
+}
+
+#battery.warning {
+  color: @yellow;
+}
+
+#battery.critical {
+  color: @red;
+}
+
+#network.disconnected {
+  color: @red;
+}

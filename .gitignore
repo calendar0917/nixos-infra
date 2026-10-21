@@ -1,3 +1,9 @@
 result
 result-*
+
 .direnv
+*.local
+*.decrypted
+secrets/*.plain
+*~
+.#*

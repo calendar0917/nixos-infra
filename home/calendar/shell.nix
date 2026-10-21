@@ -1,0 +1,91 @@
+{
+  pkgs,
+  ...
+}:
+
+{
+  programs.fish = {
+    enable = true;
+    shellAliases = {
+      ls = "eza --group-directories-first";
+      ll = "eza -al --group-directories-first";
+      cat = "bat --style=plain";
+      g = "git";
+      n = "nvim";
+    };
+    interactiveShellInit = ''
+      set -g fish_greeting ""
+    '';
+  };
+
+  programs.starship = {
+    enable = true;
+    enableFishIntegration = true;
+    enableInteractive = true;
+  };
+
+  programs.zoxide = {
+    enable = true;
+    enableFishIntegration = true;
+  };
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+    enableFishIntegration = true;
+    enableGitIntegration = true;
+  };
+
+  # Keep Git identity declarative, but do not manage credentials or signing
+  # keys. Existing ~/.ssh and credential helpers remain untouched.
+  programs.git = {
+    enable = true;
+    settings = {
+      user = {
+        name = "calendar";
+        email = "1131821081@qq.com";
+      };
+      init = { defaultBranch = "main"; };
+      pull = { rebase = true; };
+      core = { editor = "nvim"; };
+      color = { ui = "auto"; };
+    };
+  };
+
+  programs.kitty = {
+    enable = true;
+    settings = {
+      font_family = "JetBrains Mono";
+      font_size = 11;
+      cursor_shape = "beam";
+      scrollback_lines = 10000;
+      enable_audio_bell = false;
+      confirm_os_window_close = 0;
+      copy_on_select = true;
+    };
+    shellIntegration.mode = "enabled";
+  };
+
+  home.packages = with pkgs; [
+    bat
+    btop
+    eza
+    fastfetch
+    fzf
+    gh
+    htop
+    jq
+    lazygit
+    ncdu
+    tree
+    unzip
+    wl-clipboard
+    yq
+  ];
+
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+    PAGER = "less";
+  };
+}
