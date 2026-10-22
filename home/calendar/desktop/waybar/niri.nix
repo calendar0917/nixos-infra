@@ -46,12 +46,10 @@ in
       "waybar/style.css".source = ../../../../config/waybar/style.css;
     };
 
-    # The launcher button calls fuzzel. Sway installs it system-wide through
-    # programs.sway.extraPackages; adding it here keeps the niri profile
-    # complete even if the Sway fallback is ever disabled.
-    home.packages = [
-      pkgs.fuzzel
-      pkgs.waybar
-    ];
+    # waybar itself is installed system-wide by modules/desktop/niri.nix.
+    # Do not add it to home.packages: a user-profile copy shadows the system
+    # unit and makes `systemctl --user is-enabled waybar` report it as enabled.
+    # fuzzel is only needed by this prepared profile, so it stays here.
+    home.packages = [ pkgs.fuzzel ];
   };
 }

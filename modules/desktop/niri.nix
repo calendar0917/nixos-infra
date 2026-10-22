@@ -40,6 +40,10 @@ in
       orca
       playerctl
       slurp
+      # The niri Waybar profile is prepared but not started; install the
+      # package system-wide so it is available for the manual A/B test and
+      # does not shadow the package unit from the user profile.
+      waybar
       wl-clipboard
       xwayland-satellite
     ];
