@@ -93,7 +93,15 @@
 
   # ---------- User-facing base packages ----------
   programs.fish.enable = true;
-  programs.firefox.enable = true;
+
+  # KeePassXC-Browser talks to KeePassXC through a native messaging host.
+  # Wrapping the system Firefox with the KeePassXC package makes the manifest
+  # visible to the browser; the browser profile itself stays user-managed.
+  programs.firefox = {
+    enable = true;
+    nativeMessagingHosts.packages = [ pkgs.keepassxc ];
+  };
+
   programs.gnupg.agent.enable = true;
 
   programs.nix-ld = {

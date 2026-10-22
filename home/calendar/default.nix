@@ -19,12 +19,23 @@
     stateVersion = "25.05";
   };
 
+  # KeePassXC is installed by Home Manager. `settings` is deliberately left
+  # empty: writing keepassxc.ini from Nix would link it read-only from the
+  # store and make the GUI's settings unchangeable. The database and master
+  # password live outside this repository; no KDBX path is baked in here.
+  programs.keepassxc.enable = true;
+
   # Nautilus is the graphical handler for directories. The desktop ID comes
   # from pkgs.nautilus (org.gnome.Nautilus.desktop), not from a Dolphin name.
+  # Firefox is the system browser (modules/base.nix) and also handles HTTP(S)
+  # links; image/PDF/video handlers are intentionally left to the user.
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
       "inode/directory" = "org.gnome.Nautilus.desktop";
+      "text/html" = "firefox.desktop";
+      "x-scheme-handler/http" = "firefox.desktop";
+      "x-scheme-handler/https" = "firefox.desktop";
     };
   };
 
