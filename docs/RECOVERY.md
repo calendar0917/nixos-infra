@@ -53,6 +53,20 @@ diff -u hosts/nixos/hardware-configuration.nix \
 btrfs 子卷必须按目标机实际布局挂载；不要假设仓库里继承的 subvol 路径正确。确认
 无误后再继续。`nix build` 成功不代表这些 UUID 属于当前机器。
 
+本机（2026-10-22 首次部署）已核对的基线，仓库中的
+`hosts/nixos/hardware-configuration.nix` 与 `/etc/nixos/hardware-configuration.nix`
+以及运行系统的 `/etc/fstab` 三者一致：
+
+| 项目 | UUID / 挂载参数 |
+| --- | --- |
+| btrfs（`/`、`/home`、`/nix` 同一分区） | `6464e054-adce-4ade-a985-7bdfb353c1c5` |
+| `/boot`（ESP，vfat） | `1421-3BC8` |
+| swap | `f0378700-910f-4cbb-9576-c530ac0c5d5c` |
+
+根分区是 btrfs 顶层子卷（不是 `subvol=@`）；`/home` 使用 `subvol=home`，`/nix`
+使用 `subvol=nix`。旧仓库里曾有一份 `subvol=@` 的硬件配置，属于错误数据，已按本机
+实际布局替换。更换磁盘或重装后必须重新生成并比对，不要照抄上面的 UUID。
+
 ## 2. 首次安装和首次登录
 
 把仓库放到安装介质可访问的位置，先只构建：
@@ -71,6 +85,11 @@ sudo nixos-install --flake .#nixos
 `nixos-install` 会安装引导器，但不会替你格式化 Windows 或数据分区。安装完成后
 重启，从 SDDM 选择 niri；Sway 和 Plasma 是否出现取决于
 `hosts/nixos/default.nix` 中的开关。
+
+SDDM 的 greeter 刻意运行在 X11 后端
+（`services.displayManager.sddm.wayland.enable = false`）。这是本机修好鼠标/输入
+问题后的稳定配置；登录后的 niri/Sway 仍然是 Wayland。不要为了“统一 Wayland”把
+它改回 `true`，除非重新做过完整的登录、鼠标和键盘实机测试。
 
 首次登录后依次检查：
 

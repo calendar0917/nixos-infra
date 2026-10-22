@@ -14,7 +14,11 @@
   services.xserver.xkb.layout = "cn";
   services.displayManager.sddm = {
     enable = true;
-    wayland.enable = true;
+    # Keep the greeter on the X11 backend. The Wayland greeter on this host
+    # had input/pointer problems; using X11 for SDDM only does not change the
+    # session type: niri and Sway are still Wayland sessions selected below.
+    # This matches the running generation (sddm.conf: DisplayServer=x11).
+    wayland.enable = false;
   };
 
   # Plasma and niri both set a normal-priority default session when enabled.

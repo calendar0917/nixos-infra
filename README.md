@@ -1,12 +1,16 @@
 # nixos-infra
 
 `calendar` 的单机 NixOS 配置：一个 flake、NixOS 原生模块、NixOS 集成 Home
-Manager，nixpkgs 跟随 `nixos-unstable`。日常主力是 niri + DankMaterialShell
-（DMS），Sway 是不依赖 DMS 的备用桌面，Plasma 6 可选。
+Manager，nixpkgs 固定在一个不可变的 `nixos-unstable` channel tarball 上
+（rev `02c087f3fe673c9e317f206a627cb6b910336dbe`，channel 版本
+`pre1097682.02c087f3fe67`）。日常主力是 niri + DankMaterialShell（DMS），Sway 是
+不依赖 DMS 的备用桌面，Plasma 6 可选。
 
 ## 设计目标
 
 - 保持单一 `flake.nix` / `flake.lock`，不引入额外配置框架。
+- 可复现：nixpkgs 指向带版本号的不可变 tarball，而不是 URL 不变、内容会变的滚动
+  channel；`flake.lock` 的 `narHash` 必须与 URL 内容一致。
 - 系统、桌面、Shell、Neovim 和 MIME 默认值由 Nix 声明；应用自己的订阅、历史、
   书签和运行状态由应用管理，不强行改成只读文件。
 - 安全默认：防火墙开启，订阅/Token/私钥不进 Nix store 或 Git，备份只手动执行。
@@ -77,12 +81,23 @@ sudo nixos-rebuild boot --flake .#nixos
 
 更新锁定输入并部署：
 
+nixpkgs 的 URL 是一个**固定版本**的 channel tarball，因此 `nix flake update`
+不会自动跟随 upstream。升级 nixpkgs 的完整流程：
+
 ```bash
-nix flake update
+# 1. 选一个新的 nixos-unstable channel 版本，例如：
+#    https://releases.nixos.org/nixos/unstable/nixos-<next-version>/nixexprs.tar.xz
+# 2. 同时修改 flake.nix 的 URL 和 flake.lock 中 nixpkgs 节点的 url
+# 3. 重新计算锁文件（下载新 tarball 并写入 narHash）
+nix flake lock --update-input nixpkgs
 nix flake check --show-trace
 sudo nixos-rebuild build --flake .#nixos
 sudo nixos-rebuild switch --flake .#nixos
 ```
+
+不要只改 URL 不更新 `narHash`，也不要只改 `narHash` 不核对 URL。只更新
+home-manager / sops-nix 时，用 `nix flake lock --update-input home-manager` 等，
+不要顺带升级 nixpkgs。
 
 回滚：
 
@@ -106,7 +121,31 @@ sudo nix-collect-garbage --delete-older-than 30d
 不要为了节省空间删除最后一个已知可用的 generation；systemd-boot 菜单里的旧条目
 以 `boot.loader.systemd-boot.configurationLimit` 和实际保留的 generation 为准。
 
+## 远程登录（OpenSSH）
+
+OpenSSH 和用户公钥都由 `hosts/nixos/default.nix` 声明，不依赖 `/etc/ssh` 的临时
+修改：
+
+- 服务端启用，端口 22，`PermitRootLogin = "no"`，只允许 `calendar` 登录，
+  `KbdInteractiveAuthentication = false`。
+- 公钥写入 `users.users.calendar.openssh.authorizedKeys.keys`，部署后出现在
+  `/etc/ssh/authorized_keys.d/calendar`。公钥不是秘密；私钥永远不入库。
+- `PasswordAuthentication` 仍是 NixOS 默认值（开启）。确认密钥登录可用后才可以
+  显式关闭；修改前保留一个已登录的 SSH 会话，避免把自己锁在外面。
+- 修改 SSH 设置后先 `nixos-rebuild build`，再用新会话验证
+  `ssh -o PreferredAuthentications=publickey nixos`。
+
+当前主目录 `~/.ssh` 还是空的，所以 `git@github.com`、`gh auth login` 和 LazyVim
+首次插件安装都还没有可用的 GitHub 凭证/主机密钥。这属于首次使用时要手动完成的
+步骤：在 NixOS 上生成新密钥、把公钥加到 GitHub，不要把 Arch 上的私钥复制过来。
+
 ## 桌面与常用软件
+
+### SDDM
+
+SDDM 使用 X11 greeter（`services.displayManager.sddm.wayland.enable = false`）。
+这是这台机器上修复鼠标/输入问题后的稳定配置；登录后的 niri 和 Sway 仍然是
+Wayland 会话。默认会话是 niri，Sway 可以在 SDDM 里选择。
 
 ### Nautilus
 

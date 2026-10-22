@@ -47,5 +47,9 @@
       run mkdir -p "$state_dir"
       run cp ${../../config/nvim/lazy-lock.json} "$lock"
     fi
+    # Files copied out of the Nix store keep mode 0444. lazy.nvim must be able
+    # to rewrite the lock file after `:Lazy update`/`sync`, so restore the
+    # user-write bit on every activation (also repairs already-seeded locks).
+    run chmod u+w "$lock"
   '';
 }
