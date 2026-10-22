@@ -39,6 +39,7 @@ config/niri/config.kdl              # niri 快捷键的唯一权威来源
 config/sway/                        # Sway、Mako、Fuzzel
 config/waybar/style.css             # Sway 与 niri 共用的 Waybar 样式
 config/nvim/                        # LazyVim 文本配置 + lazy-lock.json 基线
+docs/DEVELOPMENT.md                 # 开发环境分层、Python/TS 示例、tmux、容器评估
 secrets/secrets.yaml                # SOPS 密文；明文永不进 Git
 docs/RECOVERY.md                    # 安装前核对、恢复、网络、Secrets、备份
 ```
@@ -123,6 +124,12 @@ sudo nix-collect-garbage --delete-older-than 30d
 不要为了节省空间删除最后一个已知可用的 generation；systemd-boot 菜单里的旧条目
 以 `boot.loader.systemd-boot.configurationLimit` 和实际保留的 generation 为准。
 
+## 开发环境
+
+系统只提供基础设施；项目语言工具链放在项目自己的 devShell，日常 CLI 由 Home
+Manager 管理。已经实际验证的 Python/uv、Node/TypeScript + pnpm、tmux 远程会话、
+SSH Agent 行为和 Docker/Podman 评估见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+
 ## 远程登录（OpenSSH）
 
 OpenSSH 和用户公钥都由 `hosts/nixos/default.nix` 声明，不依赖 `/etc/ssh` 的临时
@@ -137,9 +144,11 @@ OpenSSH 和用户公钥都由 `hosts/nixos/default.nix` 声明，不依赖 `/etc
 - 修改 SSH 设置后先 `nixos-rebuild build`，再用新会话验证
   `ssh -o PreferredAuthentications=publickey nixos`。
 
-当前主目录 `~/.ssh` 还是空的，所以 `git@github.com`、`gh auth login` 和 LazyVim
-首次插件安装都还没有可用的 GitHub 凭证/主机密钥。这属于首次使用时要手动完成的
-步骤：在 NixOS 上生成新密钥、把公钥加到 GitHub，不要把 Arch 上的私钥复制过来。
+当前 NixOS 的 `~/.ssh` 只有 `known_hosts` 和 gcr agent 目录，没有长期私钥或
+`config`；因此主机直接执行 `ssh -T git@github.com` 会得到
+`Permission denied (publickey)`。从 Arch 用 `ssh -A nixos` 转发已加载的 agent
+可以完成 GitHub SSH 认证和 clone；如果要在 NixOS 上长期直接使用 GitHub，应在
+主机上生成独立密钥并把公钥加到 GitHub，不要把 Arch 的私钥复制过来。
 
 ## 桌面与常用软件
 

@@ -6,6 +6,7 @@
   imports = [
     ./shell.nix
     ./neovim.nix
+    ./tmux.nix
     ./desktop/niri.nix
     ./desktop/sway.nix
     ./desktop/waybar/sway.nix
