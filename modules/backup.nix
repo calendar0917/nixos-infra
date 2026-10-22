@@ -194,23 +194,31 @@ in
       '';
     };
 
+    repositoryName = lib.mkOption {
+      type = lib.types.str;
+      default = "restic-nixos";
+      description = ''
+        Directory name below `mountPoint`. Keep it distinct from any old
+        Arch repository (for example, never reuse a bare `restic/` directory)
+        so a new NixOS repository cannot be initialized into or mixed with
+        historical backup data.
+      '';
+    };
+
     paths = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
-        "/home/calendar/life"
-        "/home/calendar/code/nixos-infra"
+        "/home/calendar"
         "/var/lib/sops-nix"
-        "/home/calendar/.config/sops/age"
-        "/home/calendar/.ssh"
-        "/home/calendar/.gnupg"
-        "/home/calendar/.local/share/keyrings"
-        "/home/calendar/.local/share/io.github.clash-verge-rev.clash-verge-rev"
       ];
       description = ''
-        Paths to include. Every configured path must exist: a missing path
-        aborts the backup instead of silently producing an incomplete archive.
-        The Clash Verge directory contains GUI-managed profiles and
-        subscriptions; its logs and local backups are excluded below.
+        Paths to include. `/home/calendar` covers personal files, project
+        sources, Firefox profiles, Fcitx5 dictionaries, keyrings, SSH/GPG
+        material, Clash Verge profiles, and the KeePassXC database wherever
+        it is stored below the home directory. `/var/lib/sops-nix` covers the
+        root-only age key. A database stored outside these paths must be added
+        explicitly. Every configured path must exist: a missing path aborts
+        the backup instead of silently producing an incomplete archive.
       '';
     };
 
@@ -225,13 +233,24 @@ in
         "**/.pytest_cache"
         "**/.mypy_cache"
         "**/.ruff_cache"
+        "**/.npm"
+        "**/.local/share/nvim/lazy"
+        "**/.local/share/nvim/mason"
+        "**/.local/share/Trash"
+        "**/.ssh/agent"
         "**/io.github.clash-verge-rev.clash-verge-rev/logs"
         "**/io.github.clash-verge-rev.clash-verge-rev/clash-verge-rev-backup"
+        "**/io.github.clash-verge-rev.clash-verge-rev/update_cache"
+        "**/io.github.clash-verge-rev.clash-verge-rev/geoip.dat"
+        "**/io.github.clash-verge-rev.clash-verge-rev/geosite.dat"
+        "**/io.github.clash-verge-rev.clash-verge-rev/Country.mmdb"
       ];
       description = ''
-        Only re-creatable caches, logs and local app backups are excluded. Do
-        not add broad patterns such as `code`, `build`, `dist`, or `.git`:
-        they can hide real source and uncommitted work.
+        Only re-creatable caches, downloaded binaries/databases, logs and
+        local app backups are excluded. Do not add broad patterns such as
+        `code`, `build`, `dist`, or `.git`: they can hide real source and
+        uncommitted work. `~/.local/state/nvim/lazy-lock.json` remains in the
+        archive even though downloaded plugins are excluded.
       '';
     };
   };
@@ -245,7 +264,7 @@ in
     ];
 
     services.restic.backups.usb = {
-      repository = "${cfg.mountPoint}/restic";
+      repository = "${cfg.mountPoint}/${cfg.repositoryName}";
       passwordFile = cfg.passwordFile;
       exclude = cfg.exclude;
 

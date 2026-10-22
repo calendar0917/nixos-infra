@@ -66,6 +66,7 @@
   my.backup = {
     enable = false;
     mountPoint = "/run/media/calendar/NIXOS-BACKUP";
+    repositoryName = "restic-nixos";
     usbUuid = null;
   };
 
