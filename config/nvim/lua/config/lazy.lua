@@ -30,6 +30,10 @@ require("lazy").setup({
     version = false,
   },
   install = { colorscheme = { "tokyonight", "habamax" } },
+  -- GitHub HTTPS is unreliable on this host; the SSH transport is stable but
+  -- slow. A few parallel SSH clones are faster without exhausting connections.
+  concurrency = 4,
+  git = { timeout = 300 },
   checker = { enabled = false },
   change_detection = { notify = false },
   lockfile = vim.fn.stdpath("state") .. "/lazy-lock.json",
