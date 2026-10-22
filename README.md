@@ -40,6 +40,7 @@ config/sway/                        # Sway、Mako、Fuzzel
 config/waybar/style.css             # Sway 与 niri 共用的 Waybar 样式
 config/nvim/                        # LazyVim 文本配置 + lazy-lock.json 基线
 docs/DEVELOPMENT.md                 # 开发环境分层、Python/TS 示例、tmux、容器评估
+docs/MIGRATION.md                   # 稳定性收尾、密钥/备份清单、Arch 迁移准备
 secrets/secrets.yaml                # SOPS 密文；明文永不进 Git
 docs/RECOVERY.md                    # 安装前核对、恢复、网络、Secrets、备份
 ```
@@ -57,6 +58,7 @@ my.network.clashVerge.enable = true;
 my.network.clashVerge.tunInterface = "Meta"; # TUN 实际接口名，见下文
 
 my.backup.enable = false;          # 填入真实 USB UUID 后才改为 true
+my.backup.repositoryName = "restic-nixos";
 my.backup.usbUuid = null;
 ```
 
@@ -128,7 +130,8 @@ sudo nix-collect-garbage --delete-older-than 30d
 
 系统只提供基础设施；项目语言工具链放在项目自己的 devShell，日常 CLI 由 Home
 Manager 管理。已经实际验证的 Python/uv、Node/TypeScript + pnpm、tmux 远程会话、
-SSH Agent 行为和 Docker/Podman 评估见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+SSH Agent 行为和 Docker/Podman 评估见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)；当前
+generation、密钥/备份清单和 Arch 迁移准备见 [docs/MIGRATION.md](docs/MIGRATION.md)。
 
 ## 远程登录（OpenSSH）
 
@@ -262,13 +265,14 @@ Home Manager 的 `programs.yazi` 提供 Fish 集成和 `y` 函数；退出 Yazi 
 | Yazi 历史、状态 | Yazi 管理 |
 | Fcitx5 配置、词库 | Fcitx5 管理（`~/.config/fcitx5`、`~/.local/share/fcitx5`） |
 | Clash Verge 订阅、节点、规则、运行状态 | Clash Verge Rev GUI 管理 |
-| Restic 仓库和快照 | USB 上的 Restic 仓库；手动备份 |
+| Restic 仓库和快照 | 新 USB 上的 `restic-nixos/` 仓库；手动备份 |
 
 ## 安装与恢复
 
 首次安装前必须核对磁盘、UUID、ESP 和 Windows 双系统条件；TTY 恢复、网络/Tailscale/
 Clash 排障、age/SOPS 密钥恢复、Restic 实际恢复演练和重装步骤统一放在
-[`docs/RECOVERY.md`](docs/RECOVERY.md)。
+[`docs/RECOVERY.md`](docs/RECOVERY.md)。迁移到第二台主机前的数据/密钥清单、Arch
+双系统和 Windows VM 注意事项见 [`docs/MIGRATION.md`](docs/MIGRATION.md)。
 
 本仓库不会执行 `nixos-rebuild switch`、`nixos-install`、分区、格式化或 EFI 修改。
 `secrets/secrets.yaml` 里的旧 `mihomo-config` 密文会保留，未经确认不删除；其中可能

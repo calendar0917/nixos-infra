@@ -387,6 +387,10 @@ Restic 恢复不要求 age key；反过来，age 私钥丢失也不应阻止读�
 - 仓库初始化是显式的一次性动作 `backup-to-usb --init`，不会在找不到仓库时静默
   创建新仓库。
 - 没有自动定时器；只手动备份。
+- 现有约 128 GB 的旧 USB 仍保存 Arch 备份和个人数据：**不要格式化、初始化或
+  覆盖它**；新仓库必须有独立介质和独立密码。
+- 新仓库目录使用 `my.backup.repositoryName`（默认 `restic-nixos`），不要复用旧盘
+  上的通用 `restic/`。
 
 准备一个**已经确认内容可丢弃**的备份 USB（外部完成分区/文件系统），然后：
 
@@ -403,6 +407,7 @@ sudo touch /run/media/calendar/NIXOS-BACKUP/.nixos-backup-target
 my.backup = {
   enable = true;
   mountPoint = "/run/media/calendar/NIXOS-BACKUP";
+  repositoryName = "restic-nixos";
   usbUuid = "<USB_UUID>";
 };
 ```
@@ -445,12 +450,17 @@ sudo systemctl start restic-backups-usb.service
 journalctl -b -u restic-backups-usb.service --no-pager
 ```
 
-默认备份内容包括：`/home/calendar/life`、本仓库、`/var/lib/sops-nix`、SOPS age
-目录、`.ssh`、`.gnupg`、keyrings，以及 Clash Verge 的 GUI 数据目录
-`~/.local/share/io.github.clash-verge-rev.clash-verge-rev/`。Clash 的 `logs/` 和
-`clash-verge-rev-backup/` 被排除；任何配置的关键路径缺失都会中止备份。首次启用前
-先启动一次 Clash Verge 并确认 keyring/GPG 目录已创建；不需要的项应从
-`my.backup.paths` 删除，而不是放宽校验。
+默认备份内容包括 `/home/calendar`（个人文件、项目源码、KeePassXC 数据库、
+Firefox/Fcitx5/GNOME Keyring/SSH/GPG 用户状态、Clash profiles）和 root-only 的
+`/var/lib/sops-nix`。可重建的缓存、`.venv`、`node_modules`、Neovim lazy/mason
+插件、npm 缓存以及 Clash 的 `logs/`、`clash-verge-rev-backup/`、`update_cache/`
+和 geo 数据库被排除；`.git` 和未提交源码没有被排除。任何配置的关键路径缺失都会
+中止备份。Restic 密码 `/var/lib/secrets/restic-password` 不在备份内，必须单独离线
+保存。
+
+仓库目录由 `my.backup.repositoryName` 决定，默认是 `restic-nixos`，不要改成旧盘
+上的通用 `restic/`。当前 `my.backup.enable = false`，且 `/var/lib/secrets` 尚不
+存在；在密钥和介质准备好之前不要启用。
 
 ### 6.3 实际恢复演练
 
@@ -460,29 +470,29 @@ journalctl -b -u restic-backups-usb.service --no-pager
 sudo mkdir -p /mnt/usb /mnt/restore
 sudo mount /dev/disk/by-uuid/<USB_UUID> /mnt/usb
 
-sudo restic -r /mnt/usb/restic --password-file /media/offline/restic-password snapshots
-sudo restic -r /mnt/usb/restic --password-file /media/offline/restic-password \
+sudo restic -r /mnt/usb/restic-nixos --password-file /media/offline/restic-password snapshots
+sudo restic -r /mnt/usb/restic-nixos --password-file /media/offline/restic-password \
   check --read-data-subset=5%
 
-sudo restic -r /mnt/usb/restic --password-file /media/offline/restic-password \
+sudo restic -r /mnt/usb/restic-nixos --password-file /media/offline/restic-password \
   restore latest --target /mnt/restore
 
 find /mnt/restore/home/calendar -maxdepth 3 -type f | head
 ls -la /mnt/restore/var/lib/sops-nix
 ```
 
-恢复路径会保留绝对路径（例如 `/mnt/restore/home/calendar/life`）。随机挑选文件与
-原文件比对：
+恢复路径会保留绝对路径（例如 `/mnt/restore/home/calendar/.config/fcitx5/profile`）。
+随机挑选文件与原文件比对：
 
 ```bash
-sha256sum /home/calendar/life/<FILE>
-sha256sum /mnt/restore/home/calendar/life/<FILE>
+sha256sum /home/calendar/.config/fcitx5/profile
+sha256sum /mnt/restore/home/calendar/.config/fcitx5/profile
 ```
 
 完整检查可以定期执行（耗时更长）：
 
 ```bash
-sudo restic -r /mnt/usb/restic --password-file /media/offline/restic-password \
+sudo restic -r /mnt/usb/restic-nixos --password-file /media/offline/restic-password \
   check --read-data
 ```
 
