@@ -2,6 +2,11 @@
 // Mod = Super. Home Manager installs this file read-only from the flake.
 // Only key bindings that are intentional personal habits are kept; layout,
 // animations and colours are intentionally left at upstream defaults.
+//
+// DMS owns the panel, launcher, notifications, lock, clipboard and wallpaper
+// in this session. A complete Waybar profile for niri is generated at
+// ~/.config/waybar/niri.jsonc, but it is intentionally NOT started here; see
+// README "Waybar" before switching and keep only one panel running.
 
 workspace "work"
 workspace "web"
@@ -70,8 +75,9 @@ binds {
     Mod+Alt+W hotkey-overlay-title="Wallpaper" { spawn "dms" "ipc" "call" "dash" "toggle" "wallpaper"; }
     Mod+Shift+Escape hotkey-overlay-title="Restart DMS" { spawn-sh "systemctl --user restart dms.service"; }
 
-    // The laptop output is eDP-1 on the current machine. If `niri msg outputs`
-    // shows a different name, update these two bindings.
+    // This mini PC only exposes HDMI-A-1, so both bindings are no-ops here.
+    // They are kept for the future laptop, whose internal panel is normally
+    // eDP-1; check `niri msg outputs` on that machine instead of guessing.
     Mod+P hotkey-overlay-title="Disable internal output" { spawn-sh "niri msg output eDP-1 off"; }
     Mod+Alt+P hotkey-overlay-title="Enable internal output" { spawn-sh "niri msg output eDP-1 on"; }
 

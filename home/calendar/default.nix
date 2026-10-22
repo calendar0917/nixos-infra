@@ -8,6 +8,8 @@
     ./neovim.nix
     ./desktop/niri.nix
     ./desktop/sway.nix
+    ./desktop/waybar/sway.nix
+    ./desktop/waybar/niri.nix
   ];
 
   home = {

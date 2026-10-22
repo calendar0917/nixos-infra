@@ -34,8 +34,10 @@ modules/
   desktop/sway.nix                  # 独立 Sway 备用桌面
   desktop/plasma.nix                # 可选 Plasma 6
 home/calendar/                      # Home Manager：Fish、Yazi、Neovim、桌面软链
+  desktop/waybar/                   # Waybar 共用模块 + Sway / niri 两个 profile
 config/niri/config.kdl              # niri 快捷键的唯一权威来源
-config/sway/                        # Sway、Waybar、Mako、Fuzzel
+config/sway/                        # Sway、Mako、Fuzzel
+config/waybar/style.css             # Sway 与 niri 共用的 Waybar 样式
 config/nvim/                        # LazyVim 文本配置 + lazy-lock.json 基线
 secrets/secrets.yaml                # SOPS 密文；明文永不进 Git
 docs/RECOVERY.md                    # 安装前核对、恢复、网络、Secrets、备份
@@ -147,6 +149,56 @@ SDDM 使用 X11 greeter（`services.displayManager.sddm.wayland.enable = false`�
 这是这台机器上修复鼠标/输入问题后的稳定配置；登录后的 niri 和 Sway 仍然是
 Wayland 会话。默认会话是 niri，Sway 可以在 SDDM 里选择。
 
+### Waybar（Sway / niri）
+
+- 模块拆分：`home/calendar/desktop/waybar/common.nix` 是普通数据文件（不是
+  HM 模块），负责 CPU、内存、音量、网络、时钟、托盘和样式；`sway.nix` 只放
+  `sway/workspaces`、`sway/mode`、`sway/window`；`niri.nix` 只放
+  `niri/workspaces`、`niri/window`。两个 profile 共用 `config/waybar/style.css`。
+- Sway 行为不变：`config/sway/config` 仍执行 `exec waybar`，读取
+  `~/.config/waybar/config.jsonc`；模块顺序和外观与拆分前一致。唯一差异是
+  `modules-right` 不再列出无电池时本来就不显示的 `battery`，模块定义仍保留。
+- niri 的面板仍然是 DMS，不自动启动 Waybar。预生成的完整 profile 在
+  `~/.config/waybar/niri.jsonc`，需要时手动启动：
+
+  ```bash
+  dms ipc call bar toggle   # 切换 DMS 面板显示/隐藏
+  waybar -c ~/.config/waybar/niri.jsonc -s ~/.config/waybar/style.css
+  ```
+
+  退出 Waybar 后再执行一次 `dms ipc call bar toggle` 恢复 DMS 面板；同一时刻
+  只应有一个面板。混跑时 DMS 仍占用通知服务和托盘 watcher，Waybar 的 tray
+  可能为空，这是混合模式的结果，不代表纯 Waybar 模式。
+- 没有 Home Manager systemd Waybar 服务，也没有 XDG autostart。`waybar` 包自带
+  的 `waybar.service` 未启用（`systemctl --user is-enabled waybar` 返回非零），
+  不要用 `graphical-session.target` 自动启动它，否则 niri 会话也会多出一个面板。
+- 电池模块已在 `common.nix` 中定义，但这台小主机 `hasBattery = false`，所以
+  状态栏没有电池占位；笔记本上把它改为 `true` 即可。
+- 当前 Waybar 为 0.15.0，已提供 `niri/workspaces` 与 `niri/window` 模块（见
+  `waybar-niri-workspaces(5)`、`waybar-niri-window(5)`）。
+- 生命周期：Waybar 0.15 在合成器退出后不一定会立即退出（隔离测试中 10 秒后
+  仍存活）。正常注销时 SDDM/logind 的 session scope 会清理整个会话；若以后让
+  Waybar 常驻 niri，建议用 `WantedBy=niri.service`、`PartOf=niri.service` 的
+  user unit，而不要只靠 `spawn-at-startup`，也不要挂到
+  `graphical-session.target`。
+
+### 显示器与多屏（未来笔记本）
+
+- 当前 `config/niri/config.kdl` 没有 `output` 块，niri 按输出自身能力选择
+  1920x1080@60、scale 1；这台小主机只有 `HDMI-A-1`。不要在共享配置里写死
+  显示器型号、模式或缩放。
+- `Mod+P` / `Mod+Alt+P` 保留给未来的笔记本内屏（通常是 `eDP-1`）；在这台小
+  主机上按了没有效果是预期行为，换机器时先用 `niri msg outputs` 确认名称。
+- 扩展方案：共享配置只放快捷键和布局；每台机器的输出差异放到单独的 KDL 片段
+  （例如 `outputs.kdl`），由 Home Manager 按 `networking.hostName` 生成，并在
+  共享文件里用固定文件名 `include "outputs.kdl"` 引入。注意 niri 26.04 的
+  `include` 不支持 glob，且被包含文件缺失会导致解析失败，所以仓库里要同时保留
+  一个空的占位文件。
+- 简单的内屏/外屏/扩展屏布局优先用 niri 原生 `output "NAME" { ... }`；只有
+  需要热插拔时自动切换整套 profile 才考虑 Kanshi。niri 二进制包含
+  `zwlr_output_manager_v1` 支持，但启用前应先在实机上用 `wayland-info` 确认，
+  本轮不启用 Kanshi，也不写死未经实机识别的模式与缩放。
+
 ### Nautilus
 
 - `Mod+E` 打开 Nautilus（niri 和 Sway 相同；Sway 的 `Mod+E` 是新增绑定）。
@@ -193,7 +245,8 @@ Home Manager 的 `programs.yazi` 提供 Fish 集成和 `y` 函数；退出 Yazi 
 | 内容 | 管理方式 |
 | --- | --- |
 | flake 输入、NixOS/HM 模块、用户和服务 | Nix 声明式 |
-| niri KDL、Sway/Waybar/Mako/Fuzzel 配置 | 仓库文件，经 Home Manager 软链 |
+| niri KDL、Sway/Mako/Fuzzel 配置、Waybar 样式 | 仓库文件，经 Home Manager 软链 |
+| Waybar 的 Sway / niri profile | Home Manager 由 `common.nix` 生成两个 JSON 配置 |
 | Fish、Starship、zoxide、direnv、Neovim 配置 | Home Manager 声明式 |
 | Neovim 插件和 `~/.local/state/nvim/lazy-lock.json` | lazy.nvim 管理；仓库只提供首次安装的锁文件基线 |
 | Nautilus 书签、最近文件、回收站 | Nautilus/GVfs 管理 |
