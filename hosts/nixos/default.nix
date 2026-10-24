@@ -8,6 +8,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./boot.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix

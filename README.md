@@ -1,7 +1,8 @@
 # nixos-infra
 
-`calendar` 的单机 NixOS 配置：一个 flake、NixOS 原生模块、NixOS 集成 Home
-Manager，nixpkgs 固定在一个不可变的 `nixos-unstable` channel tarball 上
+`calendar` 的 NixOS 配置：以小主机为主，并为 Arch 主力机预留 NixOS 双系统
+host 骨架。一个 flake、NixOS 原生模块、NixOS 集成 Home Manager，nixpkgs 固定
+在一个不可变的 `nixos-unstable` channel tarball 上
 （rev `02c087f3fe673c9e317f206a627cb6b910336dbe`，channel 版本
 `pre1097682.02c087f3fe67`）。日常主力是 niri + DankMaterialShell（DMS），Sway 是
 不依赖 DMS 的备用桌面，Plasma 6 可选。
@@ -23,9 +24,13 @@ Manager，nixpkgs 固定在一个不可变的 `nixos-unstable` channel tarball �
 flake.nix / flake.lock              # 唯一入口和锁定版本
 hosts/nixos/
   default.nix                       # 主机名、用户、桌面/网络/备份开关
+  boot.nix                          # 小主机 systemd-boot / ESP 策略
   hardware-configuration.nix        # 安装前必须按目标机重新核对
+hosts/main/
+  default.nix                       # Arch 主力机 host 骨架；hardware 文件生成后才可求值
+  boot.nix                          # 共享 ESP、固定 Arch 默认启动项
 modules/
-  base.nix                          # boot、Nix/GC、locale、keyd、基础工具
+  base.nix                          # Nix/GC、locale、keyd、基础工具
   network.nix                       # NetworkManager、resolved、Tailscale、Clash Verge
   secrets.nix                       # sops-nix age key 路径
   backup.nix                        # 手动 USB Restic + 启动前设备/UUID 校验
@@ -43,7 +48,12 @@ docs/DEVELOPMENT.md                 # 开发环境分层、Python/TS 示例、tm
 docs/MIGRATION.md                   # 稳定性收尾、密钥/备份清单、Arch 迁移准备
 secrets/secrets.yaml                # SOPS 密文；明文永不进 Git
 docs/RECOVERY.md                    # 安装前核对、恢复、网络、Secrets、备份
+docs/ARCH_DUAL_BOOT.md              # Arch 主力机 Btrfs 双系统安装/回退手册
 ```
+
+Arch 主力机的安装准备和回退步骤见 `docs/ARCH_DUAL_BOOT.md`。在真实的
+`hosts/main/hardware-configuration.nix` 生成并加入 git 之前，
+`nixosConfigurations.main` 故意不存在；不要用占位 UUID 让它通过求值。
 
 ## 修改桌面与功能开关
 

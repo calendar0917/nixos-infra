@@ -6,19 +6,9 @@
 }:
 
 {
-  # ---------- Boot ----------
-  # /boot is the NixOS ESP from hardware-configuration.nix. Windows keeps its
-  # own ESP; nothing in this repository copies or deletes Windows EFI files.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.systemd-boot.configurationLimit = 20;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.timeout = 3;
-
-  # If Windows and NixOS use different ESPs, systemd-boot cannot auto-detect
-  # Windows. After checking the device handle from the EDK2 UEFI shell, add:
-  # boot.loader.systemd-boot.windows."11".efiDeviceHandle = "HD0c1";
-  # The firmware boot menu remains a safe fallback until that is verified.
-
+  # Bootloader, ESP and NVRAM policy live in hosts/<host>/boot.nix. They are
+  # host-specific: the Arch dual-boot host shares an ESP and must not inherit
+  # the mini host's configurationLimit or canTouchEfiVariables policy.
   boot.supportedFilesystems = [ "ntfs" ];
 
   # ---------- Nix ----------
@@ -42,9 +32,9 @@
     # creation time, and deleting it can remove the last known-good rollback
     # target. The current generation is kept.
     #
-    # hosts/nixos/default.nix keeps automatic GC disabled for the first
-    # deployment. Enable it only after a successful reboot and a tested
-    # rollback candidate.
+    # hosts/nixos/default.nix and hosts/main/default.nix keep automatic GC
+    # disabled for the first deployment. Enable it only after a successful
+    # reboot and a tested rollback candidate.
     gc = {
       automatic = true;
       dates = "weekly";

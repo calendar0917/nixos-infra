@@ -1,5 +1,5 @@
 {
-  description = "calendar's single-host NixOS configuration";
+  description = "calendar's NixOS configurations";
 
   inputs = {
     # nixpkgs is pinned to an immutable channel tarball built from the exact
@@ -30,14 +30,32 @@
     };
   };
 
-  outputs = { nixpkgs, home-manager, sops-nix, ... }: {
-    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./hosts/nixos
-        sops-nix.nixosModules.sops
-        home-manager.nixosModules.home-manager
-      ];
+  outputs = { nixpkgs, home-manager, sops-nix, ... }:
+    let
+      lib = nixpkgs.lib;
+
+      mkHost = host: lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          host
+          sops-nix.nixosModules.sops
+          home-manager.nixosModules.home-manager
+        ];
+      };
+
+      # The Arch dual-boot host is only exposed once the real hardware
+      # configuration exists. It must be generated from the NixOS ISO after
+      # the @nixos subvolumes and the existing ESP are mounted; never add a
+      # placeholder hardware file just to make evaluation pass.
+      mainHardware = ./hosts/main/hardware-configuration.nix;
+    in
+    {
+      nixosConfigurations =
+        {
+          nixos = mkHost ./hosts/nixos;
+        }
+        // lib.optionalAttrs (builtins.pathExists mainHardware) {
+          main = mkHost ./hosts/main;
+        };
     };
-  };
 }
