@@ -1,6 +1,11 @@
 { pkgs, ... }:
 
 {
+  # Keep the ESP path explicit. The generated main hardware file must mount the
+  # shared Arch ESP at /boot; systemd-boot and extraInstallCommands both use
+  # this path.
+  boot.loader.efi.efiSysMountPoint = "/boot";
+
   # The main machine shares the existing 1 GiB ESP with Arch. Do not write
   # EFI NVRAM: the existing "Linux Boot Manager" entry already points at
   # /EFI/systemd/systemd-bootx64.efi on this ESP. nixos-install updates the
@@ -32,6 +37,31 @@
   boot.loader.systemd-boot.extraInstallCommands = ''
     uki=/boot/EFI/Linux/arch-linux-lts.efi
     conf=/boot/loader/loader.conf
+
+    # Refuse to touch a /boot that is not a separate filesystem. The shared ESP
+    # is a vfat partition, while the Live ISO's /boot belongs to the live root.
+    # During nixos-install this hook runs inside nixos-enter, so /boot is the
+    # target ESP; this guard catches accidental manual execution from the Live
+    # shell before any write happens.
+    boot_dev=$(${pkgs.coreutils}/bin/stat -c %d /boot)
+    root_dev=$(${pkgs.coreutils}/bin/stat -c %d /)
+    if [ "$boot_dev" = "$root_dev" ]; then
+      echo "ERROR: /boot is not a separate ESP; refusing to edit loader.conf." >&2
+      exit 1
+    fi
+
+    # Inside the nixos-install chroot, /mnt is a bind of the target root, so
+    # /mnt/etc/nixos and /mnt/boot identify the target. If they do not match
+    # /boot, this script was run outside the target context; stop.
+    if [ -e /mnt/etc/nixos ] && [ -e /mnt/boot ]; then
+      mnt_boot_dev=$(${pkgs.coreutils}/bin/stat -c %d /mnt/boot)
+      if [ "$mnt_boot_dev" != "$boot_dev" ]; then
+        echo "ERROR: /boot and /mnt/boot are different filesystems." >&2
+        echo "ERROR: run only through nixos-install/nixos-rebuild, not from the Live shell." >&2
+        exit 1
+      fi
+    fi
+
     if [ -f "$uki" ] && [ -f "$conf" ]; then
       # Drop only the default/preferred lines; keep timeout, console-mode,
       # editor and anything else systemd-boot or the admin put there.

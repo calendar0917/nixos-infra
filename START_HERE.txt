@@ -1,0 +1,150 @@
+NixOS 26.05 双系统安装：唯一现场入口
+适用 Arch 主力机（LENOVO ThinkBook 16 G6+ AHP）新增 NixOS；Graphical ISO 优先，
+Minimal 备用。进入 ISO 后只读这一份；详细背景见 repo 的 docs/ARCH_DUAL_BOOT.md，
+不要在现场通读。禁止使用 Calamares 自动分区。
+先认机器，不要看 hostname：ISO 的 hostname 永远是 nixos。
+  main（主力机）= LENOVO 21LG / ThinkBook 16 G6+ AHP / UMIS 953.9G NVMe
+  mini（小主机）= KOLOE ITX-FP5 / KingFast 238.5G
+hosts/nixos = 小主机，hosts/main = 主力机。flake show 只出现 nixos 是正常的；
+绝不安装 #nixos；绝不复制 hosts/nixos/hardware-configuration.nix 到 hosts/main；
+绝不为让 main 出现而伪造 UUID 或空白 hardware 文件。
+阶段 A：启动 ISO 并找到材料（A1-A2 只读；A3 Live 临时）
+A1 [位置：ISO 终端] [只读] 确认 UEFI、版本和终端
+    test -d /sys/firmware/efi && echo "PASS UEFI"
+    grep -E '^(ID|VERSION_ID|PRETTY_NAME)=' /etc/os-release
+    预期（PASS）：PASS UEFI；ID=nixos；VERSION_ID=26.05。
+    失败（FAIL）：无 UEFI -> 回固件关 CSM/Legacy 重选 UEFI；非 26.05 -> STOP。
+    Graphical ISO 打开终端：Activities -> Terminal 或 Ctrl+Alt+T；Minimal 用控制台。
+A2 [位置：ISO 终端] [只读] 只读挂载 Ventoy，打开本速查表
+    lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS
+    V=/dev/disk/by-label/Ventoy
+    test -b "$V" || { echo "STOP: 上面没有 LABEL=Ventoy 的 exfat 分区"; exit 1; }
+    VNT=$(findmnt -n -o TARGET -S "$V" | head -1 || true)
+    if [ -z "$VNT" ]; then sudo mkdir -p /mnt/ventoy; sudo mount -o ro "$V" /mnt/ventoy || { echo "STOP: Ventoy 挂载失败"; exit 1; }; VNT=/mnt/ventoy; fi
+    echo "$VNT"; findmnt -T "$VNT" | grep -Eq '(^|[[:space:],])ro([,[:space:]]|$)' || { echo "STOP: Ventoy 不是只读挂载"; exit 1; }
+    sed -n '1,180p' "$VNT/nixos-install/START_HERE.txt"
+    test -d "$VNT/nixos-install/repo" && echo "PASS repo"
+    test -d "$VNT/nixos-install/cache" && echo "PASS cache"
+    预期（PASS）：VNT 选项含 ro；能读到本文件；repo/、cache/ 都存在。
+    失败（STOP）：不要写 U 盘、不要假设 /dev/sda1、不要重装 Ventoy；先同步材料。
+A3 [位置：ISO 终端] [Live 临时] 复制 repo，导入 Flake 输入缓存
+    rm -rf /root/nixos-infra
+    cp -a "$VNT/nixos-install/repo" /root/nixos-infra
+    cd /root/nixos-infra
+    git init -q . && git add -A && git -c user.email=i@i -c user.name=i commit -qm prep
+    nix --extra-experimental-features 'nix-command flakes' copy \
+      --from "file://$VNT/nixos-install/cache" --all || { echo "STOP: cache 导入失败"; exit 1; }
+    nix --extra-experimental-features 'nix-command flakes' flake metadata --offline
+    git status --short; ls hosts/main/hardware-configuration.nix 2>&1
+    预期（PASS）：metadata 成功且不访问 GitHub；main hardware 不存在（正常）。
+    失败（FAIL）：cache 不完整 -> 回 Arch 重做 nix flake archive + nix copy；STOP。
+    注意：cache 只是 Flake 输入，不是 9.5 GiB NixOS 软件包闭包。
+阶段 B：网络检查（B1 只读；B2-B5 Live 临时/只读）
+B1 [位置：ISO 终端] [只读] 自动找真实有线口，不假设 enp2s0
+    mapfile -t WIRED < <(for d in /sys/class/net/*; do n=${d##*/}; \
+      [ -e "$d/device" ] || continue; [ -d "$d/wireless" ] && continue; echo "$n"; done)
+    printf '%s\n' "${WIRED[@]}"; test "${#WIRED[@]}" -eq 1 || { echo "STOP: 有线口不是恰好一个"; exit 1; }; W=${WIRED[0]}; ip -brief link show "$W"
+    cat "/sys/class/net/$W/carrier"; cat "/sys/class/net/$W/speed"
+    预期（PASS）：state UP、LOWER_UP、carrier=1、speed=1000。
+    失败（FAIL）：carrier=0 -> 物理层（网线/网口/协商）；换线换口再试，不要先配 IP。
+B2 [位置：ISO 终端] [Live 临时] 设置 10.77.77.1/30，不设网关和 DNS
+    sudo nmcli connection add type ethernet ifname "$W" con-name iso-direct-nixos \
+      ipv4.method manual ipv4.addresses 10.77.77.1/30 ipv4.never-default yes ipv6.method disabled
+    sudo nmcli connection up iso-direct-nixos || { echo "STOP: iso-direct-nixos 启动失败"; exit 1; }
+    ip -4 addr show "$W"; ip route
+    预期（PASS）：$W 有 10.77.77.1/30；只有 10.77.77.0/30 直连路由；默认路由仍走 Wi-Fi。
+    失败（FAIL）：没有 IP -> 看 nmcli device status；不要给直连设置网关或 DNS。
+B3 [位置：ISO 终端] [只读 + mini Live 临时] ping 小主机；失败时先查 mini 的 direct-arch
+    ping -c 3 -W 2 10.77.77.2
+    预期（PASS）：3 个包 0% loss。
+    失败（FAIL）：carrier=1、IP 正确但 ping 不通 -> 通常是小主机的 direct-arch 未激活
+    （两端 profile 都是 autoconnect no，插拔网线不会自动启用）。在 mini 本地控制台或
+    Wi-Fi SSH 上（只影响当前运行，不改持久配置）：
+      nmcli -t -f NAME,DEVICE,AUTOCONNECT connection show | grep direct-arch
+      sudo nmcli connection up direct-arch
+      ip -4 addr show <mini有线口>   # 应出现 10.77.77.2/30；当前 mini 是 enp2s0
+      ping -c 2 10.77.77.1
+    回 ISO 重试 B3。mini 也无法登录时按下面分层表处理；不要重启或改防火墙。
+    分层：无链路 -> 网线/网口；有链路无 IP -> NM profile；有 IP 但 ping 不通 ->
+    direct-arch/路由/防火墙；能 ping 但 SSH 失败 -> sshd/主机密钥/用户；SSH 正常但
+    代理失败 -> 隧道/Mihomo；代理正常但 Nix 失败 -> daemon/substituter/缓存。
+B4 [位置：ISO 终端] [只读/认证] 验证 SSH 主机指纹、端口和用户
+    ssh-keyscan -t ed25519 10.77.77.2 2>/dev/null | ssh-keygen -lf -
+    timeout 5 bash -c '</dev/tcp/10.77.77.2/22' && echo "PASS ssh port"
+    ssh calendar@10.77.77.2 hostname
+    预期（PASS）：指纹 SHA256:Gd/ovkGpCU0OWv+3WLhfRJGcPeo2HG5yCg7nj7Rk6KU；端口开放；密码登录后输出 nixos。
+    失败（STOP）：指纹不符/端口关闭 -> 不要 StrictHostKeyChecking=no，不要继续认证。
+    ISO 没有 Arch 私钥；优先用 mini 的 calendar 密码登录。仅当密码不可用时，只读挂载
+    Arch @home 并原地引用私钥，不复制：
+      sudo mkdir -p /mnt/arch-home
+      B=$(lsblk -rno UUID,FSTYPE | awk '$2=="btrfs"{print $1; exit}')
+      sudo mount -o ro,subvol=@home "/dev/disk/by-uuid/$B" /mnt/arch-home
+      ssh -i /mnt/arch-home/calendar/life/secrets/ssh/id_rsa calendar@10.77.77.2
+    不要把私钥复制到 /root、Ventoy 或任何 U 盘目录。
+B5 [位置：ISO 终端] [只读 + Live 临时] 验证 Nix 下载源；不够时再用 SSH 隧道
+    curl -sS -o /dev/null -w '%{http_code}\n' --max-time 20 \
+      https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store/nix-cache-info
+    预期（PASS）：200；继续用 ISO 自己的网络 + TUNA，不启用代理。
+    失败（FAIL）：先确认 ISO 是否有外网，不要先怪代理。若 ISO 无外网、但 mini 的
+    127.0.0.1:7897 可用：第二个终端运行
+      ssh -N -L 127.0.0.1:17897:127.0.0.1:7897 calendar@10.77.77.2
+    第一个终端：
+      export http_proxy=http://127.0.0.1:17897 https_proxy=http://127.0.0.1:17897
+      curl -I --max-time 15 -x "$http_proxy" https://github.com
+    仍失败（STOP）：不要反复改网络、allow-lan 或防火墙；回 Arch 准备离线材料。
+    构建/安装前只对当前 shell 设置：
+      export NIX_CONFIG="substituters = https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/
+      trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+阶段 C：只读安全检查（全部只读；C4 是 STOP）
+C1 [位置：ISO 终端] [只读] 确认主力机，排除小主机
+    cat /sys/class/dmi/id/product_name; test "$(cat /sys/class/dmi/id/product_name)" = 21LG || { echo "STOP: 不是 LENOVO 21LG"; exit 1; }
+    lsblk -dno NAME,SIZE,MODEL
+    预期（PASS）：product_name=21LG；有 UMIS ... 953.9G 内置盘（不是 Ventoy sda）。
+    失败（STOP）：ITX-FP5 / KingFast 238.5G -> 这是小主机，立即停止。
+C2 [位置：ISO 终端] [只读] 确认 NVMe、ESP、Btrfs 和原有子卷
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,UUID,PARTUUID,MOUNTPOINTS
+    sudo blkid
+    B=$(lsblk -rno UUID,FSTYPE | awk '$2=="btrfs"{print $1}')
+    test "$(printf '%s\n' "$B" | sed '/^$/d' | wc -l)" -eq 1 || { echo "STOP: btrfs 不是恰好一个"; exit 1; }
+    sudo mkdir -p /mnt/btrfs-root
+    sudo mount -o subvolid=5,ro "/dev/disk/by-uuid/$B" /mnt/btrfs-root || { echo "STOP: btrfs 只读挂载失败"; exit 1; }
+    sudo btrfs subvolume list -a -p -t /mnt/btrfs-root
+    sudo btrfs subvolume get-default /mnt/btrfs-root
+    sudo btrfs filesystem usage /mnt/btrfs-root
+    sudo umount /mnt/btrfs-root
+    预期（PASS）：内置盘单块约 953.9G NVMe（sda 是 Ventoy，不是目标）；p1 vfat 约 1G；p2 btrfs 约 952.9G；无 LUKS/
+    mdraid/物理 Windows；顶层有 @、@home、@log、@pkg；默认子卷 ID 5；没有 @nixos*。
+    失败（STOP）：设备/大小/UUID 不符、默认子卷不是 5、已有 @nixos* 或报错。
+C3 [位置：ISO 终端] [只读] 确认 Arch ESP/UKI，并区分 nixos 与 main
+    D=$(lsblk -dno NAME,TYPE,RM | awk '$2=="disk" && $3=="0" && $1 !~ /^(zram|loop|sr|ram)/ {print $1; exit}'); E=$(lsblk -rno UUID,FSTYPE "/dev/$D" | awk '$2=="vfat"{print $1; exit}'); test -n "$E" || { echo "STOP: 内置盘找不到 vfat ESP"; exit 1; }
+    ESP=$(findmnt -n -o TARGET -S "/dev/disk/by-uuid/$E" | head -1 || true)
+    if [ -z "$ESP" ]; then sudo mkdir -p /mnt/arch-esp; sudo mount -o ro "/dev/disk/by-uuid/$E" /mnt/arch-esp; ESP=/mnt/arch-esp; fi
+    findmnt -T "$ESP" || { echo "STOP: ESP 未挂载"; exit 1; }
+    sudo test -f "$ESP/EFI/Linux/arch-linux-lts.efi" && sudo test -f "$ESP/EFI/Lenovo/BIOS/SelfHealing.fd" && echo "PASS Arch UKI + Lenovo" || { echo "STOP: Arch UKI/Lenovo 文件缺失"; exit 1; }
+    [ "$ESP" = /mnt/arch-esp ] && sudo umount /mnt/arch-esp; cd /root/nixos-infra
+    ls hosts/nixos/hardware-configuration.nix
+    test ! -e hosts/main/hardware-configuration.nix && echo "PASS: main hardware absent"
+    ./install-preflight.sh
+    预期（PASS）：PASS Arch UKI + Lenovo；ESP 已只读挂载或仅读取现有挂载；flake 只列
+      nixos；脚本显示 MAIN HARDWARE NOT GENERATED — EXPECTED BEFORE INSTALLATION 并返回 10。
+      这不是 flake 错误；generate main 前不能安装。
+    失败（STOP）：UKI/厂商文件缺失、脚本显示 FAIL、或 main 出现但未经 generate。
+C4 [位置：ISO 终端] [只读] 确认 ESP 备份，然后 STOP
+    ssh calendar@10.77.77.2 'ls -lh ~/arch-esp-backups && cd ~/arch-esp-backups && sha256sum -c *.sha256' || { echo "STOP: ESP 备份校验失败"; exit 1; }
+    echo "STOP: read-only complete; no subvol/mount/generate/install"
+    预期（PASS）：所有 .sha256 显示 OK；然后本轮结束。
+    失败（STOP）：备份缺失/校验失败 -> 先按 docs/ARCH_DUAL_BOOT.md 3.4 重做。
+    不得继续执行任何写 NVMe、写 ESP、nixos-generate-config 或 nixos-install。
+阶段 D：安装入口（本轮不执行；每一步都需单独授权）
+D1 [写磁盘/需授权] 创建 @nixos、@nixos-home、@nixos-nix；默认子卷保持 ID 5。
+D2 [写磁盘/需授权] 挂载 /mnt=@nixos、/mnt/home=@nixos-home、/mnt/nix=@nixos-nix、
+   /mnt/boot=现有 ESP；必须用 findmnt 逐项确认。
+D3 [写磁盘/需授权] 只有 D2 全通过才运行 nixos-generate-config --root /mnt。
+D4 [写仓库/需授权] 把真实生成的 /mnt/etc/nixos/hardware-configuration.nix 放入
+   hosts/main/hardware-configuration.nix，git add；不要复制小主机文件。
+D5 [Live 临时构建/只读目标盘] nix flake show 必须出现 main；./install-preflight.sh --target main
+   必须在 D2 挂载检查通过后仍 PASS；构建 nixos-rebuild build --flake .#main，
+   检查 result/etc/fstab 的 @nixos/@nixos-home/@nixos-nix。
+D6 [写磁盘/需单独明确授权] 只允许 nixos-install --flake .#main；先确认 boot hook
+   的 /boot 是目标 ESP，且 /mnt/boot 上仍有 Arch UKI。不得安装 #nixos，不得用
+   Calamares，不得伪造 hardware，不得跳过 D5。

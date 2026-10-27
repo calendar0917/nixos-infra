@@ -22,6 +22,8 @@ host 骨架。一个 flake、NixOS 原生模块、NixOS 集成 Home Manager，ni
 
 ```text
 flake.nix / flake.lock              # 唯一入口和锁定版本
+START_HERE.txt                      # Arch 主力机现场安装/验证唯一入口
+install-preflight.sh                # 只读防误检查，拒绝把 #nixos 当安装目标
 hosts/nixos/
   default.nix                       # 主机名、用户、桌面/网络/备份开关
   boot.nix                          # 小主机 systemd-boot / ESP 策略
@@ -51,9 +53,12 @@ docs/RECOVERY.md                    # 安装前核对、恢复、网络、Secret
 docs/ARCH_DUAL_BOOT.md              # Arch 主力机 Btrfs 双系统安装/回退手册
 ```
 
-Arch 主力机的安装准备和回退步骤见 `docs/ARCH_DUAL_BOOT.md`。在真实的
-`hosts/main/hardware-configuration.nix` 生成并加入 git 之前，
-`nixosConfigurations.main` 故意不存在；不要用占位 UUID 让它通过求值。
+Arch 主力机的现场操作只打开 `START_HERE.txt`（Ventoy 上同一份在
+`<VENTOY>/nixos-install/START_HERE.txt`）；详细背景、完整命令和回退步骤见
+`docs/ARCH_DUAL_BOOT.md`。安装前运行 `./install-preflight.sh`，它默认只读，
+只允许 `--target main`。在真实的 `hosts/main/hardware-configuration.nix` 生成并
+加入 git 之前，`nixosConfigurations.main` 故意不存在；不要用占位 UUID 让它通过
+求值，也不要安装 `#nixos`（那是小主机）。
 
 ## 修改桌面与功能开关
 

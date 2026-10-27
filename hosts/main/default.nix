@@ -87,11 +87,12 @@
   nix.gc.automatic = lib.mkForce false;
 
   # First-install release, taken from the actual installation medium. The
-  # Ventoy stick holds nixos-minimal-26.05.12400.da6dc0e7b260 (ISO version.txt),
-  # and nixos-generate-config for that ISO writes 26.05, so this must be 26.05
-  # even though flake.lock pins a 26.11 pre-release nixpkgs. The nixpkgs pin and
-  # stateVersion are independent; do not bump this to 26.11 just because the
-  # flake is newer. If a different ISO is used, set this to that ISO's
-  # VERSION_ID before nixos-install and never change it afterwards.
+  # Ventoy stick holds the Graphical 26.05.12297 image (preferred) and the
+  # Minimal 26.05.12400 image (fallback); nixos-generate-config for either
+  # writes 26.05, so this must be 26.05 even though flake.lock pins a 26.11
+  # pre-release nixpkgs. The nixpkgs pin and stateVersion are independent; do
+  # not bump this to 26.11 just because the flake is newer. If a different ISO
+  # is used, set this to that ISO's VERSION_ID before nixos-install and never
+  # change it afterwards.
   system.stateVersion = "26.05";
 }
