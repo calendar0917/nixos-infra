@@ -223,12 +223,12 @@ NixOS 的 `main` host 已显式设置 `uid = 1000`、`group = "calendar"`、
 `@nixos`。正确方法是临时挂载 **`subvolid=5` 顶层**，在顶层目录下创建：
 
 ```text
-/mnt/btrfs-root/@nixos
-/mnt/btrfs-root/@nixos-home
-/mnt/btrfs-root/@nixos-nix
+/run/btrfs-root/@nixos
+/run/btrfs-root/@nixos-home
+/run/btrfs-root/@nixos-nix
 ```
 
-创建后必须卸载顶层挂载，不要把它留在 `/mnt/btrfs-root`。不要执行
+创建后必须卸载顶层挂载，不要把它留在 `/run/btrfs-root`。不要执行
 `btrfs subvolume set-default`。
 
 ---
@@ -287,7 +287,8 @@ Ventoy 数据分区中的目标布局：
 <VENTOY>/nixos-install/
 ├── START_HERE.txt          唯一现场操作入口（先打开它）
 ├── install-preflight.sh    只读防误检查（从 repo 同步）
-├── repo/                   nixos-infra 工作树（无 secrets、无 main hardware）
+├── repo/                   nixos-infra 工作树（无 secrets、无 main hardware；
+│                           保留 mini hardware，供 nixosConfigurations.nixos 求值）
 └── cache/                  四个 Flake 输入的本地二进制缓存（约 41 MiB）
 ```
 
@@ -304,23 +305,10 @@ Ventoy 数据分区中的目标布局：
 /nix/store/1pmshh4a1vizyzhzr1x8rv0cz0lgjhnx-source   flake source
 ```
 
-在 ISO 中导入全部缓存（不需要手抄 store hash），然后离线求值：
-
-```bash
-V=/dev/disk/by-label/Ventoy
-VNT=$(findmnt -n -o TARGET -S "$V" || echo /mnt/ventoy)
-sudo mkdir -p "$VNT"
-findmnt -M "$VNT" >/dev/null || sudo mount -o ro "$V" "$VNT"
-
-cp -a "$VNT/nixos-install/repo" /root/nixos-infra
-cd /root/nixos-infra
-git init -q . && git add -A && git -c user.email=i@i -c user.name=i commit -qm prep
-
-nix --extra-experimental-features 'nix-command flakes' copy \
-  --from "file://$VNT/nixos-install/cache" --all
-nix --extra-experimental-features 'nix-command flakes' flake metadata --offline
-./install-preflight.sh
-```
+现场只按 `START_HERE.txt` A2/A3 执行：Ventoy 只读挂载到 `/run/ventoy`，
+repo 复制到 `/root/nixos-infra`。如果该目录已有含 main hardware 的工作树，必须
+保留，不得用 Ventoy 内容覆盖；也不要 `rm -rf` 或 `git add -A` 把 secrets 加入
+Git。A3 会导入全部 cache 并执行离线 metadata。
 
 `--offline` 是关键：它让 Nix 只用本地 store，不去 GitHub 重试。`nix copy --all`
 导入 cache 中的全部路径，不依赖本文列出的四个 hash。若 `flake metadata` 仍访问
@@ -687,8 +675,8 @@ ISO 是全新 Live 环境，不继承 Arch 的 SSH 私钥或 agent。顺序：
    `PasswordAuthentication` 仍是默认开启；密码只输入到当前 SSH 会话，不写入
    Ventoy 或仓库。
 2. 只有在密码登录不可用时，才从原系统只读访问 Arch 私钥：在 ISO 中只读挂载
-   Btrfs `@home` 到 `/mnt/arch-home`，然后原地引用
-   `/mnt/arch-home/calendar/life/secrets/ssh/id_rsa`。**不要**把私钥复制到 `/root`、
+   Btrfs `@home` 到 `/run/arch-home`，然后原地引用
+   `/run/arch-home/calendar/life/secrets/ssh/id_rsa`。**不要**把私钥复制到 `/root`、
    Ventoy 或任何 U 盘目录。
 3. 首次连接必须核对主机指纹；不要使用
    `StrictHostKeyChecking=no`，也不要先接受再检查。
@@ -747,12 +735,12 @@ sudo btrfs filesystem show
 挂载 Btrfs 顶层只读检查子卷：
 
 ```bash
-sudo mkdir -p /mnt/btrfs-root
-sudo mount -o subvolid=5,ro /dev/disk/by-uuid/<BTRFS_UUID> /mnt/btrfs-root
-sudo btrfs subvolume list -a -p -t /mnt/btrfs-root
-sudo btrfs subvolume get-default /mnt/btrfs-root
-sudo btrfs filesystem usage /mnt/btrfs-root
-sudo umount /mnt/btrfs-root
+sudo mkdir -p /run/btrfs-root
+sudo mount -o subvolid=5,ro /dev/disk/by-uuid/<BTRFS_UUID> /run/btrfs-root
+sudo btrfs subvolume list -a -p -t /run/btrfs-root
+sudo btrfs subvolume get-default /run/btrfs-root
+sudo btrfs filesystem usage /run/btrfs-root
+sudo umount /run/btrfs-root
 ```
 
 预期：
@@ -791,22 +779,22 @@ sudo umount /mnt/btrfs-root
 ```bash
 set -euo pipefail
 
-sudo mkdir -p /mnt/btrfs-root
-sudo mount -o subvolid=5 /dev/disk/by-uuid/<BTRFS_UUID> /mnt/btrfs-root
+sudo mkdir -p /run/btrfs-root
+sudo mount -o subvolid=5 /dev/disk/by-uuid/<BTRFS_UUID> /run/btrfs-root
 
 # 名字必须不存在；任何 test 失败都停止
-test ! -e /mnt/btrfs-root/@nixos
-test ! -e /mnt/btrfs-root/@nixos-home
-test ! -e /mnt/btrfs-root/@nixos-nix
+test ! -e /run/btrfs-root/@nixos
+test ! -e /run/btrfs-root/@nixos-home
+test ! -e /run/btrfs-root/@nixos-nix
 
-sudo btrfs subvolume create /mnt/btrfs-root/@nixos
-sudo btrfs subvolume create /mnt/btrfs-root/@nixos-home
-sudo btrfs subvolume create /mnt/btrfs-root/@nixos-nix
+sudo btrfs subvolume create /run/btrfs-root/@nixos
+sudo btrfs subvolume create /run/btrfs-root/@nixos-home
+sudo btrfs subvolume create /run/btrfs-root/@nixos-nix
 
-sudo btrfs subvolume list -a -p -t /mnt/btrfs-root
-sudo btrfs subvolume get-default /mnt/btrfs-root
+sudo btrfs subvolume list -a -p -t /run/btrfs-root
+sudo btrfs subvolume get-default /run/btrfs-root
 
-sudo umount /mnt/btrfs-root
+sudo umount /run/btrfs-root
 ```
 
 ### 6.3 预期结果
@@ -820,7 +808,7 @@ sudo umount /mnt/btrfs-root
 ### 6.4 停止条件
 
 - 任一 `test` 失败（已存在同名子卷）；失败时先
-  `sudo umount /mnt/btrfs-root`，不要继续创建；
+  `sudo umount /run/btrfs-root`，不要继续创建；
 - `btrfs subvolume create` 报错；
 - 默认子卷发生变化；
 - 看到任何现有子卷/快照被修改；
@@ -1017,7 +1005,8 @@ sudo chown "$USER:$USER" <REPO>/hosts/main/hardware-configuration.nix
 chmod 0644 <REPO>/hosts/main/hardware-configuration.nix
 
 cd <REPO>
-git add hosts/main/hardware-configuration.nix   # 只暂存，不提交、不 push
+git add hosts/main/hardware-configuration.nix
+# 可做本地 commit，便于 Git Flake 看到该文件；不要 push
 ```
 
 注意：
@@ -1028,6 +1017,8 @@ git add hosts/main/hardware-configuration.nix   # 只暂存，不提交、不 pu
 - 优先把 `<REPO>` 放在 Linux 文件系统上。FAT/NTFS 上 `chown`/`chmod` 可能失败；
   如果仓库是 root 复制的，确保 `.git` 和文件对当前用户可写，或统一用 `sudo`
   执行 `git add`，不要留下 root 拥有的 index。
+- 第 10.2 节会把完整非敏感仓库保存到 `/mnt/etc/nixos`；hardware 文件必须先进入
+  `<REPO>`，否则持久配置里没有 `main`。
 
 ### 8.5 停止条件
 
@@ -1201,25 +1192,27 @@ nix flake lock --update-input ...
 
 ### 10.2 检查命令
 
+先把非敏感仓库保存到目标系统，再从这份持久配置构建：
+
 ```bash
-cd <REPO>
+test ! -e <REPO>/secrets
+sudo cp -a <REPO>/. /mnt/etc/nixos/
+sudo rm -rf /mnt/etc/nixos/.git /mnt/etc/nixos/result /mnt/etc/nixos/result-*
 
-nix flake show
-./install-preflight.sh --target main
-nix flake check --show-trace
-
-# NixOS ISO 通常带 nixos-rebuild；如果命令不存在，用下面的 nix build
-sudo nixos-rebuild build --flake .#main
-# 或者：
-nix build '.#nixosConfigurations.main.config.system.build.toplevel'
+cd /mnt/etc/nixos
+nix flake show --offline
+bash ./install-preflight.sh --repo /mnt/etc/nixos --target main
+nix flake check --offline --show-trace
+sudo nixos-rebuild build --flake /mnt/etc/nixos#main
 ```
 
 预期：
 
-- `nix flake show` 出现 `nixosConfigurations.main`，且 `nixos` 仍然存在（小主机）；
-- `install-preflight.sh --target main` 不报 FAIL；目标挂载未完成时应显示
-  “PASS (pre-Phase-D)”和安装仍未授权；
-- `nix flake check` 通过；
+- `/mnt/etc/nixos` 是完整、非敏感、可离线求值的 Flake；
+- `nix flake show` 出现 `main`，`nixos` 仍然存在；
+- `install-preflight.sh --target main` 必须通过；它要求 LENOVO 21LG、真实 main
+  hardware、`/mnt`/`/mnt/home`/`/mnt/nix`/`/mnt/boot` 四项挂载和原 Arch ESP；
+  缺少任一挂载会返回非零，不再是 pre-Phase-D PASS；
 - `nixos-rebuild build` 输出 `Done. The new configuration is /nix/store/...`；
 - 不出现 `subvol=@`、Arch UUID、错误 swap 的警告。
 
@@ -1286,9 +1279,8 @@ systemd-boot 和 `loader.conf` 会被更新。
 ### 11.2 命令
 
 ```bash
-cd <REPO>
-# 如果 flake 输入来自 Ventoy 缓存，加 --offline 避免 Nix 去 GitHub 重试
-sudo nixos-install --flake .#main --option substituters \
+# 只从持久配置安装，确保重启后 /etc/nixos 与安装内容一致
+sudo nixos-install --flake /mnt/etc/nixos#main --no-root-passwd --option substituters \
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/"
 ```
 
@@ -1458,6 +1450,7 @@ sudo bootctl status
 sudo bootctl list
 sudo efibootmgr -v
 cat /boot/loader/loader.conf
+ls -l /etc/nixos/flake.nix /etc/nixos/hosts/main/hardware-configuration.nix
 id
 getent passwd calendar
 getent group calendar
@@ -1918,7 +1911,7 @@ sudo -u calendar test -r /mnt/arch-home/calendar/life && echo readable
 | `hosts/main/default.nix` | 新增主力机 host 骨架；独立 hostname、UID/GID、只读 Arch home、无 fake hardware |
 | `hosts/main/boot.nix` | limit 3、canTouch false、`efiSysMountPoint=/boot`；`extraInstallCommands` 增加 `/boot` 独立文件系统 guard，再固定 Arch 默认项并自校验 |
 | `flake.nix` | host 工厂函数；`main` 仅在真实 hardware 文件存在时暴露 |
-| `START_HERE.txt` | 新增；唯一现场入口，Graphical 优先，A/B/C/D 四阶段，150 行 |
+| `START_HERE.txt` | 唯一现场入口，Graphical 优先，A/B/C/D/E 全流程，341 行 |
 | `install-preflight.sh` | 新增；只读检查 ISO/UEFI/main hardware/flake/git/目标挂载和 boot hook，拒绝 `#nixos` 目标 |
 | `docs/ARCH_DUAL_BOOT.md` | 背景、网络复现、hardware 混淆说明、boot hook 上下文和验证结果 |
 | `README.md` | 指向 `START_HERE.txt` 和 preflight，避免多份操作入口 |
@@ -1960,7 +1953,8 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
 | --- | --- |
 | 当前仓库，无 `hosts/main/hardware-configuration.nix` | exit 10；输出 `MAIN HARDWARE NOT GENERATED — EXPECTED BEFORE INSTALLATION`；flake 只列 nixos |
 | `--target nixos` | exit 2；明确拒绝，不退回小主机配置 |
-| `/tmp` 仓库副本 + 真实 Arch UUID 的 main fixture | exit 0（pre-Phase-D）；flake 出现 main；UUID/子卷/`/boot` 检查 PASS |
+| `/tmp` 仓库副本 + 真实 Arch UUID 的 main fixture，不带 `--target` | exit 0；只读报告 PASS，flake 出现 main |
+| 同一 fixture + `--target main`，但 `/mnt` 未挂载 | exit 1；明确要求 `/mnt`/`/mnt/home`/`/mnt/nix`/`/mnt/boot` 四项挂载 |
 | `/tmp` 仓库副本 + 直接复制 mini hardware | exit 1；检测到 byte-identical、UUID 不存在、`subvol=@` 错误 |
 | `hosts/main` 存在但未 `git add` | 实测 exit 1；同时报 “flake does not expose main” 和 “not in the git index” |
 
@@ -1972,8 +1966,11 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
 - 已用 fixture 渲染 `install-systemd-boot.sh`，确认 `efiSysMountPoint=/boot`、
   hook 使用 `/boot/loader/loader.conf`，并包含 `stat -c %d` 的 ESP guard；
 - 已只读挂载 Graphical/Minimal ISO 的 `nix-store.squashfs`，确认两个 ISO 的
-  `system-path/bin` 都有 `git`、`nix`、`curl`、`ssh`、`nmcli`；A3 的 `git init`
-  和 Phase D 的 `git add` 在两种 ISO 上都可用；
+  `system-path/bin` 都有 `git`、`nix`、`curl`、`ssh`、`nmcli`、`nixos-rebuild`、
+  `nixos-install`、`nixos-generate-config`、`nixos-enter`、`btrfs`、`parted`、
+  `bootctl`、`efibootmgr`、`rsync`；A3 的 `git init`、D4 的 generate、D5 的 build、
+  D7 的 install 都可在两种 ISO 上执行。Minimal 未找到 GNU `install`，但现场流程
+  不需要它；Ventoy 同步在 Arch 上完成。
 - 没有在真实 NixOS 子卷上安装，也没有验证 NixOS 首次启动；
 - 安装时 `hosts/main/hardware-configuration.nix` 仍必须由 ISO 里的
   `nixos-generate-config` 生成。
@@ -2000,9 +1997,10 @@ Go 必须同时满足：
 - [x] Ventoy 当前内容已重新核对：Graphical/Minimal ISO 的 SHA256 与本机文件一致；
   `cache/` 保留；`START_HERE.txt`、preflight、repo 与当前工作树同步；旧
   `README-ISO.txt` 和两个空垃圾文件已移除（见 18.5）；
-- [x] 仓库内 `START_HERE.txt` 存在，150 行，唯一现场入口；
-- [x] `install-preflight.sh` 无 main、错误 target、复制 mini hardware、未 git add
-  四条路径已实测；
+- [x] 仓库内 `START_HERE.txt` 存在，341 行，唯一现场入口；
+- [x] `install-preflight.sh` 无 main、错误 target、复制 mini hardware、未 git add、
+  `--target main` 缺 target mounts 五条路径已实测；安装阶段要求 21LG、NixOS Live
+  ISO、完整 `/mnt` 四挂载和原 Arch ESP；
 - [x] Arch/mini 两端直连 profile 临时激活后 `10.77.77.1/2` ping、SSH 22、主机指纹
   通过；
 - [ ] `direct-nixos`/`direct-arch` 的持久 autoconnect/priority 修改已获授权并完成；
@@ -2070,15 +2068,15 @@ PID 948858/948886 已不存在。本轮全程用 `--no-lock` 读取，**没有�
 
 | 项目 | 结果 |
 | --- | --- |
-| 现场入口 | `START_HERE.txt`，150 行；Graphical ISO 优先，Minimal 备用；A/B/C/D 四阶段；Phase D 不执行 |
+| 现场入口 | `START_HERE.txt`，341 行；Graphical ISO 优先；A/B/C/D/E 全流程；D 需逐项授权 |
 | 防误检查 | `install-preflight.sh`；默认只读；只接受 `--target main`；无 main 时 exit 10 并输出预期提示 |
 | 网络根因 | 两端 `direct-*` 为 `autoconnect no` 且未激活；同网卡 DHCP profile 会抢占并等待 DHCP；拔插网线不会自动启用直连 |
 | 网络临时验证 | Arch/mini 手动 `nmcli connection up direct-*` 后 10.77.77.1/2 互通、SSH 22 和 ED25519 指纹通过；默认路由仍在 Wi-Fi |
 | 持久网络 | **未修改**；`autoconnect yes` + priority 20 的建议见 4.3.2，等待用户授权 |
 | Hardware 混淆 | 已确认 ISO hostname 也是 nixos；`nixosConfigurations.nixos` 是小主机；main hardware 缺失时只显示 nixos 是预期 |
 | Boot hook | 已核对 ISO 26.05 installer 的 `nixos-enter`/chroot 上下文，并渲染 main fixture 的 `install-systemd-boot.sh`；新增 `/boot` 设备号 guard。真实安装仍待 ISO 验证 |
-| Ventoy 同步 | **已完成（2026-10-27）**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对，两个 NixOS ISO 的 SHA256 与本机文件完全一致；`cache/` 保留；`START_HERE.txt`、preflight、repo 已同步；`README-ISO.txt` 和 repo 根目录两个空垃圾文件已移除 |
-| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit 和 working-tree 快照 |
+| Ventoy 同步 | **已完成（2026-10-27 21:57）**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对，两个 NixOS ISO 的 SHA256 与本机文件完全一致；`cache/` 保留；`START_HERE.txt` 341 行、preflight（SHA256 `00787369…`）、repo 已同步；`README-ISO.txt` 和 repo 根目录两个空垃圾文件已移除 |
+| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit `fe146b7` + 未提交工作树快照、START_HERE/preflight 哈希 |
 | 禁止操作 | 没有创建/删除子卷、没有格式化、没有挂载安装目标、没有写 ESP/UKI/NVRAM、没有 `nixos-install`、没有重启/GC/Restic 写入 |
 
 Ventoy 同步/复核步骤（已执行一次；以后 U 盘重新挂载时按此复核）：

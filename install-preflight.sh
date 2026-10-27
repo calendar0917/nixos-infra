@@ -6,7 +6,7 @@
 # the repository, and (if already mounted) /mnt.
 #
 # Exit codes:
-#   0  read-only checks passed, or main is a valid explicit target
+#   0  read-only report passed (no install target), or installation-stage checks passed
 #   1  FAIL: a real problem was found; do not install
 #   2  usage error / target was not "main"
 #  10  expected state: MAIN HARDWARE NOT GENERATED (installation blocked)
@@ -21,11 +21,13 @@ usage() {
 Usage: ./install-preflight.sh [--repo DIR] [--target main]
 
   --repo DIR      repository root (default: this script's directory)
-  --target main  explicitly confirm that the only allowed install target is main
+  --target main   installation-stage check. Requires the physical main host,
+                  real main hardware, and all four /mnt target mounts.
   --help          show this help
 
-Without --target, the script is a read-only report. It never falls back to
-#nixos. #nixos is the NixOS mini host; #main is the Arch main machine.
+Without --target, the script is a read-only report and does not require /mnt.
+It never falls back to #nixos. #nixos is the NixOS mini host; #main is the
+Arch main machine. --target main with missing target mounts exits non-zero.
 EOF
 }
 
@@ -70,6 +72,15 @@ FLAKE_MAIN=no
 MAIN_HW_PRESENT=no
 TARGET_MOUNTS=not-mounted
 TARGET_MOUNTS_OK=no
+HOST_OK=no
+MNT_ROOT_OK=no
+MNT_HOME_OK=no
+MNT_NIX_OK=no
+MNT_BOOT_OK=no
+HW_ROOT_UUID=""
+HW_HOME_UUID=""
+HW_NIX_UUID=""
+HW_BOOT_UUID=""
 
 say() { printf '%s\n' "$*"; }
 ok() { printf 'PASS: %s\n' "$*"; }
@@ -84,6 +95,10 @@ fs_block() {
     inblock { print }
     inblock && $0 ~ /^[[:space:]]*};/ { exit }
   ' "$MAIN_HW"
+}
+
+uuid_from_text() {
+  printf '%s\n' "$1" | grep -o '/dev/disk/by-uuid/[A-Za-z0-9-]*' | head -1 | sed 's#.*/##'
 }
 
 say "== NixOS install preflight (read-only) =="
@@ -146,13 +161,14 @@ say "[MACHINE] first internal disk: ${first_disk:-unknown}"
 
 case "$product" in
   21LG)
+    HOST_OK=yes
     ok "recorded Arch main machine (LENOVO ThinkBook 16 G6+ AHP)"
     ;;
   ITX-FP5)
     bad "this is the NixOS mini host (KOLOE ITX-FP5), not the Arch main machine"
     ;;
   *)
-    warn "product '$product' is not the recorded main (LENOVO 21LG); confirm the physical machine"
+    bad "product '$product' is not the recorded main (LENOVO 21LG); refusing"
     ;;
 esac
 
@@ -204,6 +220,10 @@ if [ -e "$MAIN_HW" ]; then
   home_block=$(fs_block "/home")
   nix_block=$(fs_block "/nix")
   boot_block=$(fs_block "/boot")
+  HW_ROOT_UUID=$(uuid_from_text "$root_block")
+  HW_HOME_UUID=$(uuid_from_text "$home_block")
+  HW_NIX_UUID=$(uuid_from_text "$nix_block")
+  HW_BOOT_UUID=$(uuid_from_text "$boot_block")
 
   if printf '%s\n' "$root_block" | grep -Eq 'subvol=/?@nixos(["[:space:],]|$)'; then
     ok "main root uses subvol=@nixos"
@@ -309,45 +329,86 @@ fi
 
 if findmnt -rn -M /mnt >/dev/null 2>&1; then
   TARGET_MOUNTS=mounted
-  note "/mnt is mounted; checking target mount layout"
-  mnt_opts=$(findmnt -rn -o OPTIONS -M /mnt)
+  note "/mnt is mounted; checking the installation-stage layout"
+
+  mnt_opts=$(findmnt -rn -o OPTIONS -M /mnt 2>/dev/null || true)
   home_opts=$(findmnt -rn -o OPTIONS -M /mnt/home 2>/dev/null || true)
   nix_opts=$(findmnt -rn -o OPTIONS -M /mnt/nix 2>/dev/null || true)
+  boot_opts=$(findmnt -rn -o OPTIONS -M /mnt/boot 2>/dev/null || true)
   boot_fs=$(findmnt -rn -o FSTYPE -M /mnt/boot 2>/dev/null || true)
+  mnt_uuid=$(findmnt -rn -o UUID -M /mnt 2>/dev/null || true)
+  home_uuid=$(findmnt -rn -o UUID -M /mnt/home 2>/dev/null || true)
+  nix_uuid=$(findmnt -rn -o UUID -M /mnt/nix 2>/dev/null || true)
+  boot_uuid=$(findmnt -rn -o UUID -M /mnt/boot 2>/dev/null || true)
 
   if printf '%s\n' "$mnt_opts" | grep -Eq 'subvol=/?@nixos([,[:space:]]|$)'; then
+    MNT_ROOT_OK=yes
     ok "/mnt options contain subvol=@nixos"
   else
     bad "/mnt is not mounted with subvol=@nixos"
   fi
   if printf '%s\n' "$home_opts" | grep -Eq 'subvol=/?@nixos-home([,[:space:]]|$)'; then
+    MNT_HOME_OK=yes
     ok "/mnt/home options contain subvol=@nixos-home"
   else
     bad "/mnt/home is not mounted with subvol=@nixos-home"
   fi
   if printf '%s\n' "$nix_opts" | grep -Eq 'subvol=/?@nixos-nix([,[:space:]]|$)'; then
+    MNT_NIX_OK=yes
     ok "/mnt/nix options contain subvol=@nixos-nix"
   else
     bad "/mnt/nix is not mounted with subvol=@nixos-nix"
   fi
+
   if [ "$boot_fs" = "vfat" ]; then
-    ok "/mnt/boot is vfat (existing ESP)"
-    TARGET_MOUNTS_OK=yes
+    if [ "$MAIN_HW_PRESENT" = "yes" ] && [ -n "$HW_BOOT_UUID" ] && [ "$boot_uuid" != "$HW_BOOT_UUID" ]; then
+      bad "/mnt/boot UUID does not match main hardware /boot (not the original Arch ESP)"
+    elif [ ! -f /mnt/boot/EFI/Linux/arch-linux-lts.efi ]; then
+      bad "/mnt/boot is vfat but has no Arch UKI; not the original Arch ESP"
+    elif [ ! -f /mnt/boot/EFI/Lenovo/BIOS/SelfHealing.fd ]; then
+      bad "/mnt/boot is vfat but has no Lenovo self-healing file; not the original Arch ESP"
+    else
+      MNT_BOOT_OK=yes
+      ok "/mnt/boot is the original Arch ESP (vfat, UUID, UKI, Lenovo file)"
+    fi
   else
     bad "/mnt/boot is not a mounted vfat ESP"
+  fi
+
+  if [ "$MAIN_HW_PRESENT" = "yes" ] && [ -n "$HW_ROOT_UUID" ] && [ "$mnt_uuid" != "$HW_ROOT_UUID" ]; then
+    bad "/mnt UUID does not match main hardware / (wrong Btrfs filesystem)"
+  fi
+  if [ "$MAIN_HW_PRESENT" = "yes" ] && [ -n "$HW_HOME_UUID" ] && [ "$home_uuid" != "$HW_HOME_UUID" ]; then
+    bad "/mnt/home UUID does not match main hardware /home"
+  fi
+  if [ "$MAIN_HW_PRESENT" = "yes" ] && [ -n "$HW_NIX_UUID" ] && [ "$nix_uuid" != "$HW_NIX_UUID" ]; then
+    bad "/mnt/nix UUID does not match main hardware /nix"
+  fi
+
+  extra_mounts=$(findmnt -R /mnt -n -o TARGET 2>/dev/null | grep -vE '^/mnt(/home|/nix|/boot)?$' || true)
+  if [ -n "$extra_mounts" ]; then
+    bad "unexpected mounts under /mnt: $(printf '%s' "$extra_mounts" | tr '\n' ' ')"
+  fi
+
+  if [ "$MNT_ROOT_OK" = "yes" ] && [ "$MNT_HOME_OK" = "yes" ] \
+    && [ "$MNT_NIX_OK" = "yes" ] && [ "$MNT_BOOT_OK" = "yes" ]; then
+    TARGET_MOUNTS_OK=yes
+  fi
+
+  if [ "$TARGET" = "main" ] && { [ "$os_id" != "nixos" ] || [ "$live" != "yes" ]; }; then
+    bad "--target main installation-stage checks require the NixOS Live ISO"
   fi
 
   if findmnt -rn -M /boot >/dev/null 2>&1; then
     mnt_boot_id=$(findmnt -rn -o MAJ:MIN -M /mnt/boot 2>/dev/null || true)
     live_boot_id=$(findmnt -rn -o MAJ:MIN -M /boot 2>/dev/null || true)
     if [ -n "$mnt_boot_id" ] && [ -n "$live_boot_id" ] && [ "$mnt_boot_id" != "$live_boot_id" ]; then
-      warn "current shell /boot differs from /mnt/boot; this is expected outside the install chroot"
-      warn "do not edit loader.conf from this shell; nixos-install does it inside nixos-enter"
+      note "current /boot differs from /mnt/boot; this is expected outside the install chroot"
+      note "do not edit loader.conf from this shell; nixos-install does it inside nixos-enter"
     fi
   fi
 else
-  note "/mnt is not mounted; Phase D (subvolumes/mounts) has not started"
-  note "installation remains blocked until the Phase D mount checks pass"
+  note "/mnt is not mounted; Phase D target mounts have not started"
 fi
 
 # ---------- Summary ----------
@@ -380,10 +441,15 @@ if [ "$FLAKE_MAIN" != "yes" ]; then
 fi
 
 if [ "$TARGET_MOUNTS" != "mounted" ]; then
-  say "RESULT: PASS (pre-Phase-D) — target main confirmed."
-  say "        Installation is still blocked until the Phase D subvolumes and"
-  say "        mounts pass. This script cannot authorize installation."
-  exit 0
+  say "RESULT: FAIL — --target main requires the Phase D target mounts."
+  say "        /mnt, /mnt/home, /mnt/nix, /mnt/boot must all be mounted and verified."
+  say "        This script does not authorize installation by itself."
+  exit 1
+fi
+
+if [ "$HOST_OK" != "yes" ]; then
+  say "RESULT: FAIL — --target main requires the LENOVO 21LG main machine."
+  exit 1
 fi
 
 if [ "$TARGET_MOUNTS_OK" != "yes" ]; then
@@ -391,7 +457,7 @@ if [ "$TARGET_MOUNTS_OK" != "yes" ]; then
   exit 1
 fi
 
-say "RESULT: PASS — target main and target mounts look correct."
+say "RESULT: PASS — main host, main hardware, and all four target mounts match."
 say "        Installation still requires separate explicit authorization;"
 say "        this script never runs nixos-install."
 if [ "$live" != "yes" ]; then
