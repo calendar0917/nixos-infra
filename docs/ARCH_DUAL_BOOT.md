@@ -1,18 +1,28 @@
 # Arch 主力机 NixOS 双系统安装手册
 
-> **现场唯一入口：仓库根目录的 `START_HERE.txt`，以及 Ventoy 上的
-> `<VENTOY>/nixos-install/START_HERE.txt`。**
-> 进入 ISO 后只打开这一份速查表，按 A/B/C/D 阶段执行；不要在现场通读本文。
-> 本文保留背景、边界、完整命令和恢复步骤，供排障时查阅。
+> **现场唯一入口：仓库根目录的 `START.sh`，以及 Ventoy 上的
+> `<VENTOY>/nixos-install/START.sh`。**
+> `START_HERE.txt` 只是 60 行速查；进入 ISO 后运行 `START.sh`，按菜单 A/B/C/D
+> 执行。本文保留背景、边界、完整命令和恢复步骤，供排障时查阅。
+>
+> **注意：本文中的旧手工命令（尤其 B2 的 `direct-nixos`、C4 的实时 SSH 备份校验、
+> 以及 D2-D10 的逐条命令）只作为背景和恢复参考。现场入口已改为 `START.sh`；
+> 两者冲突时，以 `START.sh`、`START_HERE.txt` 和其中的 STOP 条件为准。**
 
 本文是 **Arch 主力机** 的安装操作手册，不是通用教程。目标是在现有 Btrfs
 文件系统中新增独立 NixOS，同时原样保留 Arch、Arch Home、Snapper 快照和 Arch
 UKI；两套系统共享现有 1 GiB ESP，默认仍启动 Arch。
 
-> **本轮状态（2026-10-27）**
+> **本轮状态（2026-10-28）**
 >
-> - 已完成只读硬件/启动检查、仓库 host 拆分、`START_HERE.txt` 现场入口和
->   `install-preflight.sh` 只读防误检查。
+> - 现场入口改为交互式 `START.sh`：A 准备离线缓存、B 网络/本地 Mihomo、C 只读
+>   磁盘/ESP/备份记录检查、D 分步安装向导；没有 `--yes/--force` 或无人值守写盘。
+> - 修复 Ventoy 只读 cache 导入失败：先把 cache 复制到 `mktemp -d` 可写目录，
+>   再 `nix copy`，不会 remount Ventoy rw，也不会删除旧副本。
+> - C 阶段改为校验 Ventoy 上的离线 ESP 备份记录（由 Arch 侧
+>   `START.sh --record-backup` 在小主机校验后生成），并要求人工确认 Restic
+>   密码有离线恢复副本；ESP 变化或记录不完整都会 STOP。
+> - 已完成只读硬件/启动检查、仓库 host 拆分和 `install-preflight.sh` 只读防误检查。
 > - 已复现直连网络故障：两端有线 carrier 都是 1/1000 Mbps，但
 >   `direct-nixos`、`direct-arch` 都是 `autoconnect no` 且未激活；临时激活后
 >   `10.77.77.1/2` 互通、SSH 22 和主机指纹验证通过。**没有**修改持久网络配置。
@@ -68,11 +78,13 @@ UKI；两套系统共享现有 1 GiB ESP，默认仍启动 Arch。
 - `flake.nix` 已准备 `nixosConfigurations.main`，但只在真实
   `hosts/main/hardware-configuration.nix` 存在时才暴露；现在没有该文件，因此
   **main 还不能求值，这是故意的**。
-- 新增现场唯一入口 `START_HERE.txt` 和只读防误检查 `install-preflight.sh`。
+- 新增交互式现场入口 `START.sh`、60 行速查 `START_HERE.txt` 和只读防误检查
+  `install-preflight.sh`。
 - 复现了直连网络故障：两端 carrier=1/1000，但 `direct-*` 都是
   `autoconnect no` 且未激活，自动 DHCP profile 会抢占同一网卡。临时激活后
   `10.77.77.1/2`、SSH 22 和主机指纹验证通过；**没有**修改持久网络配置。
-- ESP 备份已复制到小主机并完成解包/校验（见 3.4、18.4）。
+- ESP 备份已复制到小主机并完成解包/校验（旧归档；当前 ESP 在 linux-lts 升级后
+  已变化，需在 mini 可达时重跑 `START.sh --record-backup`，见 3.4、18.4）。
 - `nix flake check` 通过；`nix build .#nixosConfigurations.nixos.config.system.build.toplevel` 通过。
 
 没有完成（本轮禁止）：
@@ -245,7 +257,7 @@ NixOS 的 `main` host 已显式设置 `uid = 1000`、`group = "calendar"`、
 | 备用 Minimal | `~/Downloads/latest-nixos-minimal-x86_64-linux.iso` | `26.05.12400.da6dc0e7b260` | 1744830464 | `bace94cc43946a95c6252b097cf627dbca6ec4b48d938d405c1043b0a2f0cffb` |
 
 这两个文件都能启动；**现场优先 Graphical ISO，使用终端手动安装，不使用
-Calamares 自动分区**。Minimal ISO 只作为备用，操作命令与 START_HERE 相同。
+Calamares 自动分区**。Minimal ISO 只作为备用，操作命令见 `START.sh`。
 
 2026-10-27 官方 `channels.nixos.org/nixos-26.05/latest-*` 已更新到
 `26.05.12707.718f670e8453`，其 SHA256 与本地文件不同。**不要因为 latest
@@ -285,7 +297,9 @@ Ventoy 数据分区中的目标布局：
 
 ```text
 <VENTOY>/nixos-install/
-├── START_HERE.txt          唯一现场操作入口（先打开它）
+├── START.sh                唯一现场操作入口（先运行它）
+├── START_HERE.txt          60 行速查
+├── esp-backup-record.txt   离线 ESP 备份验证记录（只复制这个文本文件）
 ├── install-preflight.sh    只读防误检查（从 repo 同步）
 ├── repo/                   nixos-infra 工作树（无 secrets、无 main hardware；
 │                           保留 mini hardware，供 nixosConfigurations.nixos 求值）
@@ -293,7 +307,7 @@ Ventoy 数据分区中的目标布局：
 ```
 
 旧的 `README-ISO.txt` 不再作为操作入口；同步时删除它，或只保留一行
-“打开 START_HERE.txt”。不要在 ISO 里要求用户先读多个 README。
+“运行 START.sh”。不要在 ISO 里要求用户先读多个 README。
 
 `cache/` 由 Arch 上执行 `nix copy --to file://...` 生成，内容是
 `nix flake archive` 给出的四个 `*-source` 路径：
@@ -305,7 +319,7 @@ Ventoy 数据分区中的目标布局：
 /nix/store/1pmshh4a1vizyzhzr1x8rv0cz0lgjhnx-source   flake source
 ```
 
-现场只按 `START_HERE.txt` A2/A3 执行：Ventoy 只读挂载到 `/run/ventoy`，
+现场只按 `START.sh` 菜单 [1] 执行：Ventoy 只读挂载到 `/run/nixos-install/ventoy`，
 repo 复制到 `/root/nixos-infra`。如果该目录已有含 main hardware 的工作树，必须
 保留，不得用 Ventoy 内容覆盖；也不要 `rm -rf` 或 `git add -A` 把 secrets 加入
 Git。A3 会导入全部 cache 并执行离线 metadata。
@@ -425,7 +439,10 @@ sudo tar --numeric-owner --xattrs --acls -C /boot -cpf - . \
 
 如果 tar/gzip 失败，删除未完成的 `$ARCHIVE` 后重做；不要复制半成品归档。
 
-复制到小主机（小主机已可通过 SSH 登录；主机名/用户按实际替换）：
+首选：在 Arch 上执行 `sudo ./START.sh --record-backup`，由脚本完成归档、复制到
+小主机、远端 `sha256sum -c`/`tar -tzf` 校验、当前 ESP 关键文件比对，并写出
+`/var/tmp/esp-backup-record.txt`。只把这个文本记录复制到 Ventoy；不要复制 tar.gz。
+下面是等价的手工步骤，仅用于排障（主机名/用户按实际替换）：
 
 ```bash
 ssh nixos 'umask 077; mkdir -p ~/arch-esp-backups'
@@ -630,7 +647,7 @@ up direct-*`。前者仍可能被 DHCP profile 抢占，需要同时提高 prior
 
 #### 4.3.3 ISO 内的连接流程
 
-ISO 不会继承 Arch/mini 的 NetworkManager profile。按 START_HERE 阶段 B 执行，
+ISO 不会继承 Arch/mini 的 NetworkManager profile。按 `START.sh` 菜单 [2] 执行，
 核心顺序如下：
 
 ```bash
@@ -690,7 +707,7 @@ ISO 是全新 Live 环境，不继承 Arch 的 SSH 私钥或 agent。顺序：
    验证返回 200；能直接下载就不启用代理。
 2. **SSH 隧道 + mini 的 `127.0.0.1:7897`**：只有 ISO 自身无外网、但 mini 的
    代理可用时才使用。隧道命令和 `http_proxy`/`https_proxy` 设置见
-   START_HERE B5；不要改 mihomo 的 `allow-lan`、监听地址或防火墙。
+   `START.sh` 菜单 [2]；不要改 Mihomo 的 `allow-lan`、监听地址或防火墙。
 3. **停止点**：如果 ISO 自身网络和 SSH 隧道都不可用，停止在只读检查，不要
    反复修改网络、关闭防火墙或猜测代理配置。Flake 输入缓存只解决 Flake
    metadata，不等于 9.5 GiB 软件包闭包；没有可用的 substituter 就不能构建/安装。
@@ -1931,10 +1948,11 @@ sudo -u calendar test -r /mnt/arch-home/calendar/life && echo readable
 | `hosts/main/default.nix` | 新增主力机 host 骨架；独立 hostname、UID/GID、只读 Arch home、无 fake hardware |
 | `hosts/main/boot.nix` | limit 3、canTouch false、`efiSysMountPoint=/boot`；`extraInstallCommands` 增加 `/boot` 独立文件系统 guard，再固定 Arch 默认项并自校验 |
 | `flake.nix` | host 工厂函数；`main` 仅在真实 hardware 文件存在时暴露 |
-| `START_HERE.txt` | 唯一现场入口，Graphical 优先，A/B/C/D/E 全流程，379 行 |
+| `START.sh` | 唯一现场入口，交互式菜单 A/B/C/D，每步写盘独立短语确认 |
+| `START_HERE.txt` | 60 行现场速查；详细步骤指向 START.sh/docs |
 | `install-preflight.sh` | 新增；只读检查 ISO/UEFI/main hardware/flake/git/目标挂载和 boot hook，拒绝 `#nixos` 目标 |
 | `docs/ARCH_DUAL_BOOT.md` | 背景、网络复现、hardware 混淆说明、boot hook 上下文和验证结果 |
-| `README.md` | 指向 `START_HERE.txt` 和 preflight，避免多份操作入口 |
+| `README.md` | 指向 `START.sh`、START_HERE 和 preflight，避免多份操作入口 |
 
 小主机 `nixosConfigurations.nixos` 的 boot 选项保持：
 
@@ -1996,7 +2014,7 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
   不含 main hardware。该测试只写 `/tmp`，没有写 `/mnt`，完成后已清理。
 - 已用带 `experimental-features`、TUNA/cache.nixos.org substituters 的 `NIX_CONFIG`
   执行 `nix flake show --offline`，不需要额外 `--extra-experimental-features`；
-  `START_HERE` 的 D5/D7 使用当前 root shell，不再用 `sudo` 清空该环境。
+  `START.sh` 的 D5/D7 使用当前 root shell，不再用 `sudo` 清空该环境。
 - 没有在真实 NixOS 子卷上安装，也没有验证 NixOS 首次启动；
 - 安装时 `hosts/main/hardware-configuration.nix` 仍必须由 ISO 里的
   `nixos-generate-config` 生成。
@@ -2004,7 +2022,7 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
 **待 ISO 验证（不能把 Arch 测试当作 ISO 成功）**：
 
 - [ ] `ID=nixos`、`VERSION_ID=26.05`、`/nix/.ro-store` 为 squashfs；
-- [ ] Ventoy 只读挂载、`START_HERE.txt`/repo/cache 可读；
+- [ ] Ventoy 只读挂载、`START.sh`/START_HERE/repo/cache 可读；
 - [ ] ISO 内自动识别有线口、carrier=1、配置 `10.77.77.1/30`；
 - [ ] ISO 内 ping `10.77.77.2`、SSH 22、主机指纹、密码/密钥认证；
 - [ ] ISO 内 TUNA 下载或 SSH 隧道代理；
@@ -2017,13 +2035,16 @@ Go 必须同时满足：
 - [x] Restic 最新快照存在，`restic check` 通过（`ac6daca1`，2% 抽样无错）；
 - [ ] Restic 密码独立恢复副本可用（本轮只确认 `~/.local/state/restic-arch/password`
   能解锁仓库；**离线/异地副本仍需你自己确认**）；
-- [x] ESP 全量归档已复制到小主机，SHA256 校验通过，且在临时目录解包并比对；
+- [ ] **当前 ESP 的**全量归档已复制到小主机、SHA256 校验通过，且解包比对；
+  旧归档 `arch-esp-20261024-130607.tar.gz` 早于 2026-10-24 21:09 的 linux-lts
+  升级，不能覆盖当前 UKI/内核；必须在 mini 可达时重跑 `--record-backup`；
 - [x] `efibootmgr -v` 和 `bootctl status/list` 已保存；
 - [x] 本机 Graphical/Minimal ISO 都是 26.05，SHA256 已记录（见 3.1）；
 - [x] Ventoy 当前内容已重新核对：Graphical/Minimal ISO 的 SHA256 与本机文件一致；
-  `cache/` 保留；`START_HERE.txt`、preflight、repo 与当前工作树同步；旧
-  `README-ISO.txt` 和两个空垃圾文件已移除（见 18.5）；
-- [x] 仓库内 `START_HERE.txt` 存在，379 行，唯一现场入口；
+  `cache/` 保留；`START.sh`、`START_HERE.txt`、preflight、repo 与当前工作树同步；
+  旧 `README-ISO.txt` 已移除（见 18.5）；**`esp-backup-record.txt` 目前不存在**，
+  必须在真实 mini 校验后生成再复制，不能拿测试记录代替；
+- [x] 仓库内 `START.sh` 存在，`START_HERE.txt` 60 行；现场入口是 START.sh；
 - [x] `install-preflight.sh` 无 main、错误 target、复制 mini hardware、未 git add、
   `--target main` 缺 target mounts 五条路径已实测；安装阶段要求 21LG、NixOS Live
   ISO、完整 `/mnt` 四挂载和原 Arch ESP；
@@ -2037,7 +2058,7 @@ Go 必须同时满足：
   离线求值（需 Phase D 挂载后执行）；
 - [ ] `direct-nixos`/`direct-arch` 的持久 autoconnect/priority 修改已获授权并完成；
 - [ ] 物理拔插网线后两端能自动恢复到 `10.77.77.1/2`（当前 `autoconnect no` 不满足）；
-- [ ] ISO 中直连小主机的网络方案已实测（步骤见 4.3/START_HERE，**尚未在 ISO 内执行**）；
+- [ ] ISO 中直连小主机的网络方案已实测（步骤见 `START.sh` 菜单 [2] 和 4.3，**尚未在 ISO 内执行**）；
 - [ ] ISO 内代理/镜像下载已实测（Arch 侧已验证 TUNA 与 SSH 隧道，**ISO 内仍待验证**）；
 - [ ] 第 5 节设备/子卷/默认子卷确认通过；
 - [ ] 第 6 节三个子卷创建成功，默认子卷仍为 5；
@@ -2102,15 +2123,15 @@ PID 948858/948886 已不存在。本轮全程用 `--no-lock` 读取，**没有�
 
 | 项目 | 结果 |
 | --- | --- |
-| 现场入口 | `START_HERE.txt`，379 行；Graphical ISO 优先；A/B/C/D/E 全流程；D 需逐项授权 |
+| 现场入口 | `START.sh` 交互菜单；`START_HERE.txt` 60 行速查；D 每步需项授权 |
 | 防误检查 | `install-preflight.sh`；默认只读；只接受 `--target main`；无 main 时 exit 10 并输出预期提示 |
 | 网络根因 | 两端 `direct-*` 为 `autoconnect no` 且未激活；同网卡 DHCP profile 会抢占并等待 DHCP；拔插网线不会自动启用直连 |
 | 网络临时验证 | Arch/mini 手动 `nmcli connection up direct-*` 后 10.77.77.1/2 互通、SSH 22 和 ED25519 指纹通过；默认路由仍在 Wi-Fi |
 | 持久网络 | **未修改**；`autoconnect yes` + priority 20 的建议见 4.3.2，等待用户授权 |
 | Hardware 混淆 | 已确认 ISO hostname 也是 nixos；`nixosConfigurations.nixos` 是小主机；main hardware 缺失时只显示 nixos 是预期 |
 | Boot hook | 已核对 ISO 26.05 installer 的 `nixos-enter`/chroot 上下文，并渲染 main fixture 的 `install-systemd-boot.sh`；新增 `/boot` 设备号 guard。真实安装仍待 ISO 验证 |
-| Ventoy 同步 | **已完成（本轮修复后）**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对，两个 NixOS ISO 的 SHA256 与本机文件完全一致；`cache/` 保留；`START_HERE.txt` 379 行、preflight、repo 已同步；`README-ISO.txt`、repo 根目录两个空垃圾文件已移除；最终 SHA256 见交接报告 |
-| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit `fe146b7` + 未提交工作树快照、START_HERE/preflight 哈希 |
+| Ventoy 同步 | **本轮已改为 START.sh 入口**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对；两个 NixOS ISO 的 SHA256 与本机文件一致；`cache/` 保留；`START.sh`、59 行 `START_HERE.txt`、preflight、repo 已同步；`README-ISO.txt` 已移除；最终 SHA256 见 `repo-commit.txt` 和交接报告。**`esp-backup-record.txt` 未同步**：旧记录已过期，必须在 mini 可达时真实执行 `--record-backup` 后再复制文本记录 |
+| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit `9c0a469` + 未提交工作树快照、START.sh/START_HERE/preflight 哈希；`esp-backup-record.txt` 目前不存在 |
 | 禁止操作 | 没有创建/删除子卷、没有格式化、没有挂载安装目标、没有写 ESP/UKI/NVRAM、没有 `nixos-install`、没有重启/GC/Restic 写入 |
 
 Ventoy 同步/复核步骤（已执行一次；以后 U 盘重新挂载时按此复核）：
@@ -2118,10 +2139,11 @@ Ventoy 同步/复核步骤（已执行一次；以后 U 盘重新挂载时按此
 1. 用 `lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS` 确认 exfat 数据分区，不能
    假设 `/dev/sda1`；
 2. 只读核对现有 `nixos-install/`，展示与仓库的差异后再写入；
-3. 复制 `START_HERE.txt`、`install-preflight.sh`、最新 `repo/`；保留
-   `cache/`，除非 `flake.lock` 已变化；repo 必须保留
+3. 复制 `START.sh`、`START_HERE.txt`、`install-preflight.sh`、最新 `repo/`；
+   保留 `cache/`，除非 `flake.lock` 已变化；repo 必须保留
    `hosts/nixos/hardware-configuration.nix`（否则 nixos 无法求值）；
-4. 删除或改成一行指针的旧 `README-ISO.txt`，确保第一眼只看到 `START_HERE.txt`；
+   只复制 `esp-backup-record.txt` 文本记录，不复制 tar.gz；
+4. 删除或改成一行指针的旧 `README-ISO.txt`，确保第一眼只看到 `START.sh`；
 5. 不写入密码、私钥、Restic 凭据、KeePassXC 数据库；不重装 Ventoy、不 `dd`、
    不格式化。
 
@@ -2138,8 +2160,13 @@ diff -rq --exclude .git --exclude result --exclude 'result-*' \
   --exclude secrets --exclude hosts/main/hardware-configuration.nix \
   . "$VNT/nixos-install/repo" | sed -n '1,80p'
 
+install -m 0755 START.sh "$VNT/nixos-install/START.sh"
 install -m 0644 START_HERE.txt "$VNT/nixos-install/START_HERE.txt"
 install -m 0755 install-preflight.sh "$VNT/nixos-install/install-preflight.sh"
+# 只有真实执行过 sudo ./START.sh --record-backup 且 mini 校验通过后，才手动复制：
+#   install -m 0644 /var/tmp/esp-backup-record.txt \
+#     "$VNT/nixos-install/esp-backup-record.txt"
+# 不要把测试/伪造记录复制到 Ventoy；没有记录时 C 阶段会 STOP，这是正确的。
 rsync -a --no-perms --no-owner --no-group --delete --delete-excluded \
   --exclude .git --exclude result --exclude 'result-*' --exclude secrets \
   --exclude hosts/main/hardware-configuration.nix \
