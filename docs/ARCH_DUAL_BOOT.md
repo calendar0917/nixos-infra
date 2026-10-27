@@ -1203,12 +1203,18 @@ cd /mnt/etc/nixos
 nix flake show --offline
 bash ./install-preflight.sh --repo /mnt/etc/nixos --target main
 nix flake check --offline --show-trace
-sudo nixos-rebuild build --flake /mnt/etc/nixos#main
+# Live store = /nix/store；目标 store = /mnt/nix/store。
+# 先复制 Flake 源和全部输入到目标 store，再构建；避免 result 链接进入源归档。
+# B5 的 NIX_CONFIG/代理留在当前 root shell；不要用 sudo 丢掉它们。
+nix flake archive --offline --to 'local?root=/mnt' /mnt/etc/nixos
+nixos-rebuild build --flake /mnt/etc/nixos#main
 ```
 
 预期：
 
 - `/mnt/etc/nixos` 是完整、非敏感、可离线求值的 Flake；
+- Live store 已有 A3 导入的输入；目标 store `/mnt/nix/store` 已由
+  `nix flake archive` 写入 Flake 源和全部输入；两者不能混为一谈；
 - `nix flake show` 出现 `main`，`nixos` 仍然存在；
 - `install-preflight.sh --target main` 必须通过；它要求 LENOVO 21LG、真实 main
   hardware、`/mnt`/`/mnt/home`/`/mnt/nix`/`/mnt/boot` 四项挂载和原 Arch ESP；
@@ -1279,8 +1285,9 @@ systemd-boot 和 `loader.conf` 会被更新。
 ### 11.2 命令
 
 ```bash
-# 只从持久配置安装，确保重启后 /etc/nixos 与安装内容一致
-sudo nixos-install --flake /mnt/etc/nixos#main --no-root-passwd --option substituters \
+# 只从持久配置安装，确保重启后 /etc/nixos 与安装内容一致。
+# 当前已是 root shell；不要加 sudo，否则会清空 B5 的 NIX_CONFIG 和代理变量。
+nixos-install --flake /mnt/etc/nixos#main --no-root-passwd --option substituters \
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/"
 ```
 
@@ -1325,8 +1332,13 @@ sudo cat /mnt/boot/loader/loader.conf
 # NVRAM 没有意外变化
 sudo efibootmgr -v
 
-# Arch UKI 校验和与安装前一致
+# Arch UKI 校验和与安装前 C3 记录一致
 sudo sha256sum /mnt/boot/EFI/Linux/arch-linux-lts.efi
+sudo cat /root/arch-uki.before
+
+# EFI BootOrder 与 C3 记录比较
+sudo cat /root/efi-bootorder.before
+sudo efibootmgr | sed -n 's/^BootOrder: //p'
 ```
 
 预期：
@@ -1335,8 +1347,10 @@ sudo sha256sum /mnt/boot/EFI/Linux/arch-linux-lts.efi
   `preferred`；
 - `/mnt/boot/loader/entries/` 有 `nixos-*.conf`；
 - `/mnt/boot/EFI/nixos/` 有 kernel/initrd；
-- `efibootmgr` 的 BootOrder 仍以 0005 开头，没有新增的 NixOS 项；
-- Arch UKI 的 SHA256 与安装前记录一致；
+- `bootctl list` 同时看到 Arch UKI 和 NixOS；
+- EFI BootOrder 与 C3 的 `/root/efi-bootorder.before` 完全一致，没有无法解释的
+  新增/删除项；
+- Arch UKI 的 SHA256 与 C3 的 `/root/arch-uki.before` 一致；
 - `/mnt/boot/EFI/systemd/systemd-bootx64.efi` 和
   `/mnt/boot/EFI/BOOT/BOOTX64.EFI` 存在（版本可能变成 NixOS 的 262.x）。
 
@@ -1443,7 +1457,10 @@ sudo reboot
 
 ```bash
 cat /proc/cmdline
-findmnt -o TARGET,SOURCE,FSTYPE,OPTIONS / /home /nix /boot /mnt/arch-home
+for p in / /home /nix /boot /mnt/arch-home; do
+  echo "--- $p"
+  findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS "$p" || { echo "STOP: $p 未挂载"; exit 1; }
+done
 sudo btrfs subvolume list -a -p /
 df -hT
 sudo bootctl status
@@ -1529,7 +1546,10 @@ lspci -nnk | grep -A3 -Ei 'vga|3d|display'
 重启，选择 Arch（当前默认项）。进入 Arch 后检查：
 
 ```bash
-findmnt -o TARGET,SOURCE,FSTYPE,OPTIONS / /home /boot
+for p in / /home /boot; do
+  echo "--- $p"
+  findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS "$p" || { echo "STOP: $p 未挂载"; exit 1; }
+done
 sudo btrfs subvolume list -a -p -t /
 sudo btrfs subvolume get-default /
 sudo snapper -c root list | tail
@@ -1911,7 +1931,7 @@ sudo -u calendar test -r /mnt/arch-home/calendar/life && echo readable
 | `hosts/main/default.nix` | 新增主力机 host 骨架；独立 hostname、UID/GID、只读 Arch home、无 fake hardware |
 | `hosts/main/boot.nix` | limit 3、canTouch false、`efiSysMountPoint=/boot`；`extraInstallCommands` 增加 `/boot` 独立文件系统 guard，再固定 Arch 默认项并自校验 |
 | `flake.nix` | host 工厂函数；`main` 仅在真实 hardware 文件存在时暴露 |
-| `START_HERE.txt` | 唯一现场入口，Graphical 优先，A/B/C/D/E 全流程，341 行 |
+| `START_HERE.txt` | 唯一现场入口，Graphical 优先，A/B/C/D/E 全流程，379 行 |
 | `install-preflight.sh` | 新增；只读检查 ISO/UEFI/main hardware/flake/git/目标挂载和 boot hook，拒绝 `#nixos` 目标 |
 | `docs/ARCH_DUAL_BOOT.md` | 背景、网络复现、hardware 混淆说明、boot hook 上下文和验证结果 |
 | `README.md` | 指向 `START_HERE.txt` 和 preflight，避免多份操作入口 |
@@ -1971,6 +1991,12 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
   `bootctl`、`efibootmgr`、`rsync`；A3 的 `git init`、D4 的 generate、D5 的 build、
   D7 的 install 都可在两种 ISO 上执行。Minimal 未找到 GNU `install`，但现场流程
   不需要它；Ventoy 同步在 Arch 上完成。
+- 已用 sanitized `/tmp` 仓库验证 `nix flake archive --offline --to 'local?root=<tmp>'`：
+  目标 store 中出现 Flake 源和三个 input source；归档的 Flake 源不含 `secrets/`、
+  不含 main hardware。该测试只写 `/tmp`，没有写 `/mnt`，完成后已清理。
+- 已用带 `experimental-features`、TUNA/cache.nixos.org substituters 的 `NIX_CONFIG`
+  执行 `nix flake show --offline`，不需要额外 `--extra-experimental-features`；
+  `START_HERE` 的 D5/D7 使用当前 root shell，不再用 `sudo` 清空该环境。
 - 没有在真实 NixOS 子卷上安装，也没有验证 NixOS 首次启动；
 - 安装时 `hosts/main/hardware-configuration.nix` 仍必须由 ISO 里的
   `nixos-generate-config` 生成。
@@ -1997,12 +2023,18 @@ Go 必须同时满足：
 - [x] Ventoy 当前内容已重新核对：Graphical/Minimal ISO 的 SHA256 与本机文件一致；
   `cache/` 保留；`START_HERE.txt`、preflight、repo 与当前工作树同步；旧
   `README-ISO.txt` 和两个空垃圾文件已移除（见 18.5）；
-- [x] 仓库内 `START_HERE.txt` 存在，341 行，唯一现场入口；
+- [x] 仓库内 `START_HERE.txt` 存在，379 行，唯一现场入口；
 - [x] `install-preflight.sh` 无 main、错误 target、复制 mini hardware、未 git add、
   `--target main` 缺 target mounts 五条路径已实测；安装阶段要求 21LG、NixOS Live
   ISO、完整 `/mnt` 四挂载和原 Arch ESP；
 - [x] Arch/mini 两端直连 profile 临时激活后 `10.77.77.1/2` ping、SSH 22、主机指纹
   通过；
+- [x] `NIX_CONFIG`（实验功能 + TUNA/cache.nixos.org）已用 `nix flake show --offline`
+  验证；D5/D7 使用当前 root shell，不再用 `sudo` 丢失环境；
+- [x] sanitized `/tmp` 仓库已用 `nix flake archive --offline --to 'local?root=<tmp>'`
+  验证：目标 store 得到 Flake 源和全部 inputs，归档源不含 `secrets/` 或 main hardware；
+- [ ] 真实 `/mnt/nix/store` 的 `nix flake archive` 和 D10 `nixos-enter` 目标 store
+  离线求值（需 Phase D 挂载后执行）；
 - [ ] `direct-nixos`/`direct-arch` 的持久 autoconnect/priority 修改已获授权并完成；
 - [ ] 物理拔插网线后两端能自动恢复到 `10.77.77.1/2`（当前 `autoconnect no` 不满足）；
 - [ ] ISO 中直连小主机的网络方案已实测（步骤见 4.3/START_HERE，**尚未在 ISO 内执行**）；
@@ -2029,6 +2061,8 @@ No-Go（任一即停）：
 - Secure Boot 意外开启；
 - 构建出的 fstab 含错误 subvol；
 - `install-preflight.sh` 报 FAIL，或目标不是 `main`；
+- D5 的 `nix flake archive` 未写入 `/mnt/nix/store`，或 D10 目标 chroot 不能离线求值；
+- D9 的 Arch UKI SHA256、Arch/NixOS 启动条目或 EFI BootOrder 与 C3 记录不符；
 - Restic/ESP 备份未验证；
 - boot hook 的 `/boot` guard 报错；
 - 用户未授权安装。
@@ -2068,14 +2102,14 @@ PID 948858/948886 已不存在。本轮全程用 `--no-lock` 读取，**没有�
 
 | 项目 | 结果 |
 | --- | --- |
-| 现场入口 | `START_HERE.txt`，341 行；Graphical ISO 优先；A/B/C/D/E 全流程；D 需逐项授权 |
+| 现场入口 | `START_HERE.txt`，379 行；Graphical ISO 优先；A/B/C/D/E 全流程；D 需逐项授权 |
 | 防误检查 | `install-preflight.sh`；默认只读；只接受 `--target main`；无 main 时 exit 10 并输出预期提示 |
 | 网络根因 | 两端 `direct-*` 为 `autoconnect no` 且未激活；同网卡 DHCP profile 会抢占并等待 DHCP；拔插网线不会自动启用直连 |
 | 网络临时验证 | Arch/mini 手动 `nmcli connection up direct-*` 后 10.77.77.1/2 互通、SSH 22 和 ED25519 指纹通过；默认路由仍在 Wi-Fi |
 | 持久网络 | **未修改**；`autoconnect yes` + priority 20 的建议见 4.3.2，等待用户授权 |
 | Hardware 混淆 | 已确认 ISO hostname 也是 nixos；`nixosConfigurations.nixos` 是小主机；main hardware 缺失时只显示 nixos 是预期 |
 | Boot hook | 已核对 ISO 26.05 installer 的 `nixos-enter`/chroot 上下文，并渲染 main fixture 的 `install-systemd-boot.sh`；新增 `/boot` 设备号 guard。真实安装仍待 ISO 验证 |
-| Ventoy 同步 | **已完成（2026-10-27 21:57）**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对，两个 NixOS ISO 的 SHA256 与本机文件完全一致；`cache/` 保留；`START_HERE.txt` 341 行、preflight（SHA256 `00787369…`）、repo 已同步；`README-ISO.txt` 和 repo 根目录两个空垃圾文件已移除 |
+| Ventoy 同步 | **已完成（本轮修复后）**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对，两个 NixOS ISO 的 SHA256 与本机文件完全一致；`cache/` 保留；`START_HERE.txt` 379 行、preflight、repo 已同步；`README-ISO.txt`、repo 根目录两个空垃圾文件已移除；最终 SHA256 见交接报告 |
 | Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit `fe146b7` + 未提交工作树快照、START_HERE/preflight 哈希 |
 | 禁止操作 | 没有创建/删除子卷、没有格式化、没有挂载安装目标、没有写 ESP/UKI/NVRAM、没有 `nixos-install`、没有重启/GC/Restic 写入 |
 

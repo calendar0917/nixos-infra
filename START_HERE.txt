@@ -39,7 +39,7 @@ A2 [root shell] [只读] 只读访问 Ventoy，打开本速查表
     test -f "$VNT/nixos-install/START_HERE.txt" || { echo "STOP: 缺少 START_HERE.txt"; exit 1; }
     test -d "$VNT/nixos-install/repo" || { echo "STOP: 缺少 repo/"; exit 1; }
     test -d "$VNT/nixos-install/cache" || { echo "STOP: 缺少 cache/"; exit 1; }
-    sed -n '1,360p' "$VNT/nixos-install/START_HERE.txt"
+    sed -n '1,420p' "$VNT/nixos-install/START_HERE.txt"
     echo "PASS START_HERE"
     echo "PASS repo"
     echo "PASS cache"
@@ -139,9 +139,13 @@ B5 [root shell] [只读 + Live 临时] 验证 Nix 下载源；不够时再用 SS
       export http_proxy=http://127.0.0.1:17897 https_proxy=http://127.0.0.1:17897
       curl -I --max-time 15 -x "$http_proxy" https://github.com
     仍失败（STOP）：不要反复改网络、allow-lan 或防火墙；回 Arch 准备离线材料。
-    构建/安装前只对当前 shell 设置：
-      export NIX_CONFIG="substituters = https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/
-      trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    构建/安装前只对当前 root shell 设置；D5/D7 不要再用 sudo（当前已是 root），
+    否则 NIX_CONFIG 和代理变量会被 sudo 清空：
+      export NIX_CONFIG="experimental-features = nix-command flakes
+substituters = https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/
+trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    若 B5 使用了 SSH 隧道，http_proxy/https_proxy 也必须在同一个 root shell；
+    D5/D7 直接继承它们，不得用 sudo 重新执行。
 阶段 C：只读安全检查（全部只读；C4 完成后可继续 D）
 C1 [root shell] [只读] 确认主力机，排除小主机和 /mnt 遗留
     cat /sys/class/dmi/id/product_name || true
@@ -177,6 +181,12 @@ C3 [root shell] [只读] 确认 Arch ESP/UKI，并区分 nixos 与 main
     fi
     findmnt -T "$ESP" || { echo "STOP: ESP 未挂载"; exit 1; }
     test -f "$ESP/EFI/Linux/arch-linux-lts.efi" && test -f "$ESP/EFI/Lenovo/BIOS/SelfHealing.fd" || { echo "STOP: Arch UKI/Lenovo 文件缺失"; exit 1; }
+    sha256sum "$ESP/EFI/Linux/arch-linux-lts.efi" | awk '{print $1}' > /root/arch-uki.before || { echo "STOP: 记录 Arch UKI SHA256 失败"; exit 1; }
+    test -s /root/arch-uki.before || { echo "STOP: Arch UKI SHA256 为空"; exit 1; }
+    efibootmgr >/dev/null || { echo "STOP: efibootmgr 读取失败"; exit 1; }
+    efibootmgr | sed -n 's/^BootOrder: //p' > /root/efi-bootorder.before || { echo "STOP: 记录 EFI BootOrder 失败"; exit 1; }
+    test -s /root/efi-bootorder.before || { echo "STOP: EFI BootOrder 为空"; exit 1; }
+    echo "PASS: 已记录 Arch UKI SHA256 和 EFI BootOrder（D9 比较）"
     [ "$ESP" = /run/arch-esp ] && { sudo umount /run/arch-esp || { echo "STOP: ESP 卸载失败"; exit 1; }; }
     cd /root/nixos-infra || { echo "STOP: 工作树不存在"; exit 1; }
     test -f hosts/nixos/hardware-configuration.nix || { echo "STOP: 缺少 mini hardware"; exit 1; }
@@ -204,6 +214,7 @@ D1 [root shell] [只读/授权] 确认备份、电源、授权和 /mnt 干净
     D=$(lsblk -dno NAME,TYPE,RM | awk '$2=="disk" && $3=="0" && $1 !~ /^(zram|loop|sr|ram)/ {print $1; exit}')
     E=$(lsblk -rno UUID,FSTYPE "/dev/$D" | awk '$2=="vfat"{print $1; exit}')
     test -n "$B" -a -n "$E" || { echo "STOP: 找不到 Btrfs/ESP"; exit 1; }
+    test -n "${NIX_CONFIG:-}" || { echo "STOP: NIX_CONFIG 为空；先执行 B5"; exit 1; }
     echo "Only continue D2 after: C4 backup OK, AC power, user explicitly authorized."
     成功条件：/mnt 无挂载，B/E 已确认，用户明确说继续。停止条件：任一不满足。
 D2 [root shell] [写磁盘/需授权] 从 Btrfs 顶层创建三个专属子卷
@@ -260,13 +271,19 @@ D5 [root shell] [写目标/构建/需授权] 保存完整 Flake 到 /mnt/etc/nix
     test ! -e /root/nixos-infra/secrets || { echo "STOP: 源码含 secrets，不能复制"; exit 1; }
     sudo cp -a /root/nixos-infra/. /mnt/etc/nixos/ || { echo "STOP: 持久配置复制失败"; exit 1; }
     sudo rm -rf /mnt/etc/nixos/.git /mnt/etc/nixos/result /mnt/etc/nixos/result-* || true
+    test ! -e /mnt/etc/nixos/secrets || { echo "STOP: /mnt/etc/nixos 含 secrets，不能归档"; exit 1; }
     cd /mnt/etc/nixos
     test -f flake.nix && test -f hosts/main/hardware-configuration.nix || { echo "STOP: 持久 Flake 不完整"; exit 1; }
     nix flake show --offline | grep -q 'main' || { echo "STOP: 持久 Flake 未暴露 main"; exit 1; }
     bash ./install-preflight.sh --repo /mnt/etc/nixos --target main || { echo "STOP: 持久配置 preflight 失败"; exit 1; }
-    sudo nixos-rebuild build --flake /mnt/etc/nixos#main || { echo "STOP: main 构建失败"; exit 1; }
+    # Live store = /nix/store（A3 导入的输入）；目标 store = /mnt/nix/store（新系统）。
+    # 把 /mnt/etc/nixos 的 Flake 源和全部输入显式复制到目标 store，E3 才能离线求值。
+    # 这里不加 sudo：B5 的 NIX_CONFIG/代理必须留在当前 root shell。
+    nix flake archive --offline --to 'local?root=/mnt' /mnt/etc/nixos || { echo "STOP: 离线 Flake 输入未复制到目标 store"; exit 1; }
+    nixos-rebuild build --flake /mnt/etc/nixos#main || { echo "STOP: main 构建失败"; exit 1; }
     成功条件：/mnt/etc/nixos 可离线求值、包含 main、preflight --target main PASS，
-      构建成功。停止条件：secrets、缺文件、求值/检查/构建失败。
+      Live store 求值/构建成功，且 Flake 源与输入已写入 /mnt/nix/store。停止条件：
+      secrets、缺文件、求值/检查/构建失败或目标 store 复制失败。
 D6 [root shell] [只读目标盘] 验证构建的 fstab、boot 配置和 ESP
     grep -Eq 'subvol=/?@nixos([,[:space:]]|$)' result/etc/fstab || { echo "STOP: fstab 根不对"; exit 1; }
     grep -Eq 'subvol=/?@nixos-home([,[:space:]]|$)' result/etc/fstab || { echo "STOP: fstab home 不对"; exit 1; }
@@ -279,7 +296,8 @@ D6 [root shell] [只读目标盘] 验证构建的 fstab、boot 配置和 ESP
     成功条件：fstab 三子卷正确、没有 @、efiSysMountPoint=/boot、ESP 是原 ESP 且
       Arch UKI 仍在、空闲≥300 MiB。停止条件：任一不符，不执行 D7。
 D7 [root shell] [写磁盘/需单独明确授权] 执行安装
-    sudo nixos-install --flake /mnt/etc/nixos#main --no-root-passwd
+    # 不要加 sudo：当前已是 root；sudo 会清空 B5 的 NIX_CONFIG/代理。
+    nixos-install --flake /mnt/etc/nixos#main --no-root-passwd
     成功条件：退出 0；输出包含安装完成；boot hook 打印
       "loader.conf: Arch UKI is the default entry"。停止条件：任何错误、hook 报错、
       看到 /boot 不是目标 ESP；不要重启，不要删除子卷。
@@ -287,20 +305,33 @@ D8 [root shell] [写目标/需授权] 设置 calendar 密码
     sudo nixos-enter --root /mnt -c 'passwd calendar'
     成功条件：两次输入一致并显示 password updated。停止条件：nixos-enter/passwd 失败；
       不要改用复制 Arch 密码或私钥。
-D9 [root shell] [只读] 校验 Arch UKI、NixOS 启动文件、loader.conf 和 EFI 顺序
+D9 [root shell] [只读] 比较 Arch UKI SHA256、启动条目和 EFI BootOrder
     test -f /mnt/boot/EFI/Linux/arch-linux-lts.efi || { echo "STOP: Arch UKI 丢失"; exit 1; }
+    BEFORE_UKI=$(cat /root/arch-uki.before 2>/dev/null || true)
+    AFTER_UKI=$(sha256sum /mnt/boot/EFI/Linux/arch-linux-lts.efi | awk '{print $1}')
+    test -n "$BEFORE_UKI" && test "$BEFORE_UKI" = "$AFTER_UKI" || { echo "STOP: Arch UKI SHA256 安装前后不一致"; exit 1; }
+    echo "PASS: Arch UKI SHA256 unchanged: $AFTER_UKI"
     test "$(grep -c '^default[[:space:]]' /mnt/boot/loader/loader.conf)" -eq 1 || { echo "STOP: loader.conf default 行数异常"; exit 1; }
     grep -qx 'default arch-linux-lts.efi' /mnt/boot/loader/loader.conf || { echo "STOP: 默认不是 Arch UKI"; exit 1; }
     test -n "$(find /mnt/boot/loader/entries -name 'nixos-*.conf' -print -quit)" || { echo "STOP: 没有 NixOS 启动项"; exit 1; }
-    bootctl --esp-path=/mnt/boot list || { echo "STOP: bootctl 读取 ESP 失败"; exit 1; }
-    efibootmgr -v || { echo "STOP: efibootmgr 读取失败"; exit 1; }
-    成功条件：Arch UKI 存在；loader.conf 恰好一个 default 且为 arch-linux-lts.efi；
-      有 NixOS 条目；EFI 启动顺序仍包含原 Linux Boot Manager。停止条件：任一不符；
-      不要用 efibootmgr 改顺序，不要重写 loader.conf。
+    BOOT_LIST=$(bootctl --esp-path=/mnt/boot list) || { echo "STOP: bootctl 读取 ESP 失败"; exit 1; }
+    printf '%s\n' "$BOOT_LIST" | grep -q 'arch-linux-lts.efi' || { echo "STOP: bootctl 未看到 Arch UKI 条目"; exit 1; }
+    printf '%s\n' "$BOOT_LIST" | grep -Eqi 'nixos' || { echo "STOP: bootctl 未看到 NixOS 条目"; exit 1; }
+    BEFORE_ORDER=$(cat /root/efi-bootorder.before 2>/dev/null || true)
+    AFTER_ORDER=$(efibootmgr | sed -n 's/^BootOrder: //p')
+    test -n "$BEFORE_ORDER" && test "$BEFORE_ORDER" = "$AFTER_ORDER" || { echo "STOP: EFI BootOrder 安装前后不一致"; exit 1; }
+    efibootmgr -v | grep -q 'Linux Boot Manager' || { echo "STOP: 原 Linux Boot Manager EFI 项消失"; exit 1; }
+    echo "PASS: EFI BootOrder unchanged: $AFTER_ORDER"
+    成功条件：Arch UKI SHA256 安装前后一致；loader.conf 恰好一个 default 且为
+      arch-linux-lts.efi；bootctl 同时看到 Arch 和 NixOS；EFI BootOrder 与 C3 记录
+      一致且仍有原 Linux Boot Manager。停止条件：任一不符；不要用 efibootmgr 改顺序，
+      不要重写 loader.conf。
 D10 [root shell] [只读/持久化] 确认持久配置，卸载并准备重启
     test -f /mnt/etc/nixos/flake.nix && test -f /mnt/etc/nixos/hosts/main/hardware-configuration.nix || { echo "STOP: /etc/nixos 不完整"; exit 1; }
     test ! -e /mnt/etc/nixos/secrets || { echo "STOP: /etc/nixos 含 secrets"; exit 1; }
-    cd /mnt/etc/nixos && nix flake show --offline | grep -q main || { echo "STOP: /etc/nixos 不可求值"; exit 1; }
+    cd /mnt/etc/nixos && nix flake show --offline | grep -q main || { echo "STOP: 持久源在 Live store 中不可求值"; exit 1; }
+    # 关键：在目标 chroot 内求值，使用 /mnt/nix/store，而不是 Live 的 /nix/store。
+    sudo nixos-enter --root /mnt -c 'cd /etc/nixos && nix flake show --offline' || { echo "STOP: 目标 store 缺少 Flake 输入，E3 将无法离线求值"; exit 1; }
     cd /
     sudo sync
     sudo umount -R /mnt || { echo "STOP: 卸载失败；不要强制"; exit 1; }
@@ -313,7 +344,10 @@ E1 [固件/systemd-boot] 手动选择 NixOS，不要改默认项
     greeter/登录。停止条件：启动失败 -> 回 ISO，按 docs/ARCH_DUAL_BOOT.md 15.6 排障，
     不要删除 @nixos*，不要修改 @/@home。
 E2 [NixOS 内] 检查挂载、用户、sudo 和失败服务
-    findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS / /home /nix /boot /mnt/arch-home
+    for p in / /home /nix /boot /mnt/arch-home; do
+      echo "--- $p"
+      findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS "$p" || { echo "STOP: $p 未挂载"; exit 1; }
+    done
     findmnt -no OPTIONS /mnt/arch-home
     id
     sudo -v
@@ -323,6 +357,7 @@ E2 [NixOS 内] 检查挂载、用户、sudo 和失败服务
       /mnt/arch-home 是 ro；calendar 可登录且 sudo 正常；没有失败服务。停止条件：
       子卷不对、arch-home 可写、sudo 失败、关键服务失败 -> 保留现场，回 ISO 排查。
 E3 [NixOS 内] 确认持久 Flake 可重建
+    # 此时读的是新系统的 /nix/store；D5 的 nix flake archive 已把输入从 Live store 带入。
     ls -l /etc/nixos/flake.nix /etc/nixos/hosts/main/hardware-configuration.nix
     cd /etc/nixos
     nix flake show --offline
@@ -331,7 +366,10 @@ E3 [NixOS 内] 确认持久 Flake 可重建
       不要重新生成 hardware 覆盖现有文件。
 E4 [Arch] 再启动 Arch，确认原有系统正常
     重启并手动选 Arch；检查：
-    findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS / /home /boot
+    for p in / /home /boot; do
+      echo "--- $p"
+      findmnt -no TARGET,SOURCE,FSTYPE,OPTIONS "$p" || { echo "STOP: $p 未挂载"; exit 1; }
+    done
     test -f /boot/EFI/Linux/arch-linux-lts.efi && echo "PASS Arch UKI"
     grep '^default' /boot/loader/loader.conf
     成功条件：Arch 正常启动，/、/home 仍是 @/@home，Arch UKI 仍在，默认仍是 Arch。
