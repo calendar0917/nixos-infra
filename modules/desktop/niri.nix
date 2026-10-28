@@ -52,8 +52,10 @@ in
     # its unit to niri.service keeps it out of Sway and Plasma sessions.
     #
     # main selects shell = "waybar", which disables this block entirely. Do
-    # not delete the DMS configuration: the mini host still uses it.
-    programs.dms-shell = lib.mkIf useDms {
+    # not delete the DMS configuration: the mini host still uses it. Current
+    # nixpkgs renamed the module to programs.dux-shell, but the installed CLI,
+    # dms.service and config-dms.kdl names remain unchanged.
+    programs.dux-shell = lib.mkIf useDms {
       enable = true;
       systemd = {
         enable = true;

@@ -96,7 +96,8 @@ SDDM 的 greeter 刻意运行在 X11 后端
 1. `Mod+E` 打开 Nautilus；`inode/directory` 的默认应用是
    `org.gnome.Nautilus.desktop`。
 2. Fish 中运行 `y`，退出后当前目录变成 Yazi 最后选中的目录。
-3. niri 中只有 DMS 的通知服务；Sway 中才有 Waybar 和 Mako。
+3. main 的 niri 使用 Waybar + SwayNC；小主机的 niri 使用 DMS；Sway 使用
+   Waybar + Mako。三套 shell 不应在同一个会话里混跑。
 4. Fcitx5 能在 niri 和 Sway 中输入中文。
 5. Clash Verge GUI 能启动、能导入订阅；TUN 接口和防火墙规则见第 4 节。
 6. Restic 在填入真实 USB UUID 前保持关闭；启用前按第 6 节做完整演练。
@@ -162,13 +163,15 @@ sudo nix-collect-garbage --delete-older-than 30d
 
 | 会话 | 应运行 | 不应运行 |
 | --- | --- | --- |
-| niri | DMS、Fcitx5 | Mako、Waybar |
+| main 的 niri | Waybar、SwayNC、nm-applet、Fcitx5 | DMS、Mako |
+| 小主机的 niri | DMS、Fcitx5 | Mako、Waybar |
 | Sway | Waybar、Mako、Fcitx5 | DMS |
 
-DMS 的 systemd 单元由 `programs.dms-shell.systemd.target = "niri.service"` 绑定，
-并且额外设置了 `partOf = [ "niri.service" ]`。Mako 由 Sway 配置启动；它的 D-Bus
-激活文件在 Sway 之外被替换为带 `SWAYSOCK`/`WAYLAND_DISPLAY` 检查的守卫，避免在
-niri 里被通知请求自动拉起。Waybar 只出现在 `config/sway/config`。
+小主机的 DMS 单元由 `programs.dms-shell.systemd.target = "niri.service"` 绑定，
+并且额外设置了 `partOf = [ "niri.service" ]`。main 的 Waybar/SwayNC 由
+`home/calendar/desktop/shell.nix` 的 niri user units 启动。Mako 由 Sway 配置启动；
+它的 D-Bus 激活文件在 Sway 之外被替换为带 `SWAYSOCK`/`WAYLAND_DISPLAY` 检查的
+守卫，避免在 niri 里被通知请求自动拉起。
 
 检查（Mako 由 Sway 直接启动，不是 systemd 用户服务）：
 
@@ -322,7 +325,7 @@ MagicDNS 与 systemd-resolved/Clash DNS 争抢，也避免 subnet router 改写 
 Arch 与小主机之间的有线直连不是“插线即通”：两端 `direct-nixos`/`direct-arch`
 目前是 `autoconnect no`，同一网卡的自动 DHCP profile 还会抢占接口并等待 DHCP。
 2026-10-27 的复现、临时恢复、持久修复建议（需授权）和 ISO 内流程见
-`docs/ARCH_DUAL_BOOT.md` 4.3。ISO 现场只按 `START_HERE.txt` 阶段 B 执行，不要
+`docs/install/ARCH_DUAL_BOOT.md` 4.3。ISO 现场只按 `START_HERE.txt` 阶段 B 执行，不要
 把代理问题当成链路问题，也不要为了连通而关闭防火墙或开放 mihomo 的局域网监听。
 
 ## 5. age / SOPS 密钥恢复

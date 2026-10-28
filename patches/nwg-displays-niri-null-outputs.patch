@@ -1,0 +1,73 @@
+--- a/nwg_displays/tools.py
++++ b/nwg_displays/tools.py
+@@ -135,7 +135,7 @@
+             monitors_dict = None
+             if isinstance(data, dict):
+                 if "Ok" in data:
+-                    monitors_dict = data.get("Outputs", {})
++                    monitors_dict = data.get("Ok", {}).get("Outputs", {})
+                 elif "Err" in data:
+                     eprint(f"[niri] Error from compositor: {data['Err']}")
+                     return {}
+@@ -154,11 +154,27 @@
+             
+             for name, mon in monitors_dict.items():
+                 # Get current mode info
+-                current_mode_idx = mon.get("current_mode", 0)
+-                modes_list = mon.get("modes", [])
+-                current_mode = modes_list[current_mode_idx] if modes_list and current_mode_idx < len(modes_list) else {}
+-                
+-                logical = mon.get("logical", {})
++                current_mode_idx = mon.get("current_mode")
++                modes_list = mon.get("modes") or []
++                if not modes_list:
++                    eprint(f"[niri] Skipping output {name}: no available modes")
++                    continue
++                valid_current_mode = (
++                    isinstance(current_mode_idx, int)
++                    and not isinstance(current_mode_idx, bool)
++                    and 0 <= current_mode_idx < len(modes_list)
++                )
++                logical = mon.get("logical")
++                active = valid_current_mode and isinstance(logical, dict)
++                current_mode = (
++                    modes_list[current_mode_idx]
++                    if valid_current_mode
++                    else next(
++                        (mode for mode in modes_list if mode.get("is_preferred")),
++                        modes_list[0],
++                    )
++                )
++                logical = logical if isinstance(logical, dict) else {}
+                 
+                 # Store raw make/model for accurate matching (not just description)
+                 raw_make = mon.get("make", "")
+@@ -170,8 +186,8 @@
+                 description = f'{raw_make} {raw_model} {raw_serial or ""}'.strip()
+                 
+                 outputs_dict[name] = {
+-                    "active": True,  # If it's in the list, it's active
+-                    "dpms": True,
++                    "active": active,
++                    "dpms": active,
+                     "description": description,
+                     "x": int(logical.get("x", 0)),
+                     "y": int(logical.get("y", 0)),
+@@ -348,7 +364,7 @@
+     # For niri, we use property-based matching to avoid order issues after config reload.
+     monitors = []
+     display = Gdk.Display.get_default()
+-    for i in range(display.get_n_monitors()):
++    for i in range(display.get_n_monitors() if display else 0):
+         monitor = display.get_monitor(i)
+         monitors.append(monitor)
+ 
+@@ -356,7 +372,7 @@
+         # Niri: Use position-based matching with Gdk.Monitor geometry
+         # This ensures correct matching even when multiple monitors have identical properties
+         for key in outputs_dict:
+-            if key in outputs_dict:
++            if outputs_dict[key]["active"]:
+                 data = outputs_dict[key]
+                 output_x = data.get("x", 0)
+                 output_y = data.get("y", 0)

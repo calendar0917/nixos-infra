@@ -1485,7 +1485,7 @@ installation_guard() {
   partial=$(install_partial_state)
   if [ "$partial" = "yes" ]; then
     warn "检测到已有现场状态（子卷/@mnt/配置之一）；不会删除或重建"
-    say "这是重复运行或部分安装。先查看菜单 [5]，必要时按 docs/ARCH_DUAL_BOOT.md 15.8 检查。"
+    say "这是重复运行或部分安装。先查看菜单 [5]，必要时按 docs/install/ARCH_DUAL_BOOT.md 15.8 检查。"
     confirm_phrase "CONTINUE-PARTIAL" "在已有现场状态上继续（不删除任何现有数据）" || return 1
   fi
   return 0
@@ -1525,7 +1525,7 @@ d2_subvolumes() {
   fi
   if [ "$count" -gt 0 ]; then
     stop "只存在 $count/3 个 @nixos* 子卷：部分创建现场，不能自动补齐"
-    say "请保留现场并按 docs/ARCH_DUAL_BOOT.md 15.8 人工检查。"
+    say "请保留现场并按 docs/install/ARCH_DUAL_BOOT.md 15.8 人工检查。"
     umount "$top"; return 1
   fi
   if [ "$def_before" != "5" ]; then
@@ -1855,7 +1855,7 @@ d10_finalize() {
   say ""
   say "现在可以手动重启（脚本不会自动重启）。"
   say "重启后：systemd-boot 默认仍是 Arch；请手动选择 NixOS 做首次启动验收。"
-  say "首次启动后按 docs/ARCH_DUAL_BOOT.md 阶段 E 检查，再回到 Arch 验收。"
+  say "首次启动后按 docs/install/ARCH_DUAL_BOOT.md 阶段 E 检查，再回到 Arch 验收。"
   return 0
 }
 
@@ -2004,7 +2004,7 @@ stage_recovery() {
    不要把 tar.gz 归档放到 Ventoy；不要跳过备份检查。
 
 5. D 阶段部分完成（子卷/挂载/配置已存在）：
-   助手不会删除或重建。先看菜单 [5]，再按 docs/ARCH_DUAL_BOOT.md 15.8
+   助手不会删除或重建。先看菜单 [5]，再按 docs/install/ARCH_DUAL_BOOT.md 15.8
    只读检查 @nixos/@nixos-home/@nixos-nix、/mnt 挂载和 /mnt/etc/nixos。
    需要卸载时人工执行：
      findmnt -R /mnt

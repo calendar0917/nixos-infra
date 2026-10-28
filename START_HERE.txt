@@ -1,7 +1,7 @@
 NixOS 26.05 双系统安装：唯一现场入口（Arch 主力机 LENOVO 21LG）
 适用：给现有 Arch/Btrfs 机器新增 NixOS；Arch 的 @、@home、@log、@pkg 必须保留。
 禁止 Calamares 自动分区，禁止安装 #nixos（那是小主机），禁止把 mini hardware 复制给 main。
-现场只执行本目录的 START.sh；详细背景、排障和回退见 docs/ARCH_DUAL_BOOT.md。
+现场只执行本目录的 START.sh；详细背景、排障和回退见 docs/install/ARCH_DUAL_BOOT.md。
 【0. 先认机器，不看 hostname】
   main = LENOVO 21LG / ThinkBook 16 G6+ AHP / UMIS 953.9G NVMe
   mini = KOLOE ITX-FP5 / KingFast 238.5G（只作备份校验，不是安装目标）
@@ -55,5 +55,5 @@ NixOS 26.05 双系统安装：唯一现场入口（Arch 主力机 LENOVO 21LG）
 
 【7. 重启后】
   默认启动项仍是 Arch；在 systemd-boot 手动选 NixOS 做首次验收，再回 Arch 确认
-  原系统正常。阶段 E 的检查见 docs/ARCH_DUAL_BOOT.md。
+  原系统正常。阶段 E 的检查见 docs/install/ARCH_DUAL_BOOT.md。
   随时可用：bash START.sh --status（只读）、--cleanup（停 Mihomo/清理）、--help。

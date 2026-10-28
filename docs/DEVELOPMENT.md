@@ -316,8 +316,9 @@ virtualisation.podman = {
   Nix store 和 uv/pnpm cache 分担。
 - 目前没有启用 zram、自动 GC 仍由主机配置控制；不要为了腾空间删除最后一个
   可用 generation 或备份盘数据。
-- 远程工作优先 SSH + tmux；需要图形时再登录 niri/Sway。DMS/Waybar 的取舍和
-  显示器管理仍是独立的桌面任务，不与开发环境耦合。
+- 远程工作优先 SSH + tmux；需要图形时再登录 niri/Sway。main 的 niri 使用
+  Waybar，小主机的 niri 使用 DMS；显示器管理仍是独立的桌面任务，不与开发环境
+  耦合。
 
 ## 9. 在 Arch 与 NixOS 之间共享
 
