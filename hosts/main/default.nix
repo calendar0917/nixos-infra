@@ -46,6 +46,12 @@
   # this on main only; the mini host's DMS/font setup is unchanged.
   fonts.packages = [ pkgs.nerd-fonts.symbols-only ];
 
+  # Standard power profiles only: power-profiles-daemon manages the CPU
+  # platform profile. TLP and auto-cpufreq are not enabled and would conflict
+  # with this service. The daemon starts at balanced and persists later manual
+  # choices; there is no per-login or AC/battery switching script here.
+  services.power-profiles-daemon.enable = true;
+
   # Bluetooth is a main-laptop feature. PipeWire/WirePlumber remain the only
   # audio stack; blueman is the graphical device manager opened from Waybar.
   hardware.bluetooth.enable = true;

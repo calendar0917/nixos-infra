@@ -34,6 +34,28 @@ journalctl --user -u waybar.service -b --no-pager
 - 托盘中的 nm-applet、Blueman、Fcitx5 代理功能必须保留；不要靠杀进程减少图标。
 - Sway 仍读取自己的 `config/sway/config`、Waybar 配置和 Mako，不加载 niri 样式。
 
+### 滚轮、亮度与电源
+
+- `niri/workspaces` 启用原生 `enable-bar-scroll`；栏的普通区域上滚/下滚切换工作区，
+  niri 在首尾停止、不循环。音量与亮度模块自身也会截获滚轮，因此它们的
+  `on-scroll-*` 被显式映射到同一 niri 动作，避免一次滚动同时改音量/亮度并切工作区。
+  音量仍用媒体键或点击打开 `pavucontrol`。
+- 亮度标签使用原生 `backlight`，点击展开 group 内的原生 `backlight/slider`，最小
+  5%；滑条保留拖动和点击交互。固定 Waybar 构建已开启 `-Dlogin-proxy=true`，否则
+  滑条只能读不能写。内屏设备由实机只读探测为 `amdgpu_bl1`；按键仍由
+  `brightnessctl` 按实际最大值计算 5% 下限。
+- 仅 main 启用 `services.power-profiles-daemon`，Waybar 使用原生模块；左键循环
+  实际可用档位，tooltip 显示名称与驱动。首次是 `balanced`，之后由 PPD 保存手动
+  选择，登录/插拔电源不强制覆盖。
+- 电池模块每 10 秒读取原生 `{power}`，只在放电格式显示电池侧功率；充电、插电、
+  满电使用文字状态，不把充电功率标成整机耗电。`power_now` 不可用的硬件不应照搬
+  该字段。
+
+同亮度、同负载比较档位时，分别用同一命令/构建在放电状态运行，记录
+`powerprofilesctl get`、Waybar 电池功率和 `time` 结果并重复一次。读数是电池侧
+功率，不是墙插整机功率。全栏滚动、滑条拖动、托盘滚动传播、档位切换和放电功率
+仍需应用 generation 后实机验收。
+
 ## 3. `monitor.kdl` 与 nwg-displays
 
 `config/niri/config.kdl` 只读，并 `include "monitor.kdl"`。Home Manager 只在

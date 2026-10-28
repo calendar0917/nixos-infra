@@ -127,6 +127,52 @@ window#waybar {
   color: @text;
 }
 
+#power-profiles-daemon,
+#backlight {
+  min-width: 22px;
+  padding: 0 6px;
+  color: @text;
+}
+
+#power-profiles-daemon.performance {
+  color: @yellow;
+}
+
+#power-profiles-daemon.power-saver {
+  color: @green;
+}
+
+#backlight {
+  min-width: 52px;
+}
+
+/* Native backlight slider, revealed by clicking the brightness label. */
+#backlight-slider {
+  min-width: 64px;
+  padding: 0 4px;
+}
+
+#backlight-slider trough {
+  min-height: 6px;
+  border-radius: 3px;
+  background: @surface1;
+}
+
+#backlight-slider highlight {
+  min-height: 6px;
+  border-radius: 3px;
+  background: @accent;
+}
+
+#backlight-slider slider {
+  min-width: 8px;
+  min-height: 8px;
+  margin: -3px 0;
+  background: @text;
+  border: none;
+  box-shadow: none;
+}
+
 #pulseaudio,
 #network,
 #bluetooth,
@@ -180,6 +226,7 @@ window#waybar {
 }
 
 #battery {
+  min-width: 108px;
   color: @text;
 }
 
