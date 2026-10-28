@@ -2033,17 +2033,17 @@ nix build --no-link '.#nixosConfigurations.nixos.config.system.build.toplevel'
 Go 必须同时满足：
 
 - [x] Restic 最新快照存在，`restic check` 通过（`ac6daca1`，2% 抽样无错）；
-- [ ] Restic 密码独立恢复副本可用（本轮只确认 `~/.local/state/restic-arch/password`
-  能解锁仓库；**离线/异地副本仍需你自己确认**）；
-- [ ] **当前 ESP 的**全量归档已复制到小主机、SHA256 校验通过，且解包比对；
-  旧归档 `arch-esp-20261024-130607.tar.gz` 早于 2026-10-24 21:09 的 linux-lts
-  升级，不能覆盖当前 UKI/内核；必须在 mini 可达时重跑 `--record-backup`；
+- [x] Restic 密码独立恢复副本可用（用户已确认，2026-10-28；副本不在 Ventoy）；
+- [x] **当前 ESP 的**全量归档已复制到小主机、SHA256 校验通过，且当前关键文件比对：
+  `arch-esp-20261028-083015.tar.gz`，SHA256
+  `c8b3a65f4f324050832ade595b3be64d0378093e84a552a8de655130d6be09fd`；
+  双系统安装前仍应避免在 mini 上删除它；
 - [x] `efibootmgr -v` 和 `bootctl status/list` 已保存；
 - [x] 本机 Graphical/Minimal ISO 都是 26.05，SHA256 已记录（见 3.1）；
 - [x] Ventoy 当前内容已重新核对：Graphical/Minimal ISO 的 SHA256 与本机文件一致；
   `cache/` 保留；`START.sh`、`START_HERE.txt`、preflight、repo 与当前工作树同步；
-  旧 `README-ISO.txt` 已移除（见 18.5）；**`esp-backup-record.txt` 目前不存在**，
-  必须在真实 mini 校验后生成再复制，不能拿测试记录代替；
+  旧 `README-ISO.txt` 已移除（见 18.5）；`esp-backup-record.txt` 已由真实
+  `--record-backup --backup-host nixos` 生成并复制，测试记录从未放入 Ventoy；
 - [x] 仓库内 `START.sh` 存在，`START_HERE.txt` 60 行；现场入口是 START.sh；
 - [x] `install-preflight.sh` 无 main、错误 target、复制 mini hardware、未 git add、
   `--target main` 缺 target mounts 五条路径已实测；安装阶段要求 21LG、NixOS Live
@@ -2130,8 +2130,8 @@ PID 948858/948886 已不存在。本轮全程用 `--no-lock` 读取，**没有�
 | 持久网络 | **未修改**；`autoconnect yes` + priority 20 的建议见 4.3.2，等待用户授权 |
 | Hardware 混淆 | 已确认 ISO hostname 也是 nixos；`nixosConfigurations.nixos` 是小主机；main hardware 缺失时只显示 nixos 是预期 |
 | Boot hook | 已核对 ISO 26.05 installer 的 `nixos-enter`/chroot 上下文，并渲染 main fixture 的 `install-systemd-boot.sh`；新增 `/boot` 设备号 guard。真实安装仍待 ISO 验证 |
-| Ventoy 同步 | **本轮已改为 START.sh 入口**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对；两个 NixOS ISO 的 SHA256 与本机文件一致；`cache/` 保留；`START.sh`、59 行 `START_HERE.txt`、preflight、repo 已同步；`README-ISO.txt` 已移除；最终 SHA256 见 `repo-commit.txt` 和交接报告。**`esp-backup-record.txt` 未同步**：旧记录已过期，必须在 mini 可达时真实执行 `--record-backup` 后再复制文本记录 |
-| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录 base commit `9c0a469` + 未提交工作树快照、START.sh/START_HERE/preflight 哈希；`esp-backup-record.txt` 目前不存在 |
+| Ventoy 同步 | **本轮已改为 START.sh 入口**：只读挂载 `/dev/disk/by-label/Ventoy` 后核对；两个 NixOS ISO 的 SHA256 与本机文件一致；`cache/` 保留；`START.sh`、59 行 `START_HERE.txt`、preflight、repo 已同步；`README-ISO.txt` 已移除；最终 SHA256 见 `repo-commit.txt` 和交接报告。`esp-backup-record.txt` 已由真实 `--record-backup --backup-host nixos` 生成并复制；只复制文本记录，没有复制 tar.gz |
+| Ventoy 内容 | `nixos-install/repo` 含 mini hardware（`nixosConfigurations.nixos` 求值需要），不含 `secrets/`、不含 `hosts/main/hardware-configuration.nix`；`repo-commit.txt` 记录当前 main 提交、START.sh/START_HERE/preflight 哈希；`esp-backup-record.txt` 已存在且对应 `arch-esp-20261028-083015.tar.gz` |
 | 禁止操作 | 没有创建/删除子卷、没有格式化、没有挂载安装目标、没有写 ESP/UKI/NVRAM、没有 `nixos-install`、没有重启/GC/Restic 写入 |
 
 Ventoy 同步/复核步骤（已执行一次；以后 U 盘重新挂载时按此复核）：
