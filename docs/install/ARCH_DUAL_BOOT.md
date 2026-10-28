@@ -1,5 +1,10 @@
 # Arch 主力机 NixOS 双系统安装手册
 
+> 历史安装记录：下文“main 还不能求值”“hardware 文件尚不存在”等描述对应安装前
+> 状态。当前 `hosts/main/hardware-configuration.nix` 已存在，`main` 已直接出现在
+> `nixosConfigurations` 中；日常桌面、锁屏和蓝牙行为以 README 和
+> [`docs/DESKTOP.md`](../DESKTOP.md) 为准。
+>
 > **现场唯一入口：仓库根目录的 `START.sh`，以及 Ventoy 上的
 > `<VENTOY>/nixos-install/START.sh`。**
 > `START_HERE.txt` 只是 60 行速查；进入 ISO 后运行 `START.sh`，按菜单 A/B/C/D
@@ -1951,7 +1956,7 @@ sudo -u calendar test -r /mnt/arch-home/calendar/life && echo readable
 | `START.sh` | 唯一现场入口，交互式菜单 A/B/C/D，每步写盘独立短语确认 |
 | `START_HERE.txt` | 60 行现场速查；详细步骤指向 START.sh/docs |
 | `install-preflight.sh` | 新增；只读检查 ISO/UEFI/main hardware/flake/git/目标挂载和 boot hook，拒绝 `#nixos` 目标 |
-| `docs/ARCH_DUAL_BOOT.md` | 背景、网络复现、hardware 混淆说明、boot hook 上下文和验证结果 |
+| `docs/install/ARCH_DUAL_BOOT.md` | 背景、网络复现、hardware 混淆说明、boot hook 上下文和验证结果 |
 | `README.md` | 指向 `START.sh`、START_HERE 和 preflight，避免多份操作入口 |
 
 小主机 `nixosConfigurations.nixos` 的 boot 选项保持：
@@ -2202,6 +2207,6 @@ Arch 上重新生成 cache。
 ## 20. 相关文档
 
 - `docs/RECOVERY.md`：安装、TTY/桌面恢复、网络、SOPS、Restic 演练。
-- `docs/MIGRATION.md`：稳定性收尾、密钥/备份清单、Arch 迁移边界。
+- `docs/install/MIGRATION.md`：稳定性收尾、密钥/备份清单、Arch 迁移边界。
 - `docs/DEVELOPMENT.md`：devShell、tmux、容器评估。
 - `README.md`：日常构建、更新、回滚和远程登录。
