@@ -89,7 +89,32 @@ in
       };
     };
 
-    home.packages = [ niriLib.niriLock ];
+    home.packages = [
+      niriLib.niriLock
+      niriLib.niriLockWait
+    ];
+
+    # Main uses logind's real LockedHint. There is no automatic idle timeout
+    # here: this only covers manual lock and the logind sleep path. `-w` makes
+    # swayidle hold the logind delay inhibitor until before-sleep finishes.
+    services.swayidle = {
+      enable = true;
+      systemdTargets = [ "niri.service" ];
+      extraArgs = [ "-w" ];
+      events = {
+        before-sleep = "${niriLib.niriLockWait}/bin/niri-lock-wait";
+        lock = "${niriLib.niriLock}/bin/niri-lock";
+      };
+    };
+
+    # Home Manager already binds swayidle to niri.service and requires
+    # WAYLAND_DISPLAY. Add the same BindsTo/transition guard as the other niri
+    # helpers so a session that is still running DMS cannot start a second
+    # sleep handler.
+    systemd.user.services.swayidle = {
+      Unit.BindsTo = [ "niri.service" ];
+      Service.ExecCondition = niriLib.noDmsGuard;
+    };
 
     # Manual lock only: no WantedBy/Install and no Restart. A second start
     # while the unit is active is handled by systemd, so the key binding does

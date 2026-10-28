@@ -13,6 +13,7 @@
     ./desktop/niri.nix
     ./desktop/clipboard.nix
     ./desktop/lock.nix
+    ./desktop/power.nix
     ./desktop/shell.nix
     ./desktop/sway.nix
     ./desktop/waybar/sway.nix
