@@ -8,8 +8,8 @@ NixOS 集成的 Home Manager。仓库同时管理两台机器；日常桌面以 
 
 | 主机 | 角色 | niri shell | 其他桌面 | 特殊硬件/功能 |
 | --- | --- | --- | --- | --- |
-| `main` | LENOVO 21LG 笔记本，Arch/NixOS 双系统 | Waybar（Catppuccin Mocha） | Sway 备用，Plasma 关闭 | 电池、蓝牙、Hyprlock、nwg-displays 多屏 |
-| `nixos` | KOLOE 小主机，SSH/轻量容器节点 | DMS | Sway 备用，Plasma 关闭 | 无电池、无蓝牙锁屏作用域 |
+| `main` | LENOVO 21LG 笔记本，Arch/NixOS 双系统 | Waybar（Catppuccin Mocha） | Sway 备用，Plasma 关闭 | 电池、蓝牙、Hyprlock、nwg-displays 多屏、主力应用 |
+| `nixos` | KOLOE 小主机，SSH/轻量容器节点 | DMS | Sway 备用，Plasma 关闭 | 无电池、无蓝牙锁屏作用域，不装 Office/会议/OBS |
 
 两个配置都由 `flake.nix` 直接暴露：
 
@@ -31,7 +31,11 @@ nix eval --raw .#nixosConfigurations.nixos.config.system.build.toplevel.drvPath
 | CPU / 内存 Waybar 模块 | 常驻 | 不启动 Waybar |
 | 蓝牙 (BlueZ + Blueman) | 是 | 否 |
 | Hyprlock 手动锁屏 | 是，`Alt+L` / power menu | 否，DMS 自己的锁屏 |
-| kitty 半透明 Catppuccin | 是 | 否，保持原样 |
+| 挂起前等待锁屏就绪 | 是，`swayidle -w` + logind LockedHint | 否 |
+| 电源菜单 | 是，`Alt+Shift+L`，`niri-power-menu` | 否 |
+| kitty 完整 Catppuccin Mocha/半透明 | 是 | 否，保持原样 |
+| Helix 默认编辑器 | 是，`hx` | 是，`hx` |
+| Obsidian/腾讯会议/QQ/微信/ONLYOFFICE/OBS | 是，仅 `main` | 否 |
 | nwg-displays niri null-output 补丁 | 是 | 否，DMS 不需要 |
 
 共享文件中的改动必须在两台机器上求值和构建；小主机的 shell、DMS 配置和快捷键
@@ -45,15 +49,19 @@ hosts/main/                         # 笔记本 host、Waybar 覆盖、nwg 补�
 hosts/nixos/                        # 小主机 host
 modules/                            # NixOS 基础、网络、备份、桌面模块
 home/calendar/                      # Home Manager：shell、终端、编辑器、桌面
+  apps.nix                          # main-only 应用、OBS 和 MIME 默认程序
+  helix.nix                         # Helix 配置、主题和语言服务器
   desktop/shell.nix                 # 面板/通知/壁纸/网络 applet 生命周期
+  desktop/power.nix                  # 电源菜单、布局计算和 wlogout 样式
   desktop/clipboard.nix             # cliphist 服务和 helper
-  desktop/lock.nix                  # Hyprlock 配置、手动锁屏 unit、niri-lock
+  desktop/lock.nix                  # Hyprlock、锁屏等待和 swayidle 睡眠钩子
   desktop/waybar/                   # Sway 与 niri 两套 profile
 config/niri/                        # 两套只读 niri KDL
 config/waybar/                      # Sway 样式 + niri Catppuccin 样式
 patches/                            # nwg-displays 本地补丁
 tests/                              # 无 GUI 的 Python 回归检查
 docs/DESKTOP.md                     # 桌面组件、显示器、蓝牙、锁屏和实机验收
+docs/APPS.md                        # 主力机应用、默认打开方式和 OBS
 docs/install/                       # 双系统安装和历史迁移记录
 ```
 
@@ -114,6 +122,15 @@ nix-env -p /nix/var/nix/profiles/system --list-generations
 generation，直到至少一次成功重启和回滚验证完成。不要用删除 generation 的方式
 腾空间。
 
+## 分支与部署
+
+Git 的 `main` 分支和 flake 的 `#main` 主机是两件事：前者是代码分支，后者是
+`nixosConfigurations.main` 这台笔记本。应用命令中的 `.#main` 指主机名，不是
+Git 分支名。小主机对应 `.#nixos`。
+
+当前工作流是功能分支 `daily-desktop-polish` 完成后创建 PR，通过检查再合入
+Git `main`；不在功能分支上直接长期部署。系统切换、重启和挂起仍由用户主动执行。
+
 ## 当前桌面行为
 
 ### main：niri + Waybar
@@ -122,24 +139,38 @@ generation，直到至少一次成功重启和回滚验证完成。不要用删�
   DMS 不启动。所有 unit 都 `PartOf`/`BindsTo`/`After` niri.service，并保留 no-DMS
   过渡守卫。Waybar 没有第二个 systemd unit，也没有 XDG autostart。
 - 布局：左侧 `custom/launcher` + `niri/workspaces`（含每个工作区的真实应用图标和
-  点击行为）；中间 `custom/clock`；右侧依次 CPU、RAM、合并网速、音量、网络状态、
-  蓝牙、电池、通知、托盘。
+  点击行为）+ `network#traffic`；中间 `custom/clock`；右侧依次 CPU、RAM、音量、
+  网络状态、蓝牙、电池、通知、`group/tray`。
 - CPU 每 3 秒显示 `CPU {usage}%`，内存每 5 秒显示 `RAM {percentage}%`，二者固定
   宽度并常驻；点击打开 `kitty -e btop`，tooltip 显示原生负载或内存用量。
-- 网速使用一个原生 `network#traffic`，每 2 秒更新；网络状态图标常驻，SSID/IP/
-  信号放在 tooltip，避免长 SSID 挤压时钟。
-- 样式为 Catppuccin Mocha、蓝色强调：透明 bar、三个半透明圆角区域、单色模块；
-  红色/黄色只用于断网、静音、蓝牙关闭、低电量等状态。
+- 网速使用一个原生 `network#traffic`，每 2 秒更新，放在工作区右侧并用次要色；
+  网络状态图标常驻，SSID/IP/信号放在 tooltip，避免长 SSID 挤压时钟。
+- 样式为 Catppuccin Mocha、蓝色强调：整条底栏使用连续的
+  `rgba(30,30,46,0.94)` 背景、1px 蓝色细边框和 10px 圆角，左右/中间区域不再各自
+  画胶囊；CPU/RAM 固定宽度，红色/黄色只用于断网、静音、蓝牙关闭、低电量等状态。
+- 托盘使用 Waybar 原生 `group/tray` drawer：默认只显示 `⋯`，悬停展开真实图标，
+  点击应用图标仍可操作；没有杀掉 nm-applet、Blueman 或 Fcitx5 的进程。
 - 时钟每 30 秒更新，格式 `%m月%d日 %a %H:%M`，中文 `LC_TIME`；tooltip 只有到分钟
   的时间，不显示每秒变化的秒数。
 - 蓝牙：BlueZ 开机上电，Blueman 管理设备；Waybar 原生 bluetooth 模块左键打开
   `blueman-manager`。未检测到适配器时显示 no-controller 状态，不会导致 Waybar
   崩溃。
-- 锁屏：`Alt+L` 调用 `niri-lock`，通过 systemd user unit 启动 Hyprlock；power menu
-  的 Lock 也是同一入口。当前仓库仍是 `Alt+L`，不是 `Mod+Shift+L`；后者保持
-  `move-column-right`，以免覆盖常用移动键。Hyprlock 由 Home Manager 安装和配置，
-  PAM 只在 main 上启用；没有启用全局 Hypridle。
-- 终端：kitty 背景 90% 不透明度，文字保持不透明，配色与 Waybar 一致。
+- 锁屏：`Alt+L` 调用 `niri-lock`；`Alt+Shift+L` 打开 `niri-power-menu`，五张卡片
+  依次是锁屏、挂起、退出、重启、关机。退出/重启/关机继续用 Fuzzel 二次确认，
+  默认“取消”。当前仓库**没有**把 `Mod+Shift+L` 改成菜单，它仍是
+  `move-column-right`；实际菜单快捷键是 `Alt+Shift+L`。
+- 挂起：电源菜单的“挂起”先运行 `niri-lock-wait`，只有 logind 报告
+  `LockedHint=yes` 才执行 `systemctl suspend`。main 的 `swayidle -w` 绑定同一个
+  `before-sleep`，覆盖正常 logind 挂起/合盖路径；没有新增自动空闲或自动休眠。
+  logind delay inhibitor 有最大时限，不能保证外部强制挂起永远被阻止。
+- Hyprlock 由 Home Manager 安装和配置，PAM 只在 main 上启用；没有启用全局
+  Hypridle，也没有使用 niri 未实现的 `hyprland-lock-notify-v1`。
+- 终端：kitty 使用完整 `Catppuccin-Mocha` 主题文件，背景 90% 不透明度、文字不透明，
+  `hide_window_decorations yes`、`tab_bar_style hidden`，不再手写局部前景/背景色。
+- 编辑器：Helix 是默认编辑器；`hx --health` 已验证 nil/nixfmt、pyright、
+  bash-language-server、JSON 和 YAML server 的入口，Neovim 专属声明已移除。
+- 应用：Obsidian、腾讯会议、QQ、微信、ONLYOFFICE 和 OBS 只在 main 安装；
+  PDF/常见图片/MP4/WebM 默认由 Firefox 打开，Office 文档由 ONLYOFFICE 打开。
 - 显示器：`config/niri/config.kdl` include 用户可写的 `~/.config/niri/monitor.kdl`；
   Home Manager 只在该文件缺失时创建空文件，不覆盖已有布局。`Mod+P` 打开补丁版
   nwg-displays，`Mod+Alt+P` 强制打开内屏。
@@ -150,22 +181,24 @@ generation，直到至少一次成功重启和回滚验证完成。不要用删�
 
 - niri 默认使用 DMS；`config-dms.kdl` 仍是只读 Home Manager 链接，`Alt+L` 仍是
   DMS 锁屏，`Mod+P`/`Mod+Alt+P` 保持原行为。
-- Waybar 只保留生成的 profile 文件，不启动；没有蓝牙、Hyprlock 或 kitty 半透明
-  作用域。Sway 备用会话和可选 Plasma 模块保留。
+- Waybar 只保留生成的 profile 文件，不启动；没有蓝牙、Hyprlock、swayidle、
+  电源菜单或 kitty 半透明作用域。Sway 备用会话和可选 Plasma 模块保留。
+- 默认编辑器与 main 共享 Helix，但 DMS、Sway、显示器修复和应用作用域不变。
 
 ### 待实机验收
 
-本轮只做离线求值、构建、补丁回归和配置检查；以下项目需要用户在 main 的图形会话
-中确认，不能在 agent 会话里自动锁屏或断屏测试：
+本轮已做离线求值、两台主机构建、应用 derivation 构建、配置解析和无 GUI 模拟；
+以下项目仍需要用户在 main 的图形会话中确认，不能在 agent 会话里自动锁屏或断屏：
 
-- Hyprlock 背景、时间/日期、输入框、PAM 解锁和失败提示；
-- Waybar 在 1280 逻辑像素宽度下的实际不重叠、图标字体和托盘；
-- 蓝牙适配器开关、配对、连接和 Blueman 入口；
-- nwg-displays 禁用输出后重新启用、热插拔、分数缩放和 `monitor.kdl` 写回；
-- kitty 透明度与文字可读性。
+- QQ/微信/Obsidian/腾讯会议/ONLYOFFICE 的中文输入、缩放、打开/收发文件；
+- 腾讯会议音视频和双向屏幕共享；
+- OBS 一分钟带声音录屏、MKV remux 和 Firefox 回放；
+- kitty 新窗口的标题栏/标签栏消失、完整 Catppuccin 配色和透明度；
+- Waybar 在 1280/1536/1920 逻辑宽度下的连续底栏、网速位置、托盘悬停和菜单；
+- 电源菜单居中卡片、图标、中文标签、Esc 关闭和确认取消；
+- `Alt+L`、电源菜单挂起、正常 logind 挂起/合盖唤醒后的解锁和 LockedHint。
 
-自动空闲锁屏、自动息屏、自动休眠以及 suspend 前统一锁屏没有在本轮新增；它们需要
-单独确定时长和会话行为。Hyprlock 只统一了现有手动锁屏入口。
+自动空闲锁屏、自动息屏和自动休眠仍未新增；本轮只补齐挂起前锁屏和电源菜单。
 
 ## 网络、密钥与备份
 
@@ -178,8 +211,10 @@ generation，直到至少一次成功重启和回滚验证完成。不要用删�
 
 ## 更多文档
 
-- 桌面组件、显示器文件、蓝牙、手动锁屏和实机验收：
+- 桌面组件、显示器文件、蓝牙、手动锁屏、挂起和实机验收：
   [`docs/DESKTOP.md`](docs/DESKTOP.md)
+- 主力机应用、默认打开方式、OBS 录屏和待实机项：
+  [`docs/APPS.md`](docs/APPS.md)
 - TTY 恢复、网络、SOPS、Restic、SSH：
   [`docs/RECOVERY.md`](docs/RECOVERY.md)
 - 开发环境、Python/Node、tmux、容器：

@@ -463,8 +463,8 @@ journalctl -b -u restic-backups-usb.service --no-pager
 
 默认备份内容包括 `/home/calendar`（个人文件、项目源码、KeePassXC 数据库、
 Firefox/Fcitx5/GNOME Keyring/SSH/GPG 用户状态、Clash profiles）和 root-only 的
-`/var/lib/sops-nix`。可重建的缓存、`.venv`、`node_modules`、Neovim lazy/mason
-插件、npm 缓存以及 Clash 的 `logs/`、`clash-verge-rev-backup/`、`update_cache/`
+`/var/lib/sops-nix`。可重建的缓存、`.venv`、`node_modules`、历史 Neovim lazy/mason
+插件（当前默认编辑器已是 Helix，排除项保留）、npm 缓存以及 Clash 的 `logs/`、`clash-verge-rev-backup/`、`update_cache/`
 和 geo 数据库被排除；`.git` 和未提交源码没有被排除。任何配置的关键路径缺失都会
 中止备份。Restic 密码 `/var/lib/secrets/restic-password` 不在备份内，必须单独离线
 保存。

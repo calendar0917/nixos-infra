@@ -18,19 +18,23 @@
   margin: 0;
 }
 
+/* One continuous, translucent bottom surface. The left/center/right regions
+   below are transparent so there are no separate pills with duplicated
+   borders. */
 window#waybar {
-  background: transparent;
+  background: rgba(30, 30, 46, 0.94);
   color: @text;
+  border: 1px solid rgba(137, 180, 250, 0.12);
+  border-radius: 10px;
 }
 
-/* One restrained surface per region instead of a coloured pill per module. */
 .modules-left,
 .modules-center,
 .modules-right {
-  background: rgba(30, 30, 46, 0.92);
-  border: 1px solid rgba(137, 180, 250, 0.12);
-  border-radius: 10px;
-  padding: 0 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 4px;
 }
 
 /* ---------- Workspaces and per-workspace application taskbar ---------- */
@@ -90,7 +94,7 @@ window#waybar {
   background: rgba(205, 214, 244, 0.18);
 }
 
-/* ---------- Clock ---------- */
+/* ---------- Center clock ---------- */
 
 #custom-clock,
 #clock {
@@ -99,29 +103,37 @@ window#waybar {
   font-weight: 600;
 }
 
-/* ---------- Right side ---------- */
-
-#custom-launcher,
-#cpu,
-#memory,
-#pulseaudio,
-#network,
-#bluetooth,
-#battery,
-#custom-notification,
-#tray {
-  padding: 0 6px;
-  color: @text;
-}
+/* ---------- Left: launcher, workspaces, traffic ---------- */
 
 #custom-launcher {
+  padding: 0 8px 0 4px;
   color: @accent;
   font-size: 15px;
 }
 
 #network.traffic {
+  margin-left: 12px;
+  padding: 0 4px;
   color: @subtext;
   font-size: 11px;
+}
+
+/* ---------- Right: resources and status ---------- */
+
+#cpu,
+#memory {
+  min-width: 62px;
+  padding: 0 5px;
+  color: @text;
+}
+
+#pulseaudio,
+#network,
+#bluetooth,
+#battery,
+#custom-notification {
+  padding: 0 6px;
+  color: @text;
 }
 
 #network.status {
@@ -185,8 +197,24 @@ window#waybar {
   color: @red;
 }
 
+/* ---------- Tray drawer ---------- */
+
+#custom-tray-toggle {
+  padding: 0 6px;
+  color: @subtext;
+  font-size: 15px;
+  border-radius: 6px;
+}
+
+#custom-tray-toggle:hover {
+  color: @text;
+  background: @surface0;
+}
+
+/* The group and the tray share the same CSS name in Waybar. Keep both
+   transparent; only the always-visible leader gets a hover surface. */
 #tray {
-  padding: 0 4px;
+  padding: 0 2px;
 }
 
 #tray > .passive {

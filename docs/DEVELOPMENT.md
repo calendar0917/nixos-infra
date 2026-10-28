@@ -10,7 +10,7 @@ Python/TypeScript 示例、tmux 和 SSH Agent 行为，以及 Docker/Podman 的�
 | 层 | 负责 | 不负责 |
 | --- | --- | --- |
 | NixOS 系统（`modules/`、`hosts/`） | 用户、SSH、网络、桌面、音频、字体、容器/虚拟化等基础设施 | 具体项目的 Python/Node 版本 |
-| Home Manager（`home/calendar/`） | Fish、Git、direnv、tmux、Neovim、常用 CLI 和终端 | 项目依赖、全局 pip/npm 包 |
+| Home Manager（`home/calendar/`） | Fish、Git、direnv、tmux、Helix、常用 CLI 和终端 | 项目依赖、全局 pip/npm 包 |
 | 项目 devShell（项目自己的 `flake.nix`） | Python/Node/编译器/LSP CLI 等可执行文件 | 系统服务、全局配置 |
 | 项目数据 | `.venv`、`node_modules`、`.direnv`、`.pnpm-store` | 不进入 Git，必要时可删除重建 |
 
@@ -373,10 +373,11 @@ pnpm start                                  # Hello NixOS, sum=6
 尚未完成/需要单独授权：
 
 - `nixos-rebuild switch`（本轮禁止）；当前运行系统仍是旧的 test generation，
-  重启会回到更旧的 boot generation；tmux/Neovim 的新配置尚未激活。
-- Neovim：用户要求先暂停。插件同步已安装 33 个目录，但 Mason 从 GitHub
-  Releases 下载 `ruff` 时实测卡住；`pyright`/`vtsls`/`stylua` 也未能完成。
-  Python/TS 的 Neovim LSP 尚未做运行时验收。不要在报告里把它说成“LSP 已通过”。
+  重启会回到更旧的 boot generation；tmux/Helix 的新配置尚未激活。
+- 编辑器已从 Neovim 切换为 Helix。`hx --version`、`hx --health` 以及
+  nil/nixfmt、pyright、bash-language-server、JSON/YAML server 的入口已离线验证；
+  图形终端中的实际补全/诊断仍需实机确认。旧 Neovim 运行时目录没有被删除，但不再
+  作为默认编辑器或由仓库提供 LazyVim 配置。
 - GitHub HTTPS 的代理节点/规则问题未修复；GitHub SSH 只能通过 Arch agent
   转发使用，主机本身没有长期密钥。`gh` 尚未登录。
 - Docker/Podman 未安装、未启用；上面的配置只是评估草案。

@@ -7,11 +7,13 @@
     ./shell.nix
     ./pi.nix
     ./terminal.nix
-    ./neovim.nix
+    ./helix.nix
+    ./apps.nix
     ./tmux.nix
     ./desktop/niri.nix
     ./desktop/clipboard.nix
     ./desktop/lock.nix
+    ./desktop/power.nix
     ./desktop/shell.nix
     ./desktop/sway.nix
     ./desktop/waybar/sway.nix
@@ -34,7 +36,7 @@
   # Nautilus is the graphical handler for directories. The desktop ID comes
   # from pkgs.nautilus (org.gnome.Nautilus.desktop), not from a Dolphin name.
   # Firefox is the system browser (modules/base.nix) and also handles HTTP(S)
-  # links; image/PDF/video handlers are intentionally left to the user.
+  # links. The main-only document/image/video handlers live in apps.nix.
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {

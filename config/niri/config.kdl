@@ -71,7 +71,7 @@ binds {
     Mod+P hotkey-overlay-title="Display settings: nwg-displays" { spawn "nwg-displays"; }
 
     Alt+L hotkey-overlay-title="Lock screen" { spawn "niri-lock"; }
-    Alt+Shift+L hotkey-overlay-title="Power menu" { spawn "wlogout" "-p" "layer-shell" "-b" "5" "-c" "12" "-r" "12" "-m" "10"; }
+    Alt+Shift+L hotkey-overlay-title="Power menu" { spawn "niri-power-menu"; }
     Mod+Alt+V hotkey-overlay-title="Clipboard history" { spawn "niri-clipboard-menu"; }
 
     // The main laptop's internal panel is eDP-1 (confirmed with
@@ -120,6 +120,10 @@ binds {
     Mod+Shift+H     { move-column-left; }
     Mod+Shift+J     { move-window-down; }
     Mod+Shift+K     { move-window-up; }
+    // Mod+Shift+L is intentionally still move-column-right. The power menu
+    // in this repository is Alt+Shift+L; do not silently replace the common
+    // column movement binding. A local user rebind can point at
+    // niri-power-menu independently.
     Mod+Shift+L     { move-column-right; }
 
     Mod+Home { focus-column-first; }
