@@ -136,7 +136,18 @@
     wl-clipboard
     yq
     nodejs_22
+    # `rr` (the remote-research-runner CLI) is a stdlib-only Python program
+    # whose launcher is `python3 -m rr`. Arch had a system python3 on PATH;
+    # NixOS does not, so provide one explicitly. Project venvs keep using
+    # uv-managed interpreters (see .python-version); this one only serves
+    # tooling scripts such as `rr`.
+    python312
   ];
+
+  # NixOS does not put ~/.local/bin on PATH by default. `rr` is installed
+  # there as a symlink to the repo-tracked skill launcher, so add it
+  # declaratively instead of patching shell rc files.
+  home.sessionPath = [ "$HOME/.local/bin" ];
 
   home.sessionVariables = {
     EDITOR = "nvim";
