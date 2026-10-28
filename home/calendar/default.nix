@@ -6,9 +6,12 @@
   imports = [
     ./shell.nix
     ./pi.nix
+    ./terminal.nix
     ./neovim.nix
     ./tmux.nix
     ./desktop/niri.nix
+    ./desktop/clipboard.nix
+    ./desktop/lock.nix
     ./desktop/shell.nix
     ./desktop/sway.nix
     ./desktop/waybar/sway.nix

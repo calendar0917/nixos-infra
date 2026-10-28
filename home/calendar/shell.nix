@@ -97,25 +97,19 @@
         name = "calendar";
         email = "1131821081@qq.com";
       };
-      init = { defaultBranch = "main"; };
-      pull = { rebase = true; };
-      core = { editor = "nvim"; };
-      color = { ui = "auto"; };
+      init = {
+        defaultBranch = "main";
+      };
+      pull = {
+        rebase = true;
+      };
+      core = {
+        editor = "nvim";
+      };
+      color = {
+        ui = "auto";
+      };
     };
-  };
-
-  programs.kitty = {
-    enable = true;
-    settings = {
-      font_family = "JetBrains Mono";
-      font_size = 11;
-      cursor_shape = "beam";
-      scrollback_lines = 10000;
-      enable_audio_bell = false;
-      confirm_os_window_close = 0;
-      copy_on_select = true;
-    };
-    shellIntegration.mode = "enabled";
   };
 
   home.packages = with pkgs; [

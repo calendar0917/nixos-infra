@@ -8,21 +8,21 @@
 let
   enabled = osConfig != null && (osConfig.my.desktop.niri.enable or false);
   hasBattery = osConfig != null && (osConfig.my.desktop.niri.hasBattery or false);
+  hasBluetooth = osConfig != null && (osConfig.hardware.bluetooth.enable or false);
   # The mini host keeps DMS and must not grow the Waybar helper package.
   waybarShell = osConfig != null && (osConfig.my.desktop.niri.shell or "dms") == "waybar";
 
-  waybar = import ./common.nix { inherit lib hasBattery; };
+  waybar = import ./common.nix { inherit lib pkgs hasBattery; };
 
-  # Waybar's built-in clock cannot localize %a with this build, and relying on
-  # the session PATH for a helper is fragile when the bar is restarted by hand.
-  # Bind the module to this absolute path instead.
+  # The helper uses the absolute coreutils path and the session's LC_TIME, so
+  # the weekday is localized without a hard-coded English name. The tooltip
+  # is intentionally minute-resolution: a 30-second module should not show a
+  # ticking seconds field.
   clock = pkgs.writeShellApplication {
     name = "niri-waybar-clock";
     runtimeInputs = [ pkgs.coreutils ];
     text = ''
-      # The weekday comes from LC_TIME, never a hard-coded English name. The
-      # tooltip carries seconds without spawning a second process per tick.
-      output="$(date '+%m月%d日 周%a %H:%M|%Y-%m-%d %H:%M:%S %Z')"
+      output="$(${pkgs.coreutils}/bin/date '+%m月%d日 %a %H:%M|%Y-%m-%d %H:%M %Z')"
       text="''${output%%|*}"
       tooltip="''${output#*|}"
       printf '{"text":"%s","tooltip":"%s"}\n' "$text" "$tooltip"
@@ -39,14 +39,18 @@ let
     bellOff = builtins.fromJSON ''"\uF1F6"'';
     battery = builtins.fromJSON ''"\uF240"'';
     charging = builtins.fromJSON ''"\uF0E7"'';
+    bluetooth = builtins.fromJSON ''"\uF293"'';
+    bluetoothConnected = builtins.fromJSON ''"\uF294"'';
+    down = builtins.fromJSON ''"\u2193"'';
+    up = builtins.fromJSON ''"\u2191"'';
   };
 
-  modules = waybar.modules // {
+  niriModules = {
     # The launcher is a font glyph so it needs no external icon theme.
     "custom/launcher" = {
       format = icon.launcher;
       tooltip = false;
-      on-click = "fuzzel";
+      on-click = "${lib.getExe pkgs.fuzzel}";
     };
 
     # The niri workspace-taskbar renders the real application icons of the
@@ -61,40 +65,35 @@ let
       };
     };
 
-    # Two native network instances: Waybar reads the counters itself, so no
-    # polling shell script is involved. `min-length` reserves a fixed width so
-    # a changing rate does not shift the modules next to it.
-    "network#downspeed" = {
-      interval = 1;
-      format = "↓ {bandwidthDownBytesCompact}/s";
-      min-length = 9;
-      tooltip = false;
-    };
-
-    "network#upspeed" = {
-      interval = 1;
-      format = "↑ {bandwidthUpBytesCompact}/s";
-      min-length = 9;
+    # One native network instance carries both directions. Waybar reads the
+    # counters itself, so there is no polling shell script.
+    "network#traffic" = {
+      interval = 2;
+      format = "${icon.down} {bandwidthDownBytesCompact}/s  ${icon.up} {bandwidthUpBytesCompact}/s";
+      min-length = 18;
       tooltip = false;
     };
 
     pulseaudio = {
       format = "${icon.volume} {volume}%";
       format-muted = "${icon.volume} muted";
-      on-click = "pavucontrol";
-      on-scroll-up = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+";
-      on-scroll-down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
+      on-click = "${lib.getExe pkgs.pavucontrol}";
+      on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+";
+      on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
       tooltip = false;
     };
 
+    # The icon is constant to avoid a long SSID pushing the clock around.
+    # Interface, SSID, address and signal stay in the tooltip.
     "network#status" = {
       interval = 5;
-      format-wifi = "${icon.wifi} {essid}";
-      format-ethernet = "${icon.wifi} eth {ifname}";
-      format-disconnected = "${icon.wifi} offline";
-      format-linked = "${icon.wifi} link";
-      on-click = "nm-connection-editor";
-      tooltip-format = "{ifname}\n{essid}\n{ipaddr}/{cidr}\n{signalStrength}%";
+      format-wifi = icon.wifi;
+      format-ethernet = icon.wifi;
+      format-disconnected = icon.wifi;
+      format-linked = icon.wifi;
+      format-disabled = icon.wifi;
+      on-click = "${lib.getExe' pkgs.networkmanagerapplet "nm-connection-editor"}";
+      tooltip-format = "{ifname}\n{essid}\n{ipaddr}/{cidr}\n信号 {signalStrength}%";
     };
 
     "custom/notification" = {
@@ -118,7 +117,7 @@ let
 
     tray = {
       icon-size = 18;
-      spacing = 8;
+      spacing = 6;
       show-passive-items = true;
       tooltip = false;
     };
@@ -136,38 +135,74 @@ let
       tooltip-format = "{timeTo}";
     };
 
-    # Waybar's native clock does not localize %a with this build's date
-    # library, so use a one-process-per-second helper that delegates the
-    # weekday to the system locale (LC_TIME). The helper returns JSON so the
-    # tooltip can include seconds.
     "custom/clock" = {
       exec = "${clock}/bin/niri-waybar-clock";
-      interval = 1;
+      interval = 30;
       return-type = "json";
     };
   };
 
-  settings = waybar.bar // {
-    height = 36;
+  bluetoothModule = {
+    format = "{icon}";
+    format-icons = {
+      disabled = icon.bluetooth;
+      off = icon.bluetooth;
+      on = icon.bluetooth;
+      connected = icon.bluetoothConnected;
+      "no-controller" = icon.bluetooth;
+    };
+    format-disabled = "{icon}";
+    format-off = "{icon}";
+    format-on = "{icon}";
+    format-connected = "{icon}";
+    format-no-controller = "{icon}";
+    on-click = "${lib.getExe' pkgs.blueman "blueman-manager"}";
+    tooltip-format = "{controller_alias}\n{status}";
+    tooltip-format-disabled = "蓝牙已禁用";
+    tooltip-format-off = "蓝牙已关闭";
+    tooltip-format-on = "{controller_alias}\n蓝牙已开启，未连接设备";
+    tooltip-format-connected = "{controller_alias}\n{device_enumerate}";
+    tooltip-format-enumerate-connected = "已连接 {device_alias}\n{device_address}";
+    tooltip-format-no-controller = "没有蓝牙适配器";
+  };
 
-    modules-left = [
-      "custom/launcher"
-      "network#downspeed"
-      "network#upspeed"
-      "niri/workspaces"
-    ];
-    modules-center = [ "custom/clock" ];
-    modules-right =
-      [
+  modules =
+    waybar.modules
+    // niriModules
+    // lib.optionalAttrs hasBluetooth {
+      bluetooth = bluetoothModule;
+    };
+
+  settings =
+    waybar.bar
+    // {
+      height = 34;
+      margin-top = 8;
+      margin-left = 10;
+      margin-right = 10;
+      margin-bottom = 0;
+      spacing = 4;
+
+      modules-left = [
+        "custom/launcher"
+        "niri/workspaces"
+      ];
+      modules-center = [ "custom/clock" ];
+      modules-right = [
         "cpu"
         "memory"
+        "network#traffic"
         "pulseaudio"
         "network#status"
+      ]
+      ++ lib.optional hasBluetooth "bluetooth"
+      ++ lib.optional hasBattery "battery"
+      ++ [
         "custom/notification"
         "tray"
-      ]
-      ++ lib.optional hasBattery "battery";
-  } // modules;
+      ];
+    }
+    // modules;
 in
 {
   config = lib.mkIf enabled {
@@ -179,11 +214,12 @@ in
     # ~/.config/waybar/config.jsonc, and the niri shell unit starts this file
     # explicitly. Nothing here enables Waybar's packaged user unit.
     xdg.configFile = {
-      "waybar/niri.jsonc".source =
-        (pkgs.formats.json { }).generate "waybar-niri-config.json" settings;
+      "waybar/niri.jsonc".source = (pkgs.formats.json { }).generate "waybar-niri-config.json" settings;
 
-      # Same file as the Sway profile; identical path definitions merge.
-      "waybar/style.css".source = ../../../../config/waybar/style.css;
+      # The niri profile has its own Catppuccin Mocha stylesheet; the Sway
+      # fallback keeps the original teal stylesheet and cannot be broken by
+      # niri-only selectors.
+      "waybar/style-niri.css".source = ../../../../config/waybar/style-niri.css;
     };
 
     # Waybar is started explicitly by home/calendar/desktop/shell.nix through

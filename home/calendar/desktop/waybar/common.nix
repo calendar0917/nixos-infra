@@ -6,6 +6,7 @@
 # between the two desktops.
 {
   lib,
+  pkgs,
   hasBattery ? false,
 }:
 
@@ -28,15 +29,21 @@ let
     };
 
     cpu = {
-      interval = 5;
-      format = "cpu {usage}%";
-      tooltip = false;
+      interval = 3;
+      format = "CPU {usage}%";
+      min-length = 8;
+      max-length = 8;
+      on-click = "${lib.getExe pkgs.kitty} -e ${lib.getExe pkgs.btop}";
+      tooltip-format = "{usage}%  负载 {load1} / {load5} / {load15}";
     };
 
     memory = {
       interval = 5;
-      format = "mem {percentage}%";
-      tooltip = false;
+      format = "RAM {percentage}%";
+      min-length = 8;
+      max-length = 8;
+      on-click = "${lib.getExe pkgs.kitty} -e ${lib.getExe pkgs.btop}";
+      tooltip-format = "已用 {used:0.1f} GiB / {total:0.1f} GiB\n可用 {avail:0.1f} GiB";
     };
 
     pulseaudio = {
@@ -81,10 +88,18 @@ let
     };
   };
 
-  right =
-    [ "custom/launcher" "cpu" "memory" "pulseaudio" "network" ]
-    ++ lib.optional hasBattery "battery"
-    ++ [ "clock" "tray" ];
+  right = [
+    "custom/launcher"
+    "cpu"
+    "memory"
+    "pulseaudio"
+    "network"
+  ]
+  ++ lib.optional hasBattery "battery"
+  ++ [
+    "clock"
+    "tray"
+  ];
 in
 {
   inherit bar modules right;
