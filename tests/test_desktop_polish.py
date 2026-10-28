@@ -189,12 +189,12 @@ def test_lock_wait(tmp: Path):
         #!/bin/sh
         prop="$4"
         case "$prop" in
-          UID)
+          User)
             if [ "${FAKE_LOGIN_INVALID:-0}" = 1 ]; then
               echo "No session known" >&2
               exit 1
             fi
-            echo "${FAKE_LOGIN_UID:-$(id -u)}"
+            echo "${FAKE_LOGIN_UID-$(id -u)}"
             ;;
           LockedHint)
             if [ -n "${FAKE_LOCK_COUNTER:-}" ]; then
@@ -259,6 +259,7 @@ def test_lock_wait(tmp: Path):
     )
     assert counter.read_text().strip() == "4"
     check("invalid session", {"FAKE_LOGIN_INVALID": "1"}, 1)
+    check("empty session User", {"FAKE_LOGIN_UID": ""}, 1)
     check("wrong UID", {"FAKE_LOGIN_UID": "999"}, 1)
     check("lock unit start failure", {"FAKE_START_FAIL": "1"}, 1)
     check("lock process failure", {"FAKE_UNIT_STATE": "failed"}, 1)

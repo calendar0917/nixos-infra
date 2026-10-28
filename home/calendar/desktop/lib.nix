@@ -65,12 +65,18 @@ let
         sleep_bin="''${NIRI_LOCK_WAIT_SLEEP:-${lib.getExe' pkgs.coreutils "sleep"}}"
 
         uid="$(id -u)"
-        if ! session_uid="$("$loginctl_bin" show-session "$session_id" -p UID --value 2>&1)"; then
-          echo "niri-lock-wait: logind session '$session_id' is not valid: $session_uid" >&2
+        # systemd 262's Session interface exposes the owner as `User` (a UID
+        # value); there is no `UID` property. Keep comparing it to our real UID.
+        if ! session_user="$("$loginctl_bin" show-session "$session_id" -p User --value 2>&1)"; then
+          echo "niri-lock-wait: logind session '$session_id' is not valid: $session_user" >&2
           exit 1
         fi
-        if [ "$session_uid" != "$uid" ]; then
-          echo "niri-lock-wait: logind session '$session_id' belongs to UID $session_uid, not $uid" >&2
+        if [ -z "$session_user" ]; then
+          echo "niri-lock-wait: logind session '$session_id' did not report a User" >&2
+          exit 1
+        fi
+        if [ "$session_user" != "$uid" ]; then
+          echo "niri-lock-wait: logind session '$session_id' belongs to UID $session_user, not $uid" >&2
           exit 1
         fi
 

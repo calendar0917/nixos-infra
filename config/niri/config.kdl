@@ -50,6 +50,15 @@ layout {
     }
 }
 
+// kitty is translucent (background_opacity 0.90). niri otherwise fills the
+// focus-ring backdrop with an opaque colour, which makes a focused kitty look
+// almost opaque. Keep the focus ring and the Catppuccin theme; only drop that
+// backdrop for kitty.
+window-rule {
+    match app-id="^kitty$"
+    draw-border-with-background false
+}
+
 hotkey-overlay {
     skip-at-startup
 }

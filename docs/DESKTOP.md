@@ -152,7 +152,7 @@ journalctl --user -u niri-lock-screen.service -b --no-pager
 `niri-lock-wait` 不伪造 `LockedHint`：
 
 1. 从会话环境读取 `XDG_SESSION_ID`；缺失时直接报错，不猜第一个 session。
-2. 用 `loginctl show-session ... -p UID --value` 核实 session 属于当前 UID。
+2. 用 `loginctl show-session ... -p User --value` 核实 session 属于当前 UID（systemd 262 的 `User` 属性值是 UID；`UID` 属性不存在）。
 3. 启动现有 `niri-lock-screen.service`。
 4. 每约 50ms 读取一次 `LockedHint`，最多约 3 秒；同时要求 unit 保持
    active/activating，失败立即退出。
