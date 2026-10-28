@@ -62,6 +62,9 @@
   的会话所有者属性是 `User`，不是 `UID`。
 - `config/niri/config.kdl` 的 kitty 窗口规则只为透明窗口关闭焦点底板；不要
   扩大成全局窗口 opacity 或焦点切换脚本。
+- main 的每周自动 GC 只回收无引用 store 内容，`nix.gc.options` 明确覆盖为空，
+  不删除 profile generation；nixos 仍暂停自动 GC。修改该覆盖前确认不会继承
+  `--delete-older-than`。
 
 ## 工作流
 

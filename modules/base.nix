@@ -51,9 +51,10 @@
     # creation time, and deleting it can remove the last known-good rollback
     # target. The current generation is kept.
     #
-    # Keep automatic GC disabled on both hosts until a successful reboot and
-    # a tested rollback candidate. Enable it only after that; see
-    # README/RECOVERY.
+    # The mini host still forces automatic GC off until a successful reboot
+    # and a tested rollback candidate. main enables weekly store-only GC and
+    # explicitly overrides `options`; do not rely on this shared value there.
+    # See README/RECOVERY.
     gc = {
       automatic = true;
       dates = "weekly";
