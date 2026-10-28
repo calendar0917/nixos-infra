@@ -2208,5 +2208,6 @@ Arch 上重新生成 cache。
 
 - `docs/RECOVERY.md`：安装、TTY/桌面恢复、网络、SOPS、Restic 演练。
 - `docs/install/MIGRATION.md`：稳定性收尾、密钥/备份清单、Arch 迁移边界。
-- `docs/DEVELOPMENT.md`：devShell、tmux、容器评估。
-- `README.md`：日常构建、更新、回滚和远程登录。
+- `docs/DEVELOPMENT.md`：devShell、tmux、Arch/NixOS 共享。
+- `docs/history/main-workstation-2026-10-28.md`：2026-10-28 main 迁移快照（历史）。
+- `README.md`：日常构建、更新、回滚和主机/维护入口。

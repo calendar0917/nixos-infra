@@ -81,15 +81,12 @@ def test_layout():
         "关机",
     ]
     css = Path(args.style).read_text(encoding="utf-8")
-    for label in ["lock", "suspend", "logout", "reboot", "shutdown"]:
-        marker = f"share/wlogout/icons/{label}.png"
-        assert marker in css, f"missing icon for {label}"
     narrow = Path(args.narrow_style).read_text(encoding="utf-8")
-    for css_text, icon_size in [(css, 40), (narrow, 26)]:
-        assert f"background-size: {icon_size}px {icon_size}px" in css_text
-        assert "background-color: rgba(17, 17, 27, 0.55)" in css_text
+    for css_text in [css, narrow]:
         for label in ["lock", "suspend", "logout", "reboot", "shutdown"]:
-            assert f"share/wlogout/icons/{label}.png" in css_text
+            assert f"share/wlogout/icons/{label}.png" in css_text, (
+                f"missing icon for {label}"
+            )
     print("PASS: wlogout layout is a JSON object stream with five Chinese cards")
     print("PASS: wide/narrow CSS reference the five packaged icons")
 

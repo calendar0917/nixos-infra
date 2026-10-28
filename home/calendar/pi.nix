@@ -1,10 +1,9 @@
 { pkgs, ... }:
 
 let
-  # Keep the web UI on the version that was actually validated in this
-  # migration. Do not silently follow `@latest` again. This is a pinned npx
-  # entry point, not a fully packaged offline application: npx may still fetch
-  # the package from the npm registry on first use.
+  # Keep the web UI pinned. Do not silently follow `@latest`: this is a fixed
+  # top-level npx entry point, not a fully packaged offline application, so npx
+  # may still fetch the package from the npm registry on first use.
   piWebVersion = "0.12.2";
 in
 {
