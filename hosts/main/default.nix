@@ -16,6 +16,7 @@
     ./boot.nix
     ./docker.nix
     ./clash.nix
+    ./waybar.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix
@@ -31,10 +32,20 @@
   # NixOS home on its own @nixos-home subvolume. Arch's ~/.config and ~/.local
   # are never copied or used as Home Manager targets.
   my.desktop = {
-    niri.enable = true;
+    niri = {
+      enable = true;
+      # main uses the modular Waybar shell. The mini host keeps the default
+      # DMS shell from modules/desktop/niri.nix.
+      shell = "waybar";
+      hasBattery = true;
+    };
     sway.enable = true;
     plasma.enable = false;
   };
+
+  # Fallback glyphs for the Waybar modules that use Nerd Font Symbols. Keep
+  # this on main only; the mini host's DMS/font setup is unchanged.
+  fonts.packages = [ pkgs.nerd-fonts.symbols-only ];
 
   # Do not copy the mini host's Clash Verge/TUN settings: the main machine's
   # proxy profiles, subscription and interface names are not part of this

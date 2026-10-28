@@ -3,10 +3,14 @@
 // Only key bindings that are intentional personal habits are kept; layout,
 // animations and colours are intentionally left at upstream defaults.
 //
-// DMS owns the panel, launcher, notifications, lock, clipboard and wallpaper
-// in this session. A complete Waybar profile for niri is generated at
-// ~/.config/waybar/niri.jsonc, but it is intentionally NOT started here; see
-// README "Waybar" before switching and keep only one panel running.
+// The main host uses the modular Waybar shell from
+// home/calendar/desktop/shell.nix. Panel, notifications, clipboard, wallpaper,
+// lock and the network applet are started by niri-bound systemd user units,
+// not by spawn-at-startup entries.
+//
+// GUI-managed output layout. nwg-displays owns this file; Home Manager only
+// creates it when it is absent and never overwrites an existing file.
+include "monitor.kdl"
 
 workspace "work"
 workspace "web"
@@ -60,25 +64,19 @@ binds {
 
     Mod+T hotkey-overlay-title="Terminal: kitty" { spawn "kitty"; }
     Mod+E hotkey-overlay-title="File manager: Nautilus" { spawn "nautilus"; }
-    Mod+D hotkey-overlay-title="Application launcher" { spawn "dms" "ipc" "call" "spotlight" "toggle"; }
-    Alt+Space hotkey-overlay-title="Spotlight bar" { spawn "dms" "ipc" "call" "spotlight-bar" "toggle"; }
-    Mod+S hotkey-overlay-title="DMS settings" { spawn "dms" "ipc" "call" "settings" "focusOrToggle"; }
-    Mod+Y hotkey-overlay-title="Wallpaper" { spawn "dms" "ipc" "call" "dash" "toggle" "wallpaper"; }
-    Mod+M hotkey-overlay-title="Task manager" { spawn "dms" "ipc" "call" "processlist" "focusOrToggle"; }
-    Mod+Alt+N hotkey-overlay-title="Notifications" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
-    Mod+Shift+W hotkey-overlay-title="Window rules" { spawn "dms" "ipc" "call" "window-rules" "toggle"; }
-    Ctrl+Shift+R hotkey-overlay-title="Rename workspace" { spawn "dms" "ipc" "call" "workspace-rename" "open"; }
+    Mod+D hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
+    Alt+Space hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
+    Mod+M hotkey-overlay-title="System monitor: btop" { spawn "kitty" "btop"; }
+    Mod+Alt+N hotkey-overlay-title="Notification center" { spawn "swaync-client" "-t" "-sw"; }
+    Mod+P hotkey-overlay-title="Display settings: nwg-displays" { spawn "nwg-displays"; }
 
-    Alt+L hotkey-overlay-title="Lock screen" { spawn "dms" "ipc" "call" "lock" "lock"; }
-    Alt+Shift+L hotkey-overlay-title="Power menu" { spawn "dms" "ipc" "call" "powermenu" "toggle"; }
-    Mod+Alt+V hotkey-overlay-title="Clipboard" { spawn "dms" "ipc" "call" "clipboard" "toggle"; }
-    Mod+Alt+W hotkey-overlay-title="Wallpaper" { spawn "dms" "ipc" "call" "dash" "toggle" "wallpaper"; }
-    Mod+Shift+Escape hotkey-overlay-title="Restart DMS" { spawn-sh "systemctl --user restart dms.service"; }
+    Alt+L hotkey-overlay-title="Lock screen" { spawn "swaylock" "-f" "-c" "0C232C"; }
+    Alt+Shift+L hotkey-overlay-title="Power menu" { spawn "wlogout" "-p" "layer-shell" "-b" "5" "-c" "12" "-r" "12" "-m" "10"; }
+    Mod+Alt+V hotkey-overlay-title="Clipboard history" { spawn "niri-clipboard-menu"; }
 
-    // This mini PC only exposes HDMI-A-1, so both bindings are no-ops here.
-    // They are kept for the future laptop, whose internal panel is normally
-    // eDP-1; check `niri msg outputs` on that machine instead of guessing.
-    Mod+P hotkey-overlay-title="Disable internal output" { spawn-sh "niri msg output eDP-1 off"; }
+    // The main laptop's internal panel is eDP-1 (confirmed with
+    // `niri msg outputs`). Mod+P opens nwg-displays; this escape hatch turns
+    // the internal panel back on if a GUI layout change hides it.
     Mod+Alt+P hotkey-overlay-title="Enable internal output" { spawn-sh "niri msg output eDP-1 on"; }
 
     // Screen reader toggle kept from the old configuration.
@@ -87,7 +85,7 @@ binds {
     // ---------- Windows ----------
     Mod+Q repeat=false { close-window; }
     Mod+Shift+E { quit; }
-    Ctrl+Alt+Delete { spawn "dms" "ipc" "call" "processlist" "focusOrToggle"; }
+    Ctrl+Alt+Delete { spawn "kitty" "btop"; }
 
     // ---------- Audio, brightness and media ----------
     XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0"; }

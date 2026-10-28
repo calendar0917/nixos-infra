@@ -6,16 +6,13 @@
 # between the two desktops.
 {
   lib,
+  hasBattery ? false,
 }:
 
 let
-  # This mini PC has no battery, so the battery module stays out of
-  # modules-right and the bar keeps the same width as before. On a laptop set
-  # this to true: the module definition below is already complete.
-  hasBattery = false;
-
-  # Geometry and modules shared by every compositor profile. The Sway profile
-  # must keep generating exactly the same JSON as the pre-modularized file.
+  # Geometry and modules shared by every compositor profile. `hasBattery` is
+  # supplied by the profile: the laptop's niri profile enables it, while the
+  # fallback Sway profile keeps its previous layout.
   bar = {
     layer = "top";
     position = "top";
@@ -59,8 +56,8 @@ let
       tooltip = false;
     };
 
-    # Reserved for the future laptop. `hasBattery` controls whether it is
-    # listed in modules-right; the definition itself is always available.
+    # Reserved for laptops. `hasBattery` decides whether it is listed in
+    # modules-right; the definition itself is always available.
     battery = {
       interval = 30;
       states = {
@@ -84,8 +81,6 @@ let
     };
   };
 
-  # Same order as the old Sway bar: launcher, cpu, memory, volume, network,
-  # [battery], clock, tray.
   right =
     [ "custom/launcher" "cpu" "memory" "pulseaudio" "network" ]
     ++ lib.optional hasBattery "battery"

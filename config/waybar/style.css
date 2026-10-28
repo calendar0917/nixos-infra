@@ -1,52 +1,88 @@
-@define-color base #1e1e2e;
-@define-color mantle #181825;
-@define-color surface #313244;
-@define-color text #cdd6f4;
-@define-color subtext #a6adc8;
-@define-color blue #89b4fa;
-@define-color green #a6e3a1;
-@define-color yellow #f9e2af;
-@define-color red #f38ba8;
+@define-color base #0C232C;
+@define-color surface #173B43;
+@define-color accent #638A8C;
+@define-color text #D4E1DF;
+@define-color subtext #9FB7B4;
+@define-color danger #C07A7A;
+@define-color good #9FBF9A;
 
 * {
-  font-family: "JetBrains Mono", "Noto Sans CJK SC", sans-serif;
+  font-family: "JetBrains Mono", "Noto Sans CJK SC", "Symbols Nerd Font", sans-serif;
   font-size: 12px;
   min-height: 0;
 }
 
 window#waybar {
-  background: @base;
+  background: rgba(12, 35, 44, 0.88);
   color: @text;
-  border-bottom: 2px solid @surface;
+  border-bottom: 1px solid @surface;
 }
 
 .modules-left,
 .modules-center,
 .modules-right {
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
+/* ---------- Workspaces and per-workspace application taskbar ---------- */
+
 #workspaces button {
-  padding: 0 8px;
+  min-width: 18px;
+  min-height: 22px;
+  padding: 0 5px;
+  margin: 3px 2px;
   color: @subtext;
   background: transparent;
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
+}
+
+#workspaces button:hover {
+  color: @text;
+  background: @surface;
+}
+
+#workspaces button.current_output {
+  color: @text;
 }
 
 #workspaces button.focused,
-#workspaces button.active {
+#workspaces button.focused.active {
   color: @base;
-  background: @blue;
+  background: @accent;
+}
+
+#workspaces button.active {
+  color: @text;
+  background: rgba(99, 138, 140, 0.42);
 }
 
 #workspaces button.urgent {
   color: @base;
-  background: @red;
+  background: @danger;
 }
 
+#workspaces button.empty {
+  color: #6B8380;
+  background: rgba(23, 59, 67, 0.35);
+}
+
+#workspaces .niri-taskbar-btn {
+  padding: 1px 2px;
+  margin: 0 1px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+}
+
+#workspaces .niri-taskbar-btn.focused {
+  background: rgba(212, 225, 223, 0.24);
+}
+
+/* ---------- Sway-only modules ---------- */
+
 #mode {
-  color: @yellow;
+  color: @accent;
   padding: 0 8px;
 }
 
@@ -54,26 +90,102 @@ window#waybar {
   color: @subtext;
 }
 
+/* ---------- Clock ---------- */
+
+#clock {
+  padding: 0 12px;
+  color: @text;
+  font-weight: 600;
+}
+
+/* ---------- Right side ---------- */
+
 #custom-launcher,
 #cpu,
 #memory,
 #pulseaudio,
 #network,
+#custom-notification,
 #battery,
-#clock,
 #tray {
-  padding: 0 8px;
+  padding: 0 7px;
   color: @text;
 }
 
+#custom-launcher {
+  color: @accent;
+  font-size: 15px;
+}
+
+#network.downspeed,
+#network.upspeed {
+  padding: 0 4px;
+  color: @subtext;
+  font-size: 11px;
+}
+
+/* Separate the speed pair from the workspace taskbar on the left. */
+#network.upspeed {
+  margin-right: 10px;
+}
+
+#network.downspeed {
+  margin-left: 2px;
+}
+
+#network.status {
+  color: @subtext;
+}
+
+#network.status.connected {
+  color: @text;
+}
+
+#network.status.disconnected {
+  color: @danger;
+}
+
+#pulseaudio.muted {
+  color: @danger;
+}
+
+#custom-notification {
+  color: @accent;
+}
+
+#custom-notification.dnd-none,
+#custom-notification.dnd-notification,
+#custom-notification.inhibited-none,
+#custom-notification.dnd-inhibited-none {
+  color: @danger;
+}
+
+#battery {
+  color: @text;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: @good;
+}
+
 #battery.warning {
-  color: @yellow;
+  color: #D9B47A;
 }
 
-#battery.critical {
-  color: @red;
+#battery.critical,
+#battery.critical.charging {
+  color: @danger;
 }
 
-#network.disconnected {
-  color: @red;
+#tray {
+  padding: 0 5px;
+}
+
+#tray > .passive {
+  -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+  -gtk-icon-effect: highlight;
 }

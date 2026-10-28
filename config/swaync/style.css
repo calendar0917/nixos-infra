@@ -1,0 +1,116 @@
+* {
+  font-family: "JetBrains Mono", "Noto Sans CJK SC", "Symbols Nerd Font", sans-serif;
+  font-size: 13px;
+}
+
+.control-center {
+  background: rgba(12, 35, 44, 0.97);
+  color: #D4E1DF;
+  border: 1px solid #173B43;
+  border-radius: 10px;
+}
+
+.control-center-list {
+  background: transparent;
+}
+
+.widget-title,
+.widget-dnd,
+.widget-inhibitors,
+.widget-label {
+  color: #D4E1DF;
+  background: #173B43;
+  border-radius: 8px;
+  margin: 4px 6px;
+  padding: 6px 10px;
+}
+
+.widget-title button,
+.widget-inhibitors button,
+.widget-dnd button {
+  background: #638A8C;
+  color: #0C232C;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.notification-row {
+  background: transparent;
+  outline: none;
+}
+
+.notification-row .notification-background {
+  padding: 4px 6px;
+}
+
+.notification-row .notification-background .notification {
+  background: #173B43;
+  color: #D4E1DF;
+  border: 1px solid rgba(99, 138, 140, 0.45);
+  border-radius: 8px;
+}
+
+.notification-row .notification-background .notification .notification-default-action {
+  background: transparent;
+  color: #D4E1DF;
+  border: none;
+  padding: 6px;
+}
+
+.notification-row .notification-background .notification .notification-default-action:hover {
+  background: rgba(99, 138, 140, 0.18);
+}
+
+.notification-row .notification-background .notification .summary {
+  color: #D4E1DF;
+  font-weight: bold;
+}
+
+.notification-row .notification-background .notification .body {
+  color: #9FB7B4;
+}
+
+.notification-row .notification-background .notification .time {
+  color: #9FB7B4;
+}
+
+.close-button {
+  background: rgba(99, 138, 140, 0.25);
+  color: #D4E1DF;
+  border: none;
+  border-radius: 100%;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.close-button:hover {
+  background: #638A8C;
+  color: #0C232C;
+}
+
+.notification-action {
+  background: #173B43;
+  color: #D4E1DF;
+  border: 1px solid rgba(99, 138, 140, 0.45);
+  border-radius: 6px;
+}
+
+.notification-action:hover {
+  background: #638A8C;
+  color: #0C232C;
+}
+
+.widget-buttons-grid,
+.widget-menubar,
+.widget-volume,
+.widget-mpris {
+  background: transparent;
+  color: #D4E1DF;
+}
+
+.widget-volume trough,
+.widget-mpris trough {
+  background: rgba(23, 59, 67, 0.9);
+  border-radius: 6px;
+}

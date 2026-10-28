@@ -9,6 +9,7 @@
     ./neovim.nix
     ./tmux.nix
     ./desktop/niri.nix
+    ./desktop/shell.nix
     ./desktop/sway.nix
     ./desktop/waybar/sway.nix
     ./desktop/waybar/niri.nix
