@@ -66,12 +66,15 @@ let
     };
 
     # One native network instance carries both directions. Waybar reads the
-    # counters itself, so there is no polling shell script.
+    # counters itself, so there is no polling shell script. This sits to the
+    # right of the workspaces; keep its reservation compact so it cannot
+    # squeeze the real taskbar icons at 1280 logical pixels.
     "network#traffic" = {
       interval = 2;
-      format = "${icon.down} {bandwidthDownBytesCompact}/s  ${icon.up} {bandwidthUpBytesCompact}/s";
-      min-length = 18;
-      tooltip = false;
+      format = "${icon.down}{bandwidthDownBytesCompact}/s ${icon.up}{bandwidthUpBytesCompact}/s";
+      min-length = 14;
+      max-length = 22;
+      tooltip-format = "下载 {bandwidthDownBytes}/s\n上传 {bandwidthUpBytes}/s";
     };
 
     pulseaudio = {
@@ -120,6 +123,29 @@ let
       spacing = 6;
       show-passive-items = true;
       tooltip = false;
+    };
+
+    # The tray is the only right-side group. Its leader stays visible when
+    # collapsed so the user has a stable hover target; the real tray items
+    # are revealed by Waybar's native drawer and remain clickable.
+    "custom/tray-toggle" = {
+      format = "⋯";
+      tooltip-format = "后台应用";
+    };
+
+    "group/tray" = {
+      orientation = "inherit";
+      modules = [
+        "custom/tray-toggle"
+        "tray"
+      ];
+      drawer = {
+        transition-duration = 150;
+        reveal-delay = 150;
+        transition-left-to-right = false;
+        click-to-reveal = false;
+        start-expanded = false;
+      };
     };
 
     battery = {
@@ -177,21 +203,21 @@ let
     waybar.bar
     // {
       height = 34;
-      margin-top = 8;
-      margin-left = 10;
-      margin-right = 10;
+      margin-top = 6;
+      margin-left = 8;
+      margin-right = 8;
       margin-bottom = 0;
       spacing = 4;
 
       modules-left = [
         "custom/launcher"
         "niri/workspaces"
+        "network#traffic"
       ];
       modules-center = [ "custom/clock" ];
       modules-right = [
         "cpu"
         "memory"
-        "network#traffic"
         "pulseaudio"
         "network#status"
       ]
@@ -199,7 +225,7 @@ let
       ++ lib.optional hasBattery "battery"
       ++ [
         "custom/notification"
-        "tray"
+        "group/tray"
       ];
     }
     // modules;
