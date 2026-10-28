@@ -96,10 +96,13 @@
     jq
     lazygit
     ncdu
+    pnpm_10
     tree
     unzip
+    uv
     wl-clipboard
     yq
+    nodejs_22
   ];
 
   home.sessionVariables = {

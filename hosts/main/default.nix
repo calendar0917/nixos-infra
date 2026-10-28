@@ -14,6 +14,7 @@
   imports = [
     ./hardware-configuration.nix
     ./boot.nix
+    ./docker.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix
@@ -40,7 +41,7 @@
   # are enough for the first installation.
   my.network = {
     tailscale.enable = true;
-    clashVerge.enable = false;
+    clashVerge.enable = true;
   };
 
   # Arch's user is UID/GID 1000:1000 with primary group "calendar" (gid 1000).

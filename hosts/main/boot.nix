@@ -69,11 +69,11 @@
       printf 'default arch-linux-lts.efi\n' >> "$conf"
       # Fail loudly rather than silently booting NixOS: exactly one default line
       # and it must name the Arch UKI.
-      if [ "$(grep -c '^default[[:space:]]' "$conf")" -ne 1 ]; then
+      if [ "$(${pkgs.gnugrep}/bin/grep -c '^default[[:space:]]' "$conf")" -ne 1 ]; then
         echo "error: $conf does not have exactly one default line" >&2
         exit 1
       fi
-      grep -qx 'default arch-linux-lts.efi' "$conf" || {
+      ${pkgs.gnugrep}/bin/grep -qx 'default arch-linux-lts.efi' "$conf" || {
         echo "error: failed to set Arch as the default boot entry" >&2
         exit 1
       }

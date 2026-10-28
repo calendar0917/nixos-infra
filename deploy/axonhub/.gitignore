@@ -1,0 +1,6 @@
+# Local runtime secrets and data exports. Never commit these.
+.env
+*.dump
+*.sql
+*.sql.gz
+backups/
