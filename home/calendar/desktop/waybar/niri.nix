@@ -39,6 +39,10 @@ let
     bellOff = builtins.fromJSON ''"\uF1F6"'';
     battery = builtins.fromJSON ''"\uF240"'';
     charging = builtins.fromJSON ''"\uF0E7"'';
+    brightness = builtins.fromJSON ''"\uF185"'';
+    profilePerformance = builtins.fromJSON ''"\uF0E7"'';
+    profileBalanced = builtins.fromJSON ''"\uF24E"'';
+    profileSaver = builtins.fromJSON ''"\uF06C"'';
     bluetooth = builtins.fromJSON ''"\uF293"'';
     bluetoothConnected = builtins.fromJSON ''"\uF294"'';
     down = builtins.fromJSON ''"\u2193"'';
@@ -59,6 +63,12 @@ let
     "niri/workspaces" = {
       format = "{icon}";
       all-outputs = false;
+      # Native whole-bar scroll: Waybar listens on the bar window and sends
+      # FocusWorkspaceUp/Down. niri stops at the first/last workspace instead
+      # of wrapping. Modules with their own scroll handlers are remapped to the
+      # same actions below so one scroll cannot both change volume/brightness
+      # and switch workspaces.
+      enable-bar-scroll = true;
       workspace-taskbar = {
         enable = true;
         icon-size = 18;
@@ -81,8 +91,13 @@ let
       format = "${icon.volume} {volume}%";
       format-muted = "${icon.volume} muted";
       on-click = "${lib.getExe pkgs.pavucontrol}";
-      on-scroll-up = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+";
-      on-scroll-down = "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-";
+      # The pulseaudio module always installs its own scroll handler. Point it
+      # at the same niri actions instead of wpctl so scrolling over the volume
+      # label switches workspaces exactly like the rest of the bar and never
+      # changes volume at the same time. Volume stays on the media keys and the
+      # pavucontrol click action.
+      on-scroll-up = "${lib.getExe pkgs.niri} msg action focus-workspace-up";
+      on-scroll-down = "${lib.getExe pkgs.niri} msg action focus-workspace-down";
       tooltip = false;
     };
 
@@ -149,16 +164,78 @@ let
     };
 
     battery = {
-      interval = 30;
+      # BAT1 exposes power_now on main, so {power} is a real battery-side
+      # reading. Only discharging/charging formats show it; plugged, full and
+      # unknown states never print a synthetic 0 W. 10 s is the requested
+      # power refresh interval.
+      interval = 10;
       states = {
         warning = 20;
         critical = 10;
       };
       format = "${icon.battery} {capacity}%";
-      format-charging = "${icon.charging} {capacity}%";
-      format-plugged = "${icon.charging} {capacity}%";
-      format-full = "${icon.battery} {capacity}%";
-      tooltip-format = "{timeTo}";
+      format-charging = "${icon.charging} {capacity}% · 充电";
+      format-discharging = "${icon.battery} {capacity}% · {power:.1f} W";
+      format-plugged = "${icon.charging} {capacity}% · 已插电";
+      format-full = "${icon.battery} {capacity}% · 已充满";
+      tooltip-format = "电量 {capacity}%\n健康度 {health}% · {cycles} 次循环";
+      tooltip-format-discharging = "剩余 {time}\n电池侧功率 {power:.1f} W\n健康度 {health}% · {cycles} 次循环";
+      tooltip-format-charging = "充满还需 {time}\n充电功率 {power:.1f} W\n健康度 {health}% · {cycles} 次循环";
+      tooltip-format-plugged = "已插电，未充电\n健康度 {health}% · {cycles} 次循环";
+      tooltip-format-full = "已充满\n健康度 {health}% · {cycles} 次循环";
+    };
+
+    # Native PPD module. Left click cycles only the profiles the daemon
+    # actually exposes; no wrapper or forced profile on login/AC changes. The
+    # daemon itself starts at balanced and persists later manual selections.
+    "power-profiles-daemon" = {
+      format = "{icon}";
+      tooltip-format = "电源档位 {profile}\nCPU 驱动 {cpu_driver}\n平台驱动 {platform_driver}";
+      format-icons = {
+        default = icon.profileBalanced;
+        performance = icon.profilePerformance;
+        balanced = icon.profileBalanced;
+        "power-saver" = icon.profileSaver;
+      };
+    };
+
+    # The slider is the only brightness control besides the media keys. The
+    # bar-level scroll belongs to workspaces, so the label's native scroll is
+    # remapped instead of changing brightness a second time.
+    backlight = {
+      interval = 2;
+      # Probed on main: amdgpu_bl1 is the only screen backlight. If a kernel
+      # update renames it, remove `device` and let Waybar select the screen
+      # backlight automatically.
+      device = "amdgpu_bl1";
+      format = "${icon.brightness} {percent}%";
+      max-length = 7;
+      min-brightness = 5;
+      tooltip-format = "内屏亮度 {percent}%";
+      on-scroll-up = "${lib.getExe pkgs.niri} msg action focus-workspace-up";
+      on-scroll-down = "${lib.getExe pkgs.niri} msg action focus-workspace-down";
+    };
+
+    "backlight/slider" = {
+      device = "amdgpu_bl1";
+      min = 5;
+      max = 100;
+      interval = 1000;
+    };
+
+    # Click the brightness label to reveal the short native slider; the drawer
+    # expands to the left so the clock and right-side status modules stay put.
+    "group/backlight" = {
+      orientation = "inherit";
+      modules = [
+        "backlight"
+        "backlight/slider"
+      ];
+      drawer = {
+        transition-duration = 150;
+        click-to-reveal = true;
+        transition-left-to-right = false;
+      };
     };
 
     "custom/clock" = {
@@ -222,6 +299,8 @@ let
         "network#status"
       ]
       ++ lib.optional hasBluetooth "bluetooth"
+      ++ lib.optional hasBattery "power-profiles-daemon"
+      ++ lib.optional hasBattery "group/backlight"
       ++ lib.optional hasBattery "battery"
       ++ [
         "custom/notification"

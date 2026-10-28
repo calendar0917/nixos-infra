@@ -27,7 +27,13 @@
 
         # The wwan option is new and would require ModemManager. This host uses
         # NetworkManager, not WWAN, so keep the existing feature set.
-        mesonFlags = old.mesonFlags ++ [ "-Dwwan=disabled" ];
+        # login-proxy is still opt-in upstream. Without it the native
+        # backlight/backlight-slider modules can read sysfs but cannot write
+        # brightness through logind; no extra package dependency is needed.
+        mesonFlags = old.mesonFlags ++ [
+          "-Dwwan=disabled"
+          "-Dlogin-proxy=true"
+        ];
 
         # Keep the package version and the binary's reported version in sync
         # for versionCheckHook. The upstream source still says 0.15.0.

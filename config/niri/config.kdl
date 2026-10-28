@@ -108,8 +108,10 @@ binds {
     XF86AudioNext allow-when-locked=true { spawn-sh "playerctl next"; }
     Ctrl+XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "playerctl volume 0.05+"; }
     Ctrl+XF86AudioLowerVolume allow-when-locked=true { spawn-sh "playerctl volume 0.05-"; }
-    XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
+    // brightnessctl's --min-value takes a raw device value, not a percentage.
+    // Compute 5% of the actual maximum so key repeats cannot reach 0.
+    XF86MonBrightnessUp allow-when-locked=true { spawn-sh "max=$(brightnessctl --class=backlight max); brightnessctl --class=backlight --min-value=$(( (max * 5 + 99) / 100 )) set +10%"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn-sh "max=$(brightnessctl --class=backlight max); brightnessctl --class=backlight --min-value=$(( (max * 5 + 99) / 100 )) set 10%-"; }
     XF86TouchpadToggle allow-when-locked=true repeat=false { spawn "niri" "msg" "action" "toggle-touchpad"; }
 
     // ---------- Focus and window movement ----------
