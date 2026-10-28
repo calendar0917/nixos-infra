@@ -5,6 +5,7 @@
 {
   imports = [
     ./shell.nix
+    ./pi.nix
     ./neovim.nix
     ./tmux.nix
     ./desktop/niri.nix

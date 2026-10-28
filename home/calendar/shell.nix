@@ -12,6 +12,28 @@
       cat = "bat --style=plain";
       g = "git";
       n = "nvim";
+      bt = "btop";
+      cc = "cd ~/code";
+      cdot = "cd ~/life/dotfiles";
+      ch = "cd ~";
+    };
+    functions = {
+      pon.body = ''
+        set -gx http_proxy http://127.0.0.1:7897
+        set -gx https_proxy http://127.0.0.1:7897
+        set -gx all_proxy socks5://127.0.0.1:7897
+        set -gx HTTP_PROXY http://127.0.0.1:7897
+        set -gx HTTPS_PROXY http://127.0.0.1:7897
+        echo 终端代理已开启
+      '';
+      poff.body = ''
+        set -e http_proxy
+        set -e https_proxy
+        set -e all_proxy
+        set -e HTTP_PROXY
+        set -e HTTPS_PROXY
+        echo 终端代理已关闭
+      '';
     };
     interactiveShellInit = ''
       set -g fish_greeting ""
@@ -55,11 +77,22 @@
     enableGitIntegration = true;
   };
 
-  # Keep Git identity declarative, but do not manage credentials or signing
-  # keys. Existing ~/.ssh and credential helpers remain untouched.
+  # Keep Git identity declarative. The GitHub credential helper delegates to
+  # the user-owned `gh` login in ~/.config/gh; no token is stored here. SSH
+  # keys remain user-managed files under ~/.ssh.
   programs.git = {
     enable = true;
     settings = {
+      credential = {
+        "https://github.com".helper = [
+          ""
+          "!${pkgs.gh}/bin/gh auth git-credential"
+        ];
+        "https://gist.github.com".helper = [
+          ""
+          "!${pkgs.gh}/bin/gh auth git-credential"
+        ];
+      };
       user = {
         name = "calendar";
         email = "1131821081@qq.com";

@@ -15,6 +15,7 @@
     ./hardware-configuration.nix
     ./boot.nix
     ./docker.nix
+    ./clash.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix
