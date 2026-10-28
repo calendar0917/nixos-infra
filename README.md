@@ -122,6 +122,19 @@ nix-env -p /nix/var/nix/profiles/system --list-generations
 generation，直到至少一次成功重启和回滚验证完成。不要用删除 generation 的方式
 腾空间。
 
+## 维护入口
+
+桌面回归统一从这一个入口执行，不要在文档里复制展开后的命令：
+
+```bash
+scripts/check-desktop
+```
+
+它会构建 main 的 Home Manager activationPackage、提取实际生成的 niri 电源菜单/
+锁屏 helper 和 wlogout 资源，再运行 `tests/test_desktop_polish.py`；不会执行
+switch、锁屏、挂起或重启。`scripts/check-desktop --help` 只打印说明，不触发构建。
+只改文档时不需要运行它。Agent 的默认工作边界见 [`AGENTS.md`](AGENTS.md)。
+
 ## 分支与部署
 
 Git 的 `main` 分支和 flake 的 `#main` 主机是两件事：前者是代码分支，后者是
