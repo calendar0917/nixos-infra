@@ -63,6 +63,11 @@
     ] ++ lib.optionals config.my.network.clashVerge.enable [ "clash-verge" ];
   };
 
+  # The workstation owner explicitly requested passwordless sudo. This is
+  # root-equivalent for every process running as this wheel user; do not add
+  # other interactive users to wheel.
+  security.sudo.wheelNeedsPassword = false;
+
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;

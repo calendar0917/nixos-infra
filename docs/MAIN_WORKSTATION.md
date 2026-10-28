@@ -14,6 +14,7 @@
 | 本次启动的系统 | `/run/booted-system` 仍指向 `5pzgam…`；安装后尚未重启 |
 | 本轮新构建 | 已成功 build，路径见 `./result`；**尚未激活** |
 | 失败服务 | `systemctl --failed`：0 loaded units |
+| sudo | `%wheel` 已配置 NOPASSWD（`security.sudo.wheelNeedsPassword = false`）；需 switch 后生效，当前运行系统仍要密码 |
 | `/` | `/dev/nvme0n1p2[/@nixos]`，rw |
 | `/home` | 同一 Btrfs 的 `[/@nixos-home]`，rw |
 | `/nix` | 同一 Btrfs 的 `[/@nixos-nix]`，rw（store 自身只读） |
@@ -187,16 +188,18 @@ bootctl status --no-pager | sed -n '/Default Boot Loader Entry/,$p'
   `enable_auto_launch: false`、`verge_mixed_port: 7897`。TUN/系统代理没有
   实际启用。
 
-新增 `systemd.services.mihomo-standalone`（`hosts/main/clash.nix`）：
+不再提供 `mihomo-standalone` 服务。`hosts/main/clash.nix` 只保留 geosite
+安装器；`127.0.0.1:7897` 的唯一预期所有者是 Clash Verge 的核心。
 
-- 使用 nixpkgs `mihomo 1.19.32`，配置/状态固定到
-  `/home/calendar/.local/share/mihomo-kit/{config.yaml,state/profile.yaml}`。
-- 启动前用 `mihomo -t` 校验；启动脚本先检查 7897 是否已有监听者，若有则
-  直接成功退出，绝不抢占端口。
-- 以 `calendar:calendar` 运行，`ProtectSystem=strict`、
-  `ProtectHome=read-only`，只允许写 `mihomo-kit/state`；`Restart=on-failure`。
-- switch/reboot 后它成为 7897 的唯一稳定所有者；当前手工 mihomo 在本次
-  会话中继续使用，代理不中断。
+当前过渡状态：
+
+- 手工 mihomo 仍占用 7897，Clash 核心暂时无法绑定；本会话继续使用手工
+  mihomo，避免中断 agent。
+- 重启后手工 mihomo 不会自动启动；需要启动 Clash Verge，让它的核心绑定
+  7897。`autoStart=true` 会安装 XDG autostart 项，但当前 `verge.yaml` 的
+  `enable_auto_launch: false` 仍可能要求手动打开 GUI，启动后确认核心已运行。
+- 没有 systemd fallback；如果 Clash 没有启动，7897 会暂时没有监听者。
+  这不是迁移期间允许的长期状态，必须由用户启动 Clash 后验证。
 
 隔离测试（未触碰 7897）：把配置复制到临时目录，mixed-port 改为 `17899`，
 controller 改为 `19097`，DNS 改为 `15353`；`mihomo -t` rc=0，
@@ -207,19 +210,20 @@ controller 改为 `19097`，DNS 改为 `15353`；`mihomo -t` rc=0，
 
 ### 4.4 接管/回滚边界
 
-- **不要同时启动 Clash Verge 核心和 `mihomo-standalone` 绑定 7897。**
-- 当前手工 mihomo 不是 systemd 服务；在本会话中不要杀它。等用户执行
-  switch/reboot 后，由 `mihomo-standalone` 接管。
-- 如果要把 7897 交给 Clash Verge：
+- **只允许 Clash Verge 一个核心绑定 7897；不再提供 mihomo fallback。**
+- 当前手工 mihomo 不是 systemd 服务；在本会话中不要由代理杀掉它。重启后
+  手工进程消失，Clash Verge 是唯一的预期核心。
+- 切换到 Clash 的步骤（由用户执行）：
 
   ```bash
-  sudo systemctl stop mihomo-standalone
+  # 先停止当前手工 mihomo（关闭其终端/进程；不要动 agent 本身）
   ss -lntp 'sport = :7897'          # 必须为空
-  # 在 Clash Verge GUI 中只启动一个核心；不要同时开 mihomo-standalone
+  # 打开/启动 Clash Verge，确认它的核心绑定 7897
   ```
 
-  验证 `gstatic`/GitHub/`cache.nixos.org` 后再保留该状态；失败则停止 Verge
-  核心，重新 `sudo systemctl start mihomo-standalone`，确认仍只有一个监听者。
+  验证 `gstatic`/GitHub/`cache.nixos.org` 后再保留该状态。若 Clash 启动
+  失败，先看 GUI/核心日志；不要为了绕过问题再启动第二个 7897 listener。
+  只有用户明确接受临时降级时，才手工启动旧 kit，并在恢复后回到 Clash。
 - 任何时候都不要改 `HTTP_PROXY=http://127.0.0.1:7897`，也不要在 7897 上
   启动第二个 listener。
 
@@ -300,12 +304,13 @@ controller 改为 `19097`，DNS 改为 `15353`；`mihomo -t` rc=0，
 - `deploy/axonhub/.env` 为 0600 且被 Git 忽略，只含镜像、端口和随机
   `DB_PASSWORD`；`docker compose --env-file .env config --quiet` rc=0。
   `.env` 内容没有出现在本仓库、Nix store 或本文中。
-- **阻塞**：当前用户不在 `docker` 组，`sudo -n true` 失败（sudo 需要密码），
-  所以迁移代理无法执行 `docker ps`、`pg_dump` 或隔离恢复测试。没有执行任何
-  `docker volume prune`/`compose down -v`，也没有删除 `axonhub_postgres_data`。
-- 用户有 sudo 后，按 `deploy/axonhub/README.md` 执行：`pg_dump -Fc` 备份到
-  `deploy/axonhub/backups/`，用独立的 `axonhub-restore-test` 容器和独立
-  volume 做恢复，再删除测试容器/volume；不要对 live volume 做恢复演练。
+- **阻塞（switch 前）**：当前用户不在 `docker` 组，`sudo -n true` 仍失败
+  （运行系统还是旧 sudoers），所以迁移代理目前无法执行 `docker ps`、
+  `pg_dump` 或隔离恢复测试。没有执行任何 `docker volume prune`/
+  `compose down -v`，也没有删除 `axonhub_postgres_data`。
+- 已声明 `security.sudo.wheelNeedsPassword = false`；switch 后 `sudo -n true`
+  应成功，届时按 `deploy/axonhub/README.md` 执行 `pg_dump -Fc` 和独立
+  volume 恢复测试。用户仍不在 `docker` 组，但可用 `sudo docker ...`。
 - Arch 的 AxonHub/`hub` provider key 对 `/v1/models` 返回 401；仓库中没有
   可用的 AxonHub API key，因此没有把它写入 Pi。AxonHub 健康不等于模型 API
   已授权；需要在 AxonHub 中创建/确认 key 后再接 Pi。
@@ -317,8 +322,8 @@ controller 改为 `19097`，DNS 改为 `15353`；`mihomo -t` rc=0，
 
 | 文件 | 变更 |
 | --- | --- |
-| `hosts/main/clash.nix`（新增） | 固定 MetaCubeX geosite；`clash-verge-geosite` oneshot 在 `/home` 挂载后原子安装可写副本；`mihomo-standalone` 单监听者 7897 |
-| `hosts/main/default.nix` | 导入 `./clash.nix` |
+| `hosts/main/clash.nix`（新增） | 固定 MetaCubeX geosite；`clash-verge-geosite` oneshot 在 `/home` 挂载后原子安装可写副本；不提供 mihomo fallback，7897 由 Clash Verge 唯一接管 |
+| `hosts/main/default.nix` | 导入 `./clash.nix`；`security.sudo.wheelNeedsPassword = false` |
 | `home/calendar/pi.nix`（新增） | `pi-web-pinned` 固定 0.12.2；Pi/Pi Web 无遥测/跳过版本检查 |
 | `home/calendar/default.nix` | 导入 `./pi.nix` |
 | `home/calendar/shell.nix` | Git credential helper 委托给 `gh`；fish `pon`/`poff` 和少量别名 |
@@ -339,18 +344,19 @@ git diff --check                             # rc=0
 ```
 
 生成物检查：geosite store 文件 SHA256 与上述值一致；
-`systemd-analyze verify` 对 `mihomo-standalone.service` 和
-`clash-verge-geosite.service` 均 rc=0；unit 中 `ConditionPathExists`、
-`ExecStartPre`、`ExecStart`、`RequiresMountsFor` 路径均存在；安装脚本在
+`systemd-analyze verify` 对 `clash-verge-geosite.service` rc=0；
+`result/etc/sudoers` 中 `%wheel` 为 `NOPASSWD:SETENV: ALL`；安装脚本在
 隔离目录中能把 symlink 原子替换为普通文件；`pi-web-pinned` 包装器可执行。
+`result` 中不再生成 `mihomo-standalone.service`。
 
 ## 8. 未完成 / 阻塞项
 
 | 项目 | 状态与下一步 |
 | --- | --- |
 | 最终 switch/reboot | 代理明确未执行；由用户确认后运行 `sudo nixos-rebuild switch` 并重启 |
-| 7897 交给 Clash Verge | 未切换；当前手工 mihomo 继续服务，重启后由 `mihomo-standalone` 接管。需要用户批准再做 Clash 核心接管 |
-| Docker 备份/恢复测试 | 阻塞：用户不在 docker 组且 sudo 需密码；按 README 手动执行 |
+| 7897 交给 Clash Verge | 不再有 mihomo fallback；当前手工 mihomo 继续服务，重启后手工进程消失，需启动 Clash Verge 并确认其核心绑定 7897 |
+| Docker 备份/恢复测试 | switch 前阻塞；switch 后 sudo 免密生效，按 README 用 `sudo docker` 执行 |
+| sudo 免密生效 | 已写入 `hosts/main/default.nix`，需 switch 后生效；当前会话仍要密码 |
 | AxonHub API key | Arch key 401；需在 AxonHub 创建/确认 key，再更新 Pi provider |
 | Tailscale | 已安装但 logged out；需用户交互登录 |
 | SOPS/age | `/var/lib/sops-nix` root-only，无用户 age 私钥；未解密验证 |
@@ -380,9 +386,8 @@ switch 前重点检查：
 ```bash
 readlink -f result
 cat result/etc/systemd/system/clash-verge-geosite.service
-cat result/etc/systemd/system/mihomo-standalone.service
 systemd-analyze verify result/etc/systemd/system/clash-verge-geosite.service
-systemd-analyze verify result/etc/systemd/system/mihomo-standalone.service
+grep -E '^%wheel' result/etc/sudoers
 cat /boot/loader/loader.conf
 sha256sum /boot/EFI/Linux/arch-linux-lts.efi
 ```
@@ -392,8 +397,9 @@ switch 后重点验收：
 ```bash
 systemctl --failed
 systemctl status clash-verge-geosite --no-pager
-systemctl status mihomo-standalone --no-pager
-ss -lntp 'sport = :7897'                 # 只允许一个 listener
+systemctl status clash-verge --no-pager
+sudo -n true                              # switch 后应成功
+ss -lntp 'sport = :7897'                 # 先启动 Clash，只允许一个 listener
 curl -x http://127.0.0.1:7897 -sS -o /dev/null -w '%{http_code}\n' \
   https://www.gstatic.com/generate_204   # 期望 204
 curl -x http://127.0.0.1:7897 -sS -o /dev/null -w '%{http_code}\n' \
@@ -408,8 +414,8 @@ git config --get-all credential.https://gist.github.com.helper
 
 geosite 期望是普通文件（不是 symlink），mode 0644，哈希为
 `ba896884…b71631`。`clash-verge-geosite` 在 `/home` 挂载后、显示管理器之前
-完成安装；`mihomo-standalone` 激活后，若手工 mihomo 仍在运行，启动脚本会
-检测到 7897 占用并成功退出；重启后手工进程消失，由 systemd 服务接管。
+完成安装；重启后手工 mihomo 不会自动启动，需要启动 Clash Verge，确认其
+核心绑定 7897，并确认没有第二个 listener。
 
 回滚：
 
@@ -418,8 +424,9 @@ sudo nixos-rebuild switch --rollback
 # 或重启时在 systemd-boot 菜单选择旧 generation
 ```
 
-若只是 7897 出问题：先 `sudo systemctl stop mihomo-standalone`，确认
-`ss -lntp 'sport = :7897'` 为空；再按第 4.4 节恢复单一 listener。不要用
+若只是 7897 出问题：先停止 Clash 核心，确认
+`ss -lntp 'sport = :7897'` 为空；再按第 4.4 节恢复单一 listener。没有
+`mihomo-standalone` 可停，也不要为了排障启动第二个 7897 进程。不要用
 `kill` 杀掉正在承载 agent 的代理进程，也不要在未确认时重载 Docker。
 
 ## 10. 安全边界与 Arch 共存
@@ -438,4 +445,7 @@ sudo nixos-rebuild switch --rollback
 - SSH 密码认证加固尚未应用；在完成密钥登录和应急访问验证前不要贸然改成
   `PasswordAuthentication no`。
 - 代理链保持不变：`HTTP_PROXY=http://127.0.0.1:7897`，Docker daemon 也使用
-  该值；7897 只允许一个 listener。
+  该值；7897 只允许 Clash Verge 一个 listener，不再提供 mihomo fallback。
+- `security.sudo.wheelNeedsPassword = false` 使 `wheel` 用户无需密码即可获得
+  root，等价于把该用户的全部进程都视为 root；当前只把 `calendar` 放入
+  `wheel`，不要再添加其他交互用户。该选项只写入 `hosts/main`，mini 主机不受影响。

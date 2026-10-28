@@ -14,20 +14,10 @@ let
   };
 
   clashDataDir = "/home/calendar/.local/share/io.github.clash-verge-rev.clash-verge-rev";
-  mihomoKit = "/home/calendar/.local/share/mihomo-kit";
 
-  # The subscription and node credentials live only in mihomoKit/state and are
-  # read at runtime. Nothing secret is placed in the Nix store.
-  mihomoStart = pkgs.writeShellScript "mihomo-standalone-start" ''
-    if ${pkgs.iproute2}/bin/ss -lntH 'sport = :7897' | ${pkgs.gnugrep}/bin/grep -q .; then
-      echo "127.0.0.1:7897 already has a listener; standalone fallback will not start"
-      exit 0
-    fi
-    exec ${pkgs.mihomo}/bin/mihomo -f ${mihomoKit}/config.yaml -d ${mihomoKit}/state
-  '';
-  # The install runs as a systemd oneshot, after /home is mounted. Do not use
-  # an activation script here: stage-2 activation can run before the separate
-  # /home filesystem is mounted, which would write into the root filesystem.
+  # Install after /home is mounted. Do not use an activation script here:
+  # stage-2 activation can run before the separate /home filesystem is mounted,
+  # which would write into the root filesystem.
   clashGeositeInstall = pkgs.writeShellScript "clash-geosite-install" ''
     set -eu
     umask 022
@@ -37,7 +27,6 @@ let
     ${pkgs.coreutils}/bin/install -m 0644 -o calendar -g calendar ${geosite} "$tmp"
     ${pkgs.coreutils}/bin/mv -f "$tmp" ${clashDataDir}/geosite.dat
   '';
-
 in
 {
   systemd.services.clash-verge-geosite = {
@@ -53,35 +42,7 @@ in
     };
   };
 
-  # Single stable owner of 127.0.0.1:7897 across reboots. Clash Verge remains
-  # the GUI/profile manager and was validated on an isolated port; it must not
-  # be started against 7897 while this service is active. To hand 7897 over,
-  # stop/disable this unit first and start exactly one listener.
-  systemd.services.mihomo-standalone = {
-    description = "Standalone Mihomo fallback on 127.0.0.1:7897";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "network.target" ];
-    unitConfig.ConditionPathExists = [
-      "${mihomoKit}/config.yaml"
-      "${mihomoKit}/state/profile.yaml"
-    ];
-
-    serviceConfig = {
-      Type = "simple";
-      User = "calendar";
-      Group = "calendar";
-      WorkingDirectory = mihomoKit;
-      ExecStartPre = "${pkgs.mihomo}/bin/mihomo -t -f ${mihomoKit}/config.yaml -d ${mihomoKit}/state";
-      ExecStart = mihomoStart;
-      Restart = "on-failure";
-      RestartSec = 3;
-      UMask = "0077";
-      NoNewPrivileges = true;
-      CapabilityBoundingSet = "";
-      PrivateTmp = true;
-      ProtectSystem = "strict";
-      ProtectHome = "read-only";
-      ReadWritePaths = [ "${mihomoKit}/state" ];
-    };
-  };
+  # No standalone Mihomo service is provided. Clash Verge is the only intended
+  # owner of 127.0.0.1:7897; the geosite installer above is independent of the
+  # core and applies to Clash Verge's own data directory.
 }
