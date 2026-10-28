@@ -2038,6 +2038,21 @@ stage_cleanup() {
 # Arch-side: ESP archive + mini verification + offline record
 # ---------------------------------------------------------------------------
 
+verify_remote_archive() {
+  local archive=$1 remote_sha remote_rc
+  # Correctness comes from ssh/sha256sum's exit status, not the localized
+  # success text ("OK"/"成功"/...). LC_ALL=C only makes logs consistent.
+  remote_sha=$(ssh "$BACKUP_HOST" \
+    "cd ~/arch-esp-backups && LC_ALL=C sha256sum -c $(basename "$archive").sha256" 2>&1)
+  remote_rc=$?
+  printf '%s\n' "$remote_sha" | tee -a "$LOG" | sed 's/^/  /'
+  if [ "$remote_rc" -ne 0 ]; then
+    stop "小主机 sha256sum -c 未通过（ssh/sha256sum 退出码 $remote_rc）；未生成记录"
+    return 1
+  fi
+  return 0
+}
+
 stage_record_backup() {
   state_init
   stage_log record
@@ -2077,7 +2092,7 @@ stage_record_backup() {
   fi
   ok "小主机 SSH 可用"
 
-  local stamp archive tar_rc gz_rc local_sha remote_sha avail created_at
+  local stamp archive tar_rc gz_rc local_sha avail created_at
   created_at=$(date -Iseconds)
   stamp=$(date +%Y%m%d-%H%M%S)
   archive="/var/tmp/arch-esp-$stamp.tar.gz"
@@ -2106,12 +2121,7 @@ stage_record_backup() {
     stop "复制归档到小主机失败"
     return 1
   fi
-  remote_sha=$(ssh "$BACKUP_HOST" "cd ~/arch-esp-backups && sha256sum -c $(basename "$archive").sha256" 2>&1)
-  printf '%s\n' "$remote_sha" | tee -a "$LOG" | sed 's/^/  /'
-  if ! printf '%s\n' "$remote_sha" | grep "$(basename "$archive"): OK" >/dev/null; then
-    stop "小主机 sha256sum -c 未通过；未生成记录"
-    return 1
-  fi
+  verify_remote_archive "$archive" || return 1
   if ! ssh "$BACKUP_HOST" "tar -tzf ~/arch-esp-backups/$(basename "$archive") >/dev/null" 2>/dev/null; then
     stop "小主机无法读取归档（tar -tzf 失败）；未生成记录"
     return 1
