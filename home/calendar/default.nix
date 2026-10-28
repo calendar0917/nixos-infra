@@ -7,7 +7,7 @@
     ./shell.nix
     ./pi.nix
     ./terminal.nix
-    ./neovim.nix
+    ./helix.nix
     ./apps.nix
     ./tmux.nix
     ./desktop/niri.nix

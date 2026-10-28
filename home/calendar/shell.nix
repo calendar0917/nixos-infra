@@ -11,7 +11,7 @@
       ll = "eza -al --group-directories-first";
       cat = "bat --style=plain";
       g = "git";
-      n = "nvim";
+      n = "hx";
       bt = "btop";
       cc = "cd ~/code";
       cdot = "cd ~/life/dotfiles";
@@ -104,7 +104,7 @@
         rebase = true;
       };
       core = {
-        editor = "nvim";
+        editor = "hx";
       };
       color = {
         ui = "auto";
@@ -118,13 +118,17 @@
     eza
     fastfetch
     fzf
+    gcc
     gh
+    gnumake
     htop
     jq
     lazygit
     ncdu
     pnpm_10
+    ripgrep
     tree
+    tree-sitter
     unzip
     uv
     wl-clipboard
@@ -143,9 +147,9 @@
   # declaratively instead of patching shell rc files.
   home.sessionPath = [ "$HOME/.local/bin" ];
 
+  # EDITOR and VISUAL are set by programs.helix.defaultEditor. Keep only
+  # unrelated shell defaults here so the editor has a single source of truth.
   home.sessionVariables = {
-    EDITOR = "nvim";
-    VISUAL = "nvim";
     PAGER = "less";
   };
 }
