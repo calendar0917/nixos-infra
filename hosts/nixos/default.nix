@@ -28,7 +28,7 @@
   #
   # PasswordAuthentication is deliberately left at the NixOS default (enabled)
   # because it is the current, working login path. Verify key-only login from
-  # a second terminal before disabling it; see README "远程登录".
+  # a second terminal before disabling it; see docs/RECOVERY.md.
   services.openssh = {
     enable = true;
     openFirewall = true;
@@ -80,7 +80,8 @@
       "wheel"
       "video"
       "render"
-    ] ++ lib.optionals config.my.network.clashVerge.enable [ "clash-verge" ];
+    ]
+    ++ lib.optionals config.my.network.clashVerge.enable [ "clash-verge" ];
   };
 
   home-manager = {
@@ -90,10 +91,10 @@
     users.calendar = import ../../home/calendar;
   };
 
-  # First deployment: postpone automatic GC until the installation has
-  # rebooted successfully and at least one rollback candidate has been tested.
-  # The base policy uses --delete-older-than 30d and deletes old generations;
-  # see README/RECOVERY before re-enabling it.
+  # Keep automatic GC disabled until this installation has rebooted
+  # successfully and at least one rollback candidate has been tested. The base
+  # policy uses --delete-older-than 30d and deletes old generations; see
+  # README/RECOVERY before re-enabling it.
   nix.gc.automatic = lib.mkForce false;
 
   # First installation version. Do not bump this when upgrading nixpkgs.

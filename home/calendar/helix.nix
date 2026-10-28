@@ -4,10 +4,9 @@
 }:
 
 {
-  # Helix replaces the previous Neovim/LazyVim setup for the user's default
-  # editor. Keep this deliberately small: no plugin manager and no
-  # Vim-keybinding emulation layer. The mini host keeps DMS; it does not
-  # switch shells because of this module.
+  # Keep this deliberately small: no plugin manager and no Vim-keybinding
+  # emulation layer. The mini host keeps DMS; it does not switch shells
+  # because of this module.
   programs.helix = {
     enable = true;
     defaultEditor = true;
@@ -31,9 +30,8 @@
     # The base Catppuccin theme paints the editing area with an opaque base
     # colour. Clearing only ui.background lets kitty's 90% background show
     # through while selections, status line, line numbers and diagnostics
-    # retain their normal Catppuccin styling. Helix 25.07.1 accepts an empty
-    # style object for this override (verified by loading the generated theme
-    # in a temporary HOME).
+    # retain their normal Catppuccin styling. Helix accepts an empty style
+    # object for this override.
     themes.catppuccin_mocha_terminal = {
       inherits = "catppuccin_mocha";
       "ui.background" = { };

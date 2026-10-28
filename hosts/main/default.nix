@@ -111,8 +111,8 @@
     ];
   };
 
-  # Keep every generation until the first NixOS boot and a rollback test have
-  # passed. Do not enable automatic GC during the installation phase.
+  # Keep every generation until a NixOS boot and a rollback test have passed.
+  # Do not enable automatic GC during the installation phase.
   nix.gc.automatic = lib.mkForce false;
 
   # First-install release, taken from the actual installation medium. The

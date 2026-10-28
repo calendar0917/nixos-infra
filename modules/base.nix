@@ -51,9 +51,9 @@
     # creation time, and deleting it can remove the last known-good rollback
     # target. The current generation is kept.
     #
-    # hosts/nixos/default.nix and hosts/main/default.nix keep automatic GC
-    # disabled for the first deployment. Enable it only after a successful
-    # reboot and a tested rollback candidate.
+    # Keep automatic GC disabled on both hosts until a successful reboot and
+    # a tested rollback candidate. Enable it only after that; see
+    # README/RECOVERY.
     gc = {
       automatic = true;
       dates = "weekly";

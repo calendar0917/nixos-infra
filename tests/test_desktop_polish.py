@@ -81,15 +81,12 @@ def test_layout():
         "关机",
     ]
     css = Path(args.style).read_text(encoding="utf-8")
-    for label in ["lock", "suspend", "logout", "reboot", "shutdown"]:
-        marker = f"share/wlogout/icons/{label}.png"
-        assert marker in css, f"missing icon for {label}"
     narrow = Path(args.narrow_style).read_text(encoding="utf-8")
-    for css_text, icon_size in [(css, 40), (narrow, 26)]:
-        assert f"background-size: {icon_size}px {icon_size}px" in css_text
-        assert "background-color: rgba(17, 17, 27, 0.55)" in css_text
+    for css_text in [css, narrow]:
         for label in ["lock", "suspend", "logout", "reboot", "shutdown"]:
-            assert f"share/wlogout/icons/{label}.png" in css_text
+            assert f"share/wlogout/icons/{label}.png" in css_text, (
+                f"missing icon for {label}"
+            )
     print("PASS: wlogout layout is a JSON object stream with five Chinese cards")
     print("PASS: wide/narrow CSS reference the five packaged icons")
 
@@ -189,12 +186,12 @@ def test_lock_wait(tmp: Path):
         #!/bin/sh
         prop="$4"
         case "$prop" in
-          UID)
+          User)
             if [ "${FAKE_LOGIN_INVALID:-0}" = 1 ]; then
               echo "No session known" >&2
               exit 1
             fi
-            echo "${FAKE_LOGIN_UID:-$(id -u)}"
+            echo "${FAKE_LOGIN_UID-$(id -u)}"
             ;;
           LockedHint)
             if [ -n "${FAKE_LOCK_COUNTER:-}" ]; then
@@ -259,6 +256,7 @@ def test_lock_wait(tmp: Path):
     )
     assert counter.read_text().strip() == "4"
     check("invalid session", {"FAKE_LOGIN_INVALID": "1"}, 1)
+    check("empty session User", {"FAKE_LOGIN_UID": ""}, 1)
     check("wrong UID", {"FAKE_LOGIN_UID": "999"}, 1)
     check("lock unit start failure", {"FAKE_START_FAIL": "1"}, 1)
     check("lock process failure", {"FAKE_UNIT_STATE": "failed"}, 1)

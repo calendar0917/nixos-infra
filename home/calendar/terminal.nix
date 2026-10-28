@@ -24,14 +24,13 @@ in
     // lib.optionalAttrs catppuccinKitty {
       # The full Catppuccin Mocha theme comes from kitty-themes. Do not
       # duplicate its foreground/background/selection colours here: a partial
-      # local palette is exactly what made the previous main bar and terminal
-      # disagree. Only behaviour and geometry settings are added below.
+      # local palette makes the bar and terminal diverge. Only behaviour and
+      # geometry settings are added below.
       font_size = 11.5;
 
-      # Keep the window itself opaque and make only the background
-      # translucent. This preserves text contrast while matching the
-      # Catppuccin Mocha Waybar on main; the mini host keeps the original
-      # opaque terminal.
+      # Keep the text opaque and make only the background translucent. This
+      # preserves text contrast while matching the Catppuccin Mocha Waybar on
+      # main; the mini host keeps the original opaque terminal.
       background_opacity = 0.90;
       dynamic_background_opacity = true;
       window_padding_width = 10;

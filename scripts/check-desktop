@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Thin desktop regression entry point. Builds main's Home Manager activation
+# package, locates the generated helpers, and runs the existing headless test.
+# It never activates a generation, locks the screen, suspends, or reboots.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/check-desktop
+
+Build nixosConfigurations.main's Home Manager activationPackage, locate the
+generated niri-power-menu, niri-power, niri-lock-wait and wlogout layout/CSS,
+then run tests/test_desktop_polish.py.
+
+No system activation, lock screen, suspend, reboot, or nix store scan is done.
+EOF
+}
+
+if [ "$#" -gt 1 ]; then
+  echo "check-desktop: unexpected arguments: $*" >&2
+  usage >&2
+  exit 2
+fi
+
+case "${1:-}" in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    echo "check-desktop: unknown argument: $1" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+fail() {
+  echo "check-desktop: $*" >&2
+  exit 1
+}
+
+command -v nix >/dev/null 2>&1 || fail "nix is not on PATH"
+command -v python3 >/dev/null 2>&1 || fail "python3 is not on PATH"
+
+if ! build_output="$(
+  nix build \
+    --no-link \
+    --print-out-paths \
+    --no-update-lock-file \
+    "$repo_dir#nixosConfigurations.main.config.home-manager.users.calendar.home.activationPackage"
+)"; then
+  fail "failed to build main's Home Manager activationPackage"
+fi
+
+if [ -z "$build_output" ]; then
+  fail "nix build returned an empty activationPackage path"
+fi
+
+mapfile -t activation_paths <<<"$build_output"
+if [ "${#activation_paths[@]}" -ne 1 ] || [ -z "${activation_paths[0]}" ]; then
+  fail "expected exactly one activationPackage path, got ${#activation_paths[@]}"
+fi
+activation="${activation_paths[0]}"
+helpers="$activation/home-path/bin"
+
+for helper in niri-power-menu niri-power niri-lock-wait; do
+  [ -x "$helpers/$helper" ] || fail "missing generated helper: $helpers/$helper"
+done
+
+launcher="$helpers/niri-power-menu"
+
+# Extract exactly one generated store path for each asset. A duplicated or
+# missing match means the launcher no longer has the expected shape.
+extract_one() {
+  local pattern="$1"
+  local label="$2"
+  local matches count
+
+  matches="$(grep -oE "$pattern" "$launcher" | sort -u || true)"
+  count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l)"
+  if [ "$count" -ne 1 ]; then
+    fail "expected exactly one $label path in $launcher, found $count"
+  fi
+  printf '%s\n' "$matches" | sed '/^$/d'
+}
+
+layout="$(extract_one '/nix/store/[a-z0-9]{32}-niri-wlogout-layout' "wlogout layout")"
+wide_style="$(extract_one '/nix/store/[a-z0-9]{32}-niri-wlogout-style-wide\.css' "wide wlogout CSS")"
+narrow_style="$(extract_one '/nix/store/[a-z0-9]{32}-niri-wlogout-style-narrow\.css' "narrow wlogout CSS")"
+
+for asset in "$layout" "$wide_style" "$narrow_style"; do
+  [ -s "$asset" ] || fail "generated asset is missing or empty: $asset"
+done
+
+echo "check-desktop: activation=$activation"
+echo "check-desktop: running headless desktop regression"
+exec python3 "$repo_dir/tests/test_desktop_polish.py" \
+  --power-menu "$launcher" \
+  --power "$helpers/niri-power" \
+  --lock-wait "$helpers/niri-lock-wait" \
+  --layout "$layout" \
+  --style "$wide_style" \
+  --narrow-style "$narrow_style"

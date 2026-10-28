@@ -1,0 +1,73 @@
+# AGENTS.md
+
+本文件记录进入仓库的长期工作约定。具体任务的操作授权仍以用户当次说明为准。
+
+## 仓库与主机
+
+- 仓库只有一个 `flake.nix`，暴露 `nixosConfigurations.main` 和
+  `nixosConfigurations.nixos`。
+- `main` 是 LENOVO 笔记本：niri + Waybar、Hyprlock、蓝牙、nwg-displays 和
+  main-only 应用。`nixos` 是 KOLOE 小主机：niri + DMS，保留 Sway 备用会话。
+- Git 分支 `main` 与 flake 主机 `#main` 是两件事；应用命令的 `.#main` 指主机
+  属性，不是分支名。
+- 共享文件必须能在两台主机求值；只改 main 桌面作用域不等于要切换或重建小主机。
+
+## 目录地图
+
+- `hosts/main`、`hosts/nixos`：主机硬件、导入项和主机级开关。
+- `modules/`：NixOS 基础、网络、备份、桌面会话和 shell 选择。
+- `home/calendar/`：Home Manager 用户配置；桌面子目录含 Waybar、电源、锁屏、
+  剪贴板和共享 helper。
+- `config/`：niri、Sway、Waybar、SwayNC 和壁纸等只读配置。
+- `patches/`：本地补丁；`tests/`：无 GUI 的 Python 回归检查。
+- `docs/history/`、`docs/install/`、`START.sh`、`START_HERE.txt` 和
+  `install-preflight.sh` 是历史或安装恢复材料；只在相关任务中读取，不作为
+  当前运行状态。
+
+## 默认边界
+
+- 除非用户在当前任务中明确授权，不要执行 switch/boot/reboot/suspend、真实
+  锁屏，不要写 ESP/磁盘/挂载点，也不要修改网络、账号、secrets 或备份策略。
+- 默认不要更新 flake inputs，不要顺手改另一台主机。需要时先确认具体范围。
+- 以上是维护默认值，不是对未来明确任务的永久禁令；用户已授权时按授权执行，
+  不重复索要许可。
+- 不为维护任务增加软件、主题、CI、测试框架或模块框架。GUI 未执行的项目写
+  “待实机验证”，不要写成已通过。
+- 不读取 secrets 内容；需要密钥时只检查权限和存在性。
+
+## 验证范围
+
+- 只改文档：检查本地链接和 `git diff --check`，不构建系统。
+- 只改 main 桌面或 Home Manager：检查相关生成脚本和样式，运行
+  `scripts/check-desktop`；不默认重建两台 toplevel。
+- 改 `modules/`、`hosts/`、系统服务或两机共享行为：分别求值/构建受影响主机。
+- 改 niri 配置：临时复制 `config.kdl` 并创建临时空 `monitor.kdl`，用
+  `niri validate -c` 验证；不要覆盖用户的 `~/.config/niri/monitor.kdl`。
+- 改 nwg-displays 补丁或包：运行其 `checkPhase` 或针对性包构建，不要为此
+  重跑所有桌面样式检查。
+- 桌面回归标准入口只有 README 维护段中的 `scripts/check-desktop`；其他文档
+  引用入口，不复制整段命令。
+
+## 已知约定
+
+- Waybar 在 main 上只允许一个实例，由 niri 绑定的 user unit 启动；不要另加
+  systemd unit、XDG autostart 或 `spawn-at-startup waybar`。
+- `config/niri/config.kdl` 只读并 `include "monitor.kdl"`；后者由 nwg-displays
+  写入，Home Manager 只在缺失时创建，不能改成 store 软链。
+- wlogout 读取的是换行分隔的 JSON 对象流，不是 JSON 数组。
+- flake 只把 Git 跟踪的文件纳入构建；新增文件必须 `git add` 后才参与求值。
+- Helix 的 `config.toml` 是 TOML；需要解析时使用 Python `tomllib` 或 TOML
+  工具，不要用 `jq`。
+- 锁屏就绪指 logind 的 `LockedHint=yes`，不是“锁屏进程已启动”；systemd 262
+  的会话所有者属性是 `User`，不是 `UID`。
+- `config/niri/config.kdl` 的 kitty 窗口规则只为透明窗口关闭焦点底板；不要
+  扩大成全局窗口 opacity 或焦点切换脚本。
+
+## 工作流
+
+- 从最新 Git `main` 建立短生命周期分支，保留用户未提交内容；不要回退到旧
+  SHA 覆盖新状态。
+- 提交按行为分组，同一任务用一个 PR；遵守分支保护，不强推。
+- 每阶段简短报告完成项、验证结果和下一步；长构建说明等待目标。
+- 按影响范围选择检查；只有新错误、真实行为变化或依赖变化才扩大验证。
+- 合并后提供最终 main SHA、实际通过项、未执行项和待实机项目，然后停止。
