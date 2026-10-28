@@ -282,15 +282,15 @@ controller 改为 `19097`，DNS 改为 `15353`；`mihomo -t` rc=0，
   Profile Manager 或 `firefox --profile .../y5a2y2xo.default-release` 打开。
 - 没有复制 Arch 的整个 `.mozilla`/缓存，也没有覆盖 NixOS 原有 profile。
 
-### 5.5 fish / Neovim / 其他
+### 5.5 fish / 编辑器 / 其他
 
 - fish 继续由 Home Manager 管理；本轮补回 Arch 的 `pon`/`poff` 代理函数、
   `bt`/`cc`/`cdot`/`ch` 别名，以及 Pi 的无遥测/跳过版本检查环境变量。
   Arch 的 fish 配置保留在 `/home/calendar/life/dotfiles/config/common/fish`。
-- Neovim 继续使用仓库内的 Nix 管理 LazyVim 配置（插件和 lock 在
-  `~/.local/{share,state}/nvim`，不进 store）。Arch 的 LazyVim starter
-  已原样保留到 `/home/calendar/life/nvim-arch`（含 Git 状态和未跟踪的
-  `lazy-lock.json`/`lazyvim.json`），没有覆盖 NixOS 配置。
+- 当前默认编辑器已切换为 Helix（`home/calendar/helix.nix`）。旧 Neovim
+  LazyVim 声明和 `config/nvim/` 已从仓库移除，但 Arch 的 LazyVim starter
+  仍原样保留在 `/home/calendar/life/nvim-arch`（含 Git 状态和未跟踪的
+  `lazy-lock.json`/`lazyvim.json`），运行时目录也没有删除。
 - Tailscale：`tailscaled` active，但 `tailscale status` 为 `Logged out` /
   `NeedsLogin`，没有 Tailscale IP；需要用户交互登录。
 
@@ -363,7 +363,7 @@ git diff --check                             # rc=0
 | GPG 私钥 | Arch 本来就没有私钥；只有公钥 |
 | KeePassXC 数据库 | 文件已迁移；尚未用密码打开/加入最近列表 |
 | Firefox profile 选择 | 已复制并登记 Profile1，但当前 Firefox 仍在运行；重启后手动选择/切换 |
-| Neovim Arch 配置 | 已保留到 `life/nvim-arch`，未替换 Nix 管理配置；如需启用 Arch 版本，用 `NVIM_APPNAME`/独立 profile |
+| 旧 Neovim Arch 配置 | 已保留到 `life/nvim-arch`；当前默认编辑器是 Helix，如需临时使用 Arch 版本可用 `NVIM_APPNAME`/独立 profile |
 | USB 备份 | 未执行；U 盘未挂载、未写入 |
 | SSH 密码登录加固 | 未执行；当前仍是 `PasswordAuthentication yes`，需要单独评审和测试 |
 
