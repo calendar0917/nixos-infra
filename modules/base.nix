@@ -14,9 +14,15 @@
   # ---------- Nix ----------
   nix = {
     settings = {
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
       auto-optimise-store = true;
-      trusted-users = [ "root" "@wheel" ];
+      trusted-users = [
+        "root"
+        "@wheel"
+      ];
       substituters = [
         "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
         "https://cache.nixos.org/"
@@ -24,6 +30,19 @@
       trusted-public-keys = [
         "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       ];
+    };
+
+    # nix-daemon performs store substitutions itself, so a proxy exported only
+    # in an interactive shell does not reach cache downloads. Set the local
+    # Clash HTTP proxy for the daemon and for Nix clients doing flake fetches.
+    # Keep loopback direct; Clash must be running for remote Nix operations.
+    envVars = {
+      http_proxy = "http://127.0.0.1:7897";
+      https_proxy = "http://127.0.0.1:7897";
+      HTTP_PROXY = "http://127.0.0.1:7897";
+      HTTPS_PROXY = "http://127.0.0.1:7897";
+      no_proxy = "localhost,127.0.0.1,::1";
+      NO_PROXY = "localhost,127.0.0.1,::1";
     };
 
     # `--delete-older-than 30d` deletes every profile generation older than
