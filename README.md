@@ -52,9 +52,10 @@ sudo nixos-rebuild boot --rollback
 nix-env -p /nix/var/nix/profiles/system --list-generations
 ```
 
-`.#main` 是 flake 的主机属性，不是 Git 分支。两台主机目前都用
-`nix.gc.automatic = lib.mkForce false` 保留 generation；不要为了腾空间删除最后
-一个可用回滚点。
+`.#main` 是 flake 的主机属性，不是 Git 分支。main 每周自动 GC 只回收无引用的
+store 内容，不删除 profile generation；小主机仍暂停自动 GC。旧 generation 只在
+人工核对后选择性删除，不要为了腾空间删除最后一个可用回滚点。详见
+[`docs/RECOVERY.md`](docs/RECOVERY.md) 3.2。
 
 ## 维护入口
 

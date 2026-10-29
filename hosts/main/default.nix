@@ -117,9 +117,16 @@
     ];
   };
 
-  # Keep every generation until a NixOS boot and a rollback test have passed.
-  # Do not enable automatic GC during the installation phase.
-  nix.gc.automatic = lib.mkForce false;
+  # The weekly automatic GC only removes store paths that no profile or other
+  # GC root references. It must not delete profile generations: the shared
+  # module's --delete-older-than 30d is overridden explicitly so a future edit
+  # cannot silently inherit generation deletion. Old generations stay until
+  # they are removed manually with nix-env. See README/RECOVERY.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = lib.mkForce "";
+  };
 
   # First-install release, taken from the actual installation medium. The
   # Ventoy stick holds the Graphical 26.05.12297 image (preferred) and the

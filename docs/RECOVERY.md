@@ -148,14 +148,35 @@ sudo reboot
 `hardware-configuration.nix` 没有被误改。
 
 GC 注意：`nix.gc.options = "--delete-older-than 30d"` 会删除超过 30 天的 profile
-generation，不只是 store 路径；删掉的 generation 不能再回滚。当前
-`hosts/nixos/default.nix` 用 `nix.gc.automatic = lib.mkForce false` 暂停了首次部署
-阶段的自动 GC。确认成功重启且至少有一个可用旧 generation 后，再删除该覆盖，或
-手动运行：
+generation，不只是 store 路径；删掉的 generation 不能再回滚。main 的 `nix.gc` 已
+明确覆盖为每周运行且 `options = ""`，只回收无 GC root 引用的 store 内容，不删除
+generation；小主机仍用 `nix.gc.automatic = lib.mkForce false` 暂停自动 GC。
+
+GC root（profile）保留的 store 闭包不等于启动菜单一定有该版本：
+`boot.loader.systemd-boot.configurationLimit = 3` 只限制菜单条目数量，也不会清除
+所有旧 store 引用。系统回滚只恢复系统 generation，不恢复 `~/life` 等用户文件。
+
+人工清理旧 generation 前先核对当前 profile、运行系统、启动菜单和已验证的回滚
+目标：
 
 ```bash
-sudo nix-collect-garbage --delete-older-than 30d
+nix-env -p /nix/var/nix/profiles/system --list-generations
+readlink -f /run/current-system
+readlink -f /nix/var/nix/profiles/system
+bootctl list                  # 只读；确认菜单里的 NixOS/Arch 条目
+cat /boot/loader/loader.conf  # main 默认仍是 Arch UKI
 ```
+
+确认至少保留一个已验证可启动的旧代际后，只删除明确选中的 generation，再回收
+store：
+
+```bash
+sudo nix-env -p /nix/var/nix/profiles/system --delete-generations <N>
+sudo nix-collect-garbage
+```
+
+不要默认执行 `nix-collect-garbage -d`（删除所有旧 generation）。系统回滚不会恢复
+用户数据；需要用户文件时使用独立的文件备份。
 
 ### 3.3 DMS、Mako、Waybar 和 Fcitx5 隔离
 
