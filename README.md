@@ -66,7 +66,7 @@ scripts/check-desktop
 ```
 
 它会构建 main 的 Home Manager activationPackage，提取实际生成的 niri 电源菜单/
-锁屏 helper 和 wlogout 资源，再运行 `tests/test_desktop_polish.py`。脚本不会
+锁屏/显示模式 helper 和 wlogout 资源，再运行桌面与显示菜单回归。脚本不会
 switch、锁屏、挂起或重启；`--help` 不触发构建。只改文档时不需要运行它。
 
 Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
