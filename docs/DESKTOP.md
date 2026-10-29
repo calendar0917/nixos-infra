@@ -63,7 +63,19 @@ journalctl --user -u waybar.service -b --no-pager
 nwg-displays 需要写这个文件，所以不能把它改成 store 软链，也不能为了 GUI 写回而
 把整个 `config.kdl` 变成可写。
 
-- `Mod+P` 打开补丁后的 nwg-displays；`Mod+Alt+P` 强制打开内屏 `eDP-1`。
+- `Mod+P` 仍打开补丁后的 nwg-displays；`Mod+Alt+P` 仍是强制打开内屏
+  `eDP-1` 的恢复入口；`Mod+Ctrl+P` 打开显示模式菜单。
+- 显示模式菜单由 `home/calendar/desktop/display-menu.sh` 提供，只在调用时执行，
+  没有常驻进程、systemd unit/timer、udev 规则或自动轮询。菜单使用 Fuzzel
+  `--dmenu --index`，固定四项：仅笔记本屏幕、扩展显示、仅外接显示器和高级显示
+  设置（nwg-displays）。
+- 菜单只通过 `niri msg output ...` 临时切换输出，不写、不自动修复
+  `~/.config/niri/monitor.kdl`。仅内屏先确认 `eDP-1` 活动再关闭活动外屏；仅外屏
+  先确认至少一个外屏活动再关闭内屏；扩展只启用可用输出，不关闭任何屏幕，也不
+  计算位置或实现镜像。重新加载配置或重启会话后，持久化布局可能覆盖临时状态。
+- 自动热插拔恢复**尚未实现**。仅外屏切换成功后直接拔掉外屏，仍可能因为
+  `monitor.kdl` 中的 `off` 而没有活动显示器；该黑屏问题不属于本次菜单的修复
+  范围。
 - 补丁处理 niri 禁用输出：有 modes 的输出仍可重新启用，没有 modes 的异常输出
   跳过并记录，不拖垮正常输出。
 - 实机先只读核对：
@@ -78,6 +90,12 @@ nwg-displays 需要写这个文件，所以不能把它改成 store 软链，也
   ```bash
   nix build --no-link .#nixosConfigurations.main.pkgs.nwg-displays
   ```
+
+实机验证需用户主动执行：应用新 generation 并重新登录后，用 `Mod+Ctrl+P` 分别
+选择仅内屏、扩展和仅外屏，并检查 `niri msg -j outputs | jq`。若黑屏，先按
+`Mod+Alt+P`；仍无效时在带有当前会话 `NIRI_SOCKET` 的 TTY 执行
+`niri msg output eDP-1 on`，或切到 Sway 备用会话用 nwg-displays 修正布局。真实
+GUI 切换和显示器插拔行为待实机验证。
 
 若故障不是 `current_mode`/`logical` 为 null，保留补丁并记录真实 stderr，不要把
 假设写成诊断结论。

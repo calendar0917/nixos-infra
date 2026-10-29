@@ -9,8 +9,8 @@ usage() {
 Usage: scripts/check-desktop
 
 Build nixosConfigurations.main's Home Manager activationPackage, locate the
-generated niri-power-menu, niri-power, niri-lock-wait and wlogout layout/CSS,
-then run tests/test_desktop_polish.py.
+generated niri-power-menu, niri-power, niri-lock-wait and niri-display-menu,
+then run the headless desktop and display-menu regressions.
 
 No system activation, lock screen, suspend, reboot, or nix store scan is done.
 EOF
@@ -67,7 +67,7 @@ fi
 activation="${activation_paths[0]}"
 helpers="$activation/home-path/bin"
 
-for helper in niri-power-menu niri-power niri-lock-wait; do
+for helper in niri-power-menu niri-power niri-lock-wait niri-display-menu; do
   [ -x "$helpers/$helper" ] || fail "missing generated helper: $helpers/$helper"
 done
 
@@ -98,10 +98,14 @@ done
 
 echo "check-desktop: activation=$activation"
 echo "check-desktop: running headless desktop regression"
-exec python3 "$repo_dir/tests/test_desktop_polish.py" \
+python3 "$repo_dir/tests/test_desktop_polish.py" \
   --power-menu "$launcher" \
   --power "$helpers/niri-power" \
   --lock-wait "$helpers/niri-lock-wait" \
   --layout "$layout" \
   --style "$wide_style" \
   --narrow-style "$narrow_style"
+
+echo "check-desktop: running headless display menu regression"
+exec python3 "$repo_dir/tests/test_niri_display_menu.py" \
+  --display-menu "$helpers/niri-display-menu"

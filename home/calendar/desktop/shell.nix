@@ -12,6 +12,22 @@ let
   enabled = niriEnabled && shell == "waybar";
   niriLib = import ./lib.nix { inherit pkgs lib; };
 
+  # On-demand display mode menu. It only changes niri's temporary output state
+  # and leaves the nwg-displays-owned monitor.kdl untouched.
+  displayMenu = pkgs.writeShellApplication {
+    name = "niri-display-menu";
+
+    runtimeInputs = with pkgs; [
+      niri
+      jq
+      fuzzel
+      coreutils
+      nwg-displays
+    ];
+
+    text = builtins.readFile ./display-menu.sh;
+  };
+
   wallpaper = ../../../config/wallpapers/background.jpg;
 
   # D-Bus can activate the notification daemon independently of systemd. Make
@@ -28,6 +44,7 @@ in
   config = lib.mkIf enabled {
     home.packages = with pkgs; [
       btop
+      displayMenu
       fuzzel
       networkmanagerapplet
       nwg-displays
