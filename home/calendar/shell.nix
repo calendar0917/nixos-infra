@@ -17,6 +17,31 @@
       cdot = "cd ~/life/dotfiles";
       ch = "cd ~";
     };
+    # Short git verbs are abbreviations, not aliases: they expand in place, so
+    # history keeps the real command and fish's `git` completions still apply
+    # after the expansion. Only verbs that forward arguments verbatim are
+    # listed; `gp` on a fresh branch depends on push.autoSetupRemote below.
+    # `lz` is avoided on purpose: mtools already owns that name on PATH.
+    shellAbbrs = {
+      gs = "git status";
+      ga = "git add";
+      gaa = "git add -A";
+      gd = "git diff";
+      gds = "git diff --staged";
+      gl = "git pull";
+      gp = "git push";
+      gb = "git branch";
+      gsw = "git switch";
+      gco = "git checkout";
+      glog = "git log --graph --oneline --decorate --all";
+      lg = "lazygit";
+      # `-m` needs the message as a single argument, which an alias cannot do
+      # for unquoted words. Expand to empty quotes and park the cursor inside.
+      gm = {
+        expansion = ''git commit -m "%"'';
+        setCursor = true;
+      };
+    };
     functions = {
       pon.body = ''
         set -gx http_proxy http://127.0.0.1:7897
@@ -59,10 +84,46 @@
     ];
   };
 
+  # Starship ran on its built-in defaults, whose git status renders as
+  # `[!+?⇡]`: one glyph per state regardless of file count, staged and
+  # unstaged mixed together, and `$` for stashes. Keep the same modules but
+  # add counts and order the groups index -> worktree, plus show merge/rebase
+  # progress and the short commit instead of only on a detached HEAD.
+  # git_metrics stays disabled: it spawns an extra `git diff --numstat` on
+  # every prompt and renders a dangling `[+3/-]` when deletions are zero.
   programs.starship = {
     enable = true;
     enableFishIntegration = true;
     enableInteractive = true;
+    settings = {
+      git_status = {
+        format = ''([\[$staged$modified$untracked$deleted$renamed$conflicted$stashed$ahead_behind\]]($style) )'';
+        staged = "+$count";
+        modified = "!$count";
+        untracked = "?$count";
+        deleted = "✘$count";
+        renamed = "»$count";
+        conflicted = "=$count";
+        stashed = "⚑$count";
+        ahead = "⇡$count";
+        behind = "⇣$count";
+        diverged = "⇕⇡$count⇣$count";
+        up_to_date = "";
+      };
+      # Merge/rebase progress. Starship's default already renders this; the
+      # block is explicit so a default change cannot silently drop it. Do not
+      # wrap the format in extra parentheses: starship parses `(...)` as a
+      # style modifier and the module then renders nothing.
+      git_state = {
+        format = ''\([$state( $progress_current/$progress_total)]($style)\) '';
+        style = "bold yellow";
+      };
+      git_commit = {
+        only_detached = false;
+        format = ''([\($hash$tag\)]($style) )'';
+        style = "bright-black";
+      };
+    };
   };
 
   programs.zoxide = {
@@ -102,6 +163,11 @@
       };
       pull = {
         rebase = true;
+      };
+      # Without this, `git push` on a freshly created branch stops with
+      # "no upstream branch"; the `gp` abbreviation depends on it.
+      push = {
+        autoSetupRemote = true;
       };
       core = {
         editor = "hx";
