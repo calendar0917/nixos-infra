@@ -6,7 +6,7 @@
 
 - 仓库只有一个 `flake.nix`，暴露 `nixosConfigurations.main` 和
   `nixosConfigurations.nixos`。
-- `main` 是 LENOVO 笔记本：niri + Waybar、Hyprlock、蓝牙、nwg-displays 和
+- `main` 是 LENOVO 笔记本：niri + Waybar、Hyprlock、蓝牙、wdisplays + kanshi 和
   main-only 应用。`nixos` 是 KOLOE 小主机：niri + DMS，保留 Sway 备用会话。
 - Git 分支 `main` 与 flake 主机 `#main` 是两件事；应用命令的 `.#main` 指主机
   属性，不是分支名。
@@ -19,7 +19,7 @@
 - `home/calendar/`：Home Manager 用户配置；桌面子目录含 Waybar、电源、锁屏、
   剪贴板和共享 helper。
 - `config/`：niri、Sway、Waybar、SwayNC 和壁纸等只读配置。
-- `patches/`：本地补丁；`tests/`：无 GUI 的 Python 回归检查。
+- `tests/`：无 GUI 的 Python 回归检查。
 - `docs/history/`、`docs/install/`、`START.sh`、`START_HERE.txt` 和
   `install-preflight.sh` 是历史或安装恢复材料；只在相关任务中读取，不作为
   当前运行状态。
@@ -41,10 +41,13 @@
 - 只改 main 桌面或 Home Manager：检查相关生成脚本和样式，运行
   `scripts/check-desktop`；不默认重建两台 toplevel。
 - 改 `modules/`、`hosts/`、系统服务或两机共享行为：分别求值/构建受影响主机。
-- 改 niri 配置：临时复制 `config.kdl` 并创建临时空 `monitor.kdl`，用
-  `niri validate -c` 验证；不要覆盖用户的 `~/.config/niri/monitor.kdl`。
-- 改 nwg-displays 补丁或包：运行其 `checkPhase` 或针对性包构建，不要为此
-  重跑所有桌面样式检查。
+- 改 niri 配置：直接 `niri validate -c config/niri/config.kdl`。配置已不 include
+  `monitor.kdl`，不需要临时文件，也不读写用户的旧布局记录。
+- 改 Sway 配置：main 用 `sway -C -c config/sway/config-main`，小主机用
+  `sway -C -c config/sway/config`。`sway -C` 不报重复按键，重复绑定由
+  `tests/test_session_and_hosts.py` 检查。
+- 改显示器布局：只动 `home/calendar/desktop/displays.nix` 和 Kanshi 的初始 Profile；
+  不要给 Kanshi 生成只读配置，也不要手改 niri 的输出块。
 - 桌面回归标准入口只有 README 维护段中的 `scripts/check-desktop`；其他文档
   引用入口，不复制整段命令。
 
@@ -52,8 +55,19 @@
 
 - Waybar 在 main 上只允许一个实例，由 niri 绑定的 user unit 启动；不要另加
   systemd unit、XDG autostart 或 `spawn-at-startup waybar`。
-- `config/niri/config.kdl` 只读并 `include "monitor.kdl"`；后者由 nwg-displays
-  写入，Home Manager 只在缺失时创建，不能改成 store 软链。
+- `config/niri/config.kdl` 只读，且**不再** `include "monitor.kdl"`。旧的
+  `~/.config/niri/monitor.kdl` 只是布局记录（含非法 niri KDL `on`），不要加回
+  include，也不要删除该文件。
+- `~/.config/kanshi/config` 是 wdisplays 写入的可写文件。`services.kanshi.settings`
+  必须保持 `[]`，Home Manager 只在文件缺失时复制初始 Profile，绝不覆盖已有布局。
+- main 的 Sway 辅助进程只用 `sway-waybar.service`、`sway-mako.service`、
+  `sway-bg.service`、`sway-exit-watch.service`；不要复用 niri 的 `waybar.service`、
+  `swaybg.service`、`swaync.service`，也不要在 `config/sway/config-main` 里加裸
+  `exec waybar`/`exec mako`/`exec swaybg`。
+- `sway-exit-watch` 只在 niri 未运行时停止 `graphical-session.target`；不要改成
+  无条件停止，也不要用 `pkill` 代替 unit 生命周期。
+- main 和 nixos 的 Sway 配置、Fuzzel 配置、Waybar 样式按 hostName 分流；改其中
+  一份不要顺手改另一份。
 - wlogout 读取的是换行分隔的 JSON 对象流，不是 JSON 数组。
 - flake 只把 Git 跟踪的文件纳入构建；新增文件必须 `git add` 后才参与求值。
 - Helix 的 `config.toml` 是 TOML；需要解析时使用 Python `tomllib` 或 TOML
