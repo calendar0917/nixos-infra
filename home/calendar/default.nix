@@ -11,6 +11,7 @@
     ./apps.nix
     ./tmux.nix
     ./desktop/niri.nix
+    ./desktop/displays.nix
     ./desktop/clipboard.nix
     ./desktop/lock.nix
     ./desktop/power.nix

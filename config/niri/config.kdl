@@ -79,9 +79,7 @@ binds {
     Alt+Space hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
     Mod+M hotkey-overlay-title="System monitor: btop" { spawn "kitty" "btop"; }
     Mod+Alt+N hotkey-overlay-title="Notification center" { spawn "swaync-client" "-t" "-sw"; }
-    Mod+P hotkey-overlay-title="Display settings: nwg-displays" { spawn "nwg-displays"; }
-    // Staged display-mode entry. Keep Mod+P on nwg-displays until real output
-    // switching through this menu has been verified on the laptop.
+    Mod+P hotkey-overlay-title="Display settings: wdisplays" { spawn "wdisplays"; }
     Mod+Ctrl+P hotkey-overlay-title="Display mode menu" { spawn "niri-display-menu"; }
 
     Alt+L hotkey-overlay-title="Lock screen" { spawn "niri-lock"; }
@@ -89,9 +87,10 @@ binds {
     Mod+Alt+V hotkey-overlay-title="Clipboard history" { spawn "niri-clipboard-menu"; }
 
     // The main laptop's internal panel is eDP-1 (confirmed with
-    // `niri msg outputs`). Mod+P opens nwg-displays and Mod+Ctrl+P opens the
+    // `niri msg outputs`). Mod+P opens wdisplays and Mod+Ctrl+P opens the
     // display mode menu; this escape hatch turns the internal panel back on if
-    // a GUI layout change or an external-only switch hides it.
+    // a GUI layout change, a saved Kanshi Profile or an external-only switch
+    // hides it. It is an IPC override, not a saved layout.
     Mod+Alt+P hotkey-overlay-title="Enable internal output" { spawn-sh "niri msg output eDP-1 on"; }
 
     // Screen reader toggle kept from the old configuration.

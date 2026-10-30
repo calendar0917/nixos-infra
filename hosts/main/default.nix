@@ -14,7 +14,6 @@
     ./boot.nix
     ./docker.nix
     ./clash.nix
-    ./nwg-displays.nix
     ./waybar.nix
     ../../modules/base.nix
     ../../modules/network.nix

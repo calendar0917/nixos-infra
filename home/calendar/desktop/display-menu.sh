@@ -2,9 +2,11 @@
 # On-demand display mode menu for the main host's niri session.
 #
 # This helper changes only niri's temporary output state through IPC. It never
-# edits ~/.config/niri/monitor.kdl (owned by nwg-displays) and does not track
-# hotplug events. The external-only branch refuses to turn off the internal
-# panel until it has observed an external output actually become active.
+# edits a display configuration file: persistent layouts are written by
+# wdisplays into ~/.config/kanshi/config and applied by kanshi. Hotplug handling
+# is kanshi's job, not this menu's. The external-only branch refuses to turn off
+# the internal panel until it has observed an external output actually become
+# active.
 set -euo pipefail
 
 internal_output="eDP-1"
@@ -14,7 +16,7 @@ internal_output="eDP-1"
 niri_bin="${NIRI_DISPLAY_MENU_NIRI:-niri}"
 jq_bin="${NIRI_DISPLAY_MENU_JQ:-jq}"
 fuzzel_bin="${NIRI_DISPLAY_MENU_FUZZEL:-fuzzel}"
-nwg_displays_bin="${NIRI_DISPLAY_MENU_NWG_DISPLAYS:-nwg-displays}"
+wdisplays_bin="${NIRI_DISPLAY_MENU_WDISPLAYS:-wdisplays}"
 sleep_bin="${NIRI_DISPLAY_MENU_SLEEP:-sleep}"
 
 outputs_json=""
@@ -294,7 +296,7 @@ menu() {
       '仅笔记本屏幕' \
       '扩展显示' \
       '仅外接显示器' \
-      '高级显示设置（nwg-displays）' \
+      '高级显示设置（wdisplays）' \
       | "$fuzzel_bin" --dmenu --index --prompt='显示模式: '
   )"; then
     exit 0
@@ -314,7 +316,7 @@ menu() {
       external_only
       ;;
     3)
-      exec "$nwg_displays_bin"
+      exec "$wdisplays_bin"
       ;;
     *)
       fail "invalid menu selection '$selection'"
