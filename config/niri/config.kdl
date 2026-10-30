@@ -8,9 +8,11 @@
 // lock and the network applet are started by niri-bound systemd user units,
 // not by spawn-at-startup entries.
 //
-// GUI-managed output layout. nwg-displays owns this file; Home Manager only
-// creates it when it is absent and never overwrites an existing file.
-include "monitor.kdl"
+// Output layout is not configured here. kanshi applies the Profiles written by
+// wdisplays, and `niri msg output ...` remains the on-demand override for the
+// display menu. Do not re-add `include "monitor.kdl"`: that file is kept on
+// disk only as a record of the earlier GUI-managed layout. Its `on` keyword is
+// not valid niri KDL, so including it made niri fail to parse this file.
 
 workspace "work"
 workspace "web"
