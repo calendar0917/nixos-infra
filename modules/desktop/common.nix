@@ -56,8 +56,15 @@
   };
 
   # fcitx5 must stay in the foreground: `-d` daemonizes, which makes systemd
-  # see the original process exit and repeatedly restart the unit. Both niri
-  # and Sway start graphical-session.target, so this one unit serves both.
+  # see the original process exit and repeatedly restart the unit.
+  #
+  # This is the only Fcitx5 entry point. It has no XDG autostart entry (masked
+  # in home/calendar/default.nix) and no compositor startup hook. Being
+  # `partOf` graphical-session.target is what keeps the lifecycle correct: when
+  # a Sway session really ends, graphical-session.target stops, this unit stops
+  # with it, and Fcitx5 cannot stay attached to a Wayland display that no longer
+  # exists. The next niri/Sway login starts graphical-session.target again and
+  # therefore starts exactly one Fcitx5.
   systemd.user.services.fcitx5 = {
     description = "Fcitx5 input method";
     wantedBy = [ "graphical-session.target" ];

@@ -69,6 +69,16 @@ in
       partOf = [ "niri.service" ];
     };
 
+    # A Sway session can leave SWAYSOCK in the systemd user manager environment.
+    # niri and every process it spawns would then inherit a socket that no
+    # longer exists, which makes tools such as the mako D-Bus activation guard
+    # misdetect a live Sway session. This is applied on main only: that is the
+    # host where the user actually alternates between Sway and niri, and the
+    # mini host's niri/Sway behaviour is intentionally left as it was.
+    systemd.user.services.niri.serviceConfig.UnsetEnvironment = lib.optional (
+      config.networking.hostName == "main"
+    ) "SWAYSOCK";
+
     environment.systemPackages = with pkgs; [
       brightnessctl
       grim
