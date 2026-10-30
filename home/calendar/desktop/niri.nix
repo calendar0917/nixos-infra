@@ -17,22 +17,11 @@ let
 in
 {
   config = lib.mkIf enabled {
+    # Read-only session configuration. Output layout is deliberately not
+    # included from here any more: kanshi applies the wdisplays-written
+    # Profiles, and `~/.config/niri/monitor.kdl` stays on disk only as a record
+    # of the earlier layout. Home Manager must therefore neither install nor
+    # create monitor.kdl.
     xdg.configFile."niri/config.kdl".source = configFile;
-
-    # nwg-displays writes the GUI-managed output layout here. This must stay a
-    # normal writable file: never put monitor.kdl in xdg.configFile, which
-    # would replace it with a read-only Nix store symlink on every activation.
-    # config/niri/config.kdl contains `include "monitor.kdl"`; niri resolves
-    # that relative include next to the symlink at ~/.config/niri/config.kdl.
-    home.activation = lib.mkIf waybarShell {
-      niriMonitorKdl = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        monitorFile="$HOME/.config/niri/monitor.kdl"
-        if [ ! -e "$monitorFile" ]; then
-          run mkdir -p "$HOME/.config/niri"
-          run touch "$monitorFile"
-          run chmod 0644 "$monitorFile"
-        fi
-      '';
-    };
   };
 }

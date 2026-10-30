@@ -131,9 +131,19 @@ sudo systemctl restart sddm
 systemctl --user status sway-session.target
 ```
 
-确认。自定义 `config/sway/config` 通过 `include /etc/sway/config.d/*` 加载 NixOS
-生成的 `/etc/sway/config.d/nixos.conf`，后者负责导入环境并启动/停止
-`sway-session.target`。
+确认。`config/sway/config-main`（main）和 `config/sway/config`（小主机）都通过
+`include /etc/sway/config.d/*` 加载 NixOS 生成的 `/etc/sway/config.d/nixos.conf`，
+后者负责导入环境并启动 `sway-session.target`。
+
+main 另外有 `sway-exit-watch.service`：Sway 退出后它确认 IPC 真的断开、清理 systemd
+用户环境里的 `SWAYSOCK`，然后在 niri 未运行时停止 `sway-session.target` 和
+`graphical-session.target`；niri 正在运行时只停止残留的 `sway-session.target`。
+所以退出后 `sway-session.target` 仍然是 active 属于故障，不是正常状态。
+
+```bash
+systemctl --user status sway-session.target graphical-session.target
+journalctl --user -b -u sway-exit-watch.service --no-pager
+```
 
 ### 3.2 回滚
 
@@ -184,28 +194,104 @@ sudo nix-collect-garbage
 
 | 会话 | 应运行 | 不应运行 |
 | --- | --- | --- |
-| main 的 niri | Waybar、SwayNC、nm-applet、Fcitx5 | DMS、Mako |
+| main 的 niri | Waybar、SwayNC、nm-applet、Fcitx5（kanshi） | DMS、Mako、`sway-*.service` |
 | 小主机的 niri | DMS、Fcitx5 | Mako、Waybar |
-| Sway | Waybar、Mako、Fcitx5 | DMS |
+| main 的 Sway | `sway-waybar`、`sway-mako`、`sway-bg`、`sway-exit-watch`、Fcitx5、kanshi | DMS、niri 的 `waybar.service` |
+| 小主机的 Sway | Waybar（裸 exec）、Mako、Fcitx5 | DMS |
 
 小主机的 DMS 单元由 `programs.dms-shell.systemd.target = "niri.service"` 绑定，
 并且额外设置了 `partOf = [ "niri.service" ]`。main 的 Waybar/SwayNC 由
-`home/calendar/desktop/shell.nix` 的 niri user units 启动。Mako 由 Sway 配置启动；
-它的 D-Bus 激活文件在 Sway 之外被替换为带 `SWAYSOCK`/`WAYLAND_DISPLAY` 检查的
-守卫，避免在 niri 里被通知请求自动拉起。
+`home/calendar/desktop/shell.nix` 的 niri user units 启动；Sway 一侧由
+`home/calendar/desktop/sway.nix` 的 `sway-*.service` 启动，两者名字不同，不会互相
+覆盖。
 
-检查（Mako 由 Sway 直接启动，不是 systemd 用户服务）：
+Mako 的 D-Bus 激活文件只在 `SWAYSOCK` 存在**且该 socket 真的能应答 Sway IPC**
+（`swaymsg -t get_version`）时才拉起 Mako。只判断变量是否存在不够：旧会话残留的
+`SWAYSOCK` 会让 Mako 在 niri 里被错误激活。
 
 ```bash
-systemctl --user status dms.service fcitx5.service
+systemctl --user status dms.service fcitx5.service kanshi.service
+systemctl --user status sway-waybar.service sway-mako.service sway-bg.service
 pgrep -a -u "$USER" -f 'dms|mako|waybar|fcitx5'
 ```
 
-若在 niri 中误出现 Mako，可临时停止（只影响当前用户）：
+若在 niri 中误出现 Mako 或 Sway 面板，停止对应 unit 即可（只影响当前用户）：
 
 ```bash
-pkill -u "$USER" -x mako || true
+systemctl --user stop sway-mako.service sway-waybar.service
 ```
+
+### 3.4 切换会话后恢复 Fcitx5
+
+Fcitx5 是唯一的 systemd 用户服务，绑定 `graphical-session.target`。如果从一个会话
+切到另一个会话后中文输入失效，先在**当前桌面内的终端**确认状态，再重建环境变量。
+旧 Sway 会话残留的 `SWAYSOCK` 和 `sway-session.target` 会让输入法连到已经消失的
+Wayland 会话。
+
+```bash
+echo "$XDG_CURRENT_DESKTOP"
+niri msg -j outputs
+pgrep -a -u "$USER" -x sway || true
+systemctl --user is-active niri.service
+systemctl --user is-active sway-session.target
+```
+
+只有确认 Niri 正在运行、当前桌面是 niri、并且没有 Sway 进程时，才执行：
+
+```bash
+systemctl --user stop sway-session.target
+systemctl --user unset-environment SWAYSOCK
+
+systemctl --user import-environment \
+  WAYLAND_DISPLAY NIRI_SOCKET \
+  XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+
+dbus-update-activation-environment --systemd \
+  WAYLAND_DISPLAY NIRI_SOCKET \
+  XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+
+systemctl --user restart fcitx5.service
+fcitx5-remote -o
+```
+
+随后检查：
+
+```bash
+systemctl --user status fcitx5 --no-pager -l
+fcitx5-remote          # 1 = 直通键盘，2 = 输入法激活
+fcitx5-remote -n
+journalctl --user -b -u fcitx5.service -n 60 --no-pager
+systemctl --user show-environment |
+  grep -E '^(SWAYSOCK|NIRI_SOCKET|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP)=' || true
+```
+
+成功标准：`fcitx5.service` 为 active，`Ctrl+Space` 能切到 pinyin/rime，systemd 用户
+环境里不再有旧的 `SWAYSOCK`，niri 与其 Waybar、壁纸服务保持运行。
+
+**绝对不要**在 niri 运行时停止 `graphical-session.target` 或 `niri.service`。如果重启
+Fcitx5 仍不能输入中文，只记录准确错误和 `fcitx5-diagnose` 输出，不要安装第二套
+Fcitx5、重写输入法配置或结束用户桌面。
+
+### 3.5 内屏黑屏或外屏布局错误
+
+```bash
+niri msg -j outputs | jq
+cat ~/.config/kanshi/config
+systemctl --user status kanshi.service
+```
+
+恢复顺序：
+
+1. `Mod+Alt+P` 通过 IPC 重新启用 `eDP-1`。
+2. `Mod+Ctrl+P` 选“仅笔记本屏幕”。
+3. 仍黑屏时在带当前 `NIRI_SOCKET` 的 TTY 执行 `niri msg output eDP-1 on`。
+4. 切到 Sway 备用会话用 wdisplays 修正布局。
+5. 配置本身写坏时，临时移走 `~/.config/kanshi/config` 后
+   `systemctl --user restart kanshi.service`；Home Manager 的 activation 下次只会在
+   文件缺失时重建初始 Profile。
+
+`~/.config/niri/monitor.kdl` 已不参与加载，只是旧的布局记录；不要用 `niri validate`
+去修它，也不要删除它。
 
 若 DMS 崩溃：
 

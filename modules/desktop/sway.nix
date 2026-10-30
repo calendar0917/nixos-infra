@@ -23,9 +23,10 @@ in
       wrapperFeatures.gtk = true;
       xwayland.enable = true;
 
-      # These are exactly the session-local helpers used by config/sway.
-      # waybar and mako are started by the Sway config, never by a shared
-      # systemd target, so a niri session cannot accidentally run them.
+      # Session-local helpers. On main they are started by sway-session-bound
+      # systemd user units (home/calendar/desktop/sway.nix), on the mini host by
+      # the bare `exec` lines in config/sway/config. Either way they stay inside
+      # a Sway session and can never start from a shared graphical target.
       extraPackages = with pkgs; [
         brightnessctl
         fuzzel

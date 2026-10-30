@@ -12,8 +12,8 @@ let
   enabled = niriEnabled && shell == "waybar";
   niriLib = import ./lib.nix { inherit pkgs lib; };
 
-  # On-demand display mode menu. It only changes niri's temporary output state
-  # and leaves the nwg-displays-owned monitor.kdl untouched.
+  # On-demand display mode menu. It only changes niri's temporary output state;
+  # persistent Profiles are written by wdisplays and applied by kanshi.
   displayMenu = pkgs.writeShellApplication {
     name = "niri-display-menu";
 
@@ -22,7 +22,7 @@ let
       jq
       fuzzel
       coreutils
-      nwg-displays
+      wdisplays
     ];
 
     text = builtins.readFile ./display-menu.sh;
@@ -47,7 +47,6 @@ in
       displayMenu
       fuzzel
       networkmanagerapplet
-      nwg-displays
       pavucontrol
       swaybg
       swaylock

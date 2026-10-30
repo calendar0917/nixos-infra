@@ -6,7 +6,7 @@ The script under test is the Nix-built wrapper. Pass its path explicitly:
     python3 tests/test_niri_display_menu.py \
       --display-menu /nix/store/...-niri-display-menu/bin/niri-display-menu
 
-The fixtures substitute fake niri, fuzzel, nwg-displays and sleep executables.
+The fixtures substitute fake niri, fuzzel, wdisplays and sleep executables.
 They never touch a real niri session or physical output.
 """
 
@@ -29,7 +29,7 @@ MENU_ITEMS = [
     "仅笔记本屏幕",
     "扩展显示",
     "仅外接显示器",
-    "高级显示设置（nwg-displays）",
+    "高级显示设置（wdisplays）",
 ]
 
 LOGICAL = {
@@ -77,7 +77,7 @@ def is_active(state: dict, name: str) -> bool:
 
 fake_niri = None
 fake_fuzzel = None
-fake_nwg = None
+fake_wdisplays = None
 fake_sleep = None
 state_file = None
 calls_file = None
@@ -86,7 +86,7 @@ fuzzel_input_file = None
 
 
 def make_fakes(tmp: Path) -> None:
-    global fake_niri, fake_fuzzel, fake_nwg, fake_sleep
+    global fake_niri, fake_fuzzel, fake_wdisplays, fake_sleep
     global state_file, calls_file, fuzzel_args_file, fuzzel_input_file
 
     state_file = tmp / "niri-state.json"
@@ -96,7 +96,7 @@ def make_fakes(tmp: Path) -> None:
 
     fake_niri = tmp / "niri"
     fake_fuzzel = tmp / "fuzzel"
-    fake_nwg = tmp / "nwg-displays"
+    fake_wdisplays = tmp / "wdisplays"
     fake_sleep = tmp / "sleep"
 
     write_exec(
@@ -215,11 +215,11 @@ def make_fakes(tmp: Path) -> None:
     )
 
     write_exec(
-        fake_nwg,
+        fake_wdisplays,
         """\
         #!/bin/sh
-        printf 'nwg-displays\\n' >> "$FAKE_CALLS"
-        exit "${FAKE_NWG_RC:-0}"
+        printf 'wdisplays\\n' >> "$FAKE_CALLS"
+        exit "${FAKE_WDISPLAYS_RC:-0}"
         """,
     )
     write_exec(fake_sleep, "#!/bin/sh\nexit 0\n")
@@ -244,7 +244,7 @@ def run_case(
         {
             "NIRI_DISPLAY_MENU_NIRI": str(fake_niri),
             "NIRI_DISPLAY_MENU_FUZZEL": str(fake_fuzzel),
-            "NIRI_DISPLAY_MENU_NWG_DISPLAYS": str(fake_nwg),
+            "NIRI_DISPLAY_MENU_WDISPLAYS": str(fake_wdisplays),
             "NIRI_DISPLAY_MENU_SLEEP": str(fake_sleep),
             "FAKE_NIRI_STATE": str(state_file),
             "FAKE_CALLS": str(calls_file),
@@ -582,9 +582,9 @@ def test_failures_and_cancel() -> None:
         "3",
         [],
     )
-    assert calls == ["fuzzel", "nwg-displays"], calls
+    assert calls == ["fuzzel", "wdisplays"], calls
     assert is_active(state, "eDP-1")
-    print("PASS: advanced settings launches nwg-displays directly")
+    print("PASS: advanced settings launches wdisplays directly")
 
 
 with tempfile.TemporaryDirectory(prefix="niri-display-menu-test.") as tmpdir:

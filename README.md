@@ -7,7 +7,7 @@
 
 | 主机 | 角色 | 桌面 |
 | --- | --- | --- |
-| `main` | LENOVO 21LG 笔记本，Arch/NixOS 双系统 | niri + Waybar；Hyprlock、蓝牙、nwg-displays |
+| `main` | LENOVO 21LG 笔记本，Arch/NixOS 双系统 | niri + Waybar；Hyprlock、蓝牙、wdisplays + kanshi |
 | `nixos` | KOLOE 小主机，SSH/轻量容器节点 | niri + DMS；保留 Sway 备用会话 |
 
 共享 Nix 文件必须能在两台主机求值，但只改 main 的桌面行为不会自动切换小主机。
@@ -18,12 +18,11 @@
 
 ```text
 flake.nix / flake.lock              # 唯一入口和锁定版本
-hosts/main/                         # 笔记本 host、Waybar 覆盖、nwg 补丁、蓝牙/PAM
+hosts/main/                         # 笔记本 host、Waybar 覆盖、蓝牙/PAM
 hosts/nixos/                        # 小主机 host
 modules/                            # NixOS 基础、网络、备份、桌面模块
 home/calendar/                      # Home Manager：shell、终端、编辑器、桌面
 config/                             # niri、Sway、Waybar、SwayNC、壁纸
-patches/                            # nwg-displays 本地补丁
 tests/                              # 无 GUI 的 Python 回归检查
 scripts/check-desktop               # 桌面回归入口
 docs/                               # 桌面、应用、恢复、开发说明
@@ -66,8 +65,10 @@ scripts/check-desktop
 ```
 
 它会构建 main 的 Home Manager activationPackage，提取实际生成的 niri 电源菜单/
-锁屏/显示模式 helper 和 wlogout 资源，再运行桌面与显示菜单回归。脚本不会
-switch、锁屏、挂起或重启；`--help` 不触发构建。只改文档时不需要运行它。
+锁屏/显示模式 helper 和 wlogout 资源，再运行桌面、显示菜单与会话/主机回归。后者
+直接读取生成出来的 systemd user unit 和会话文件，并用桩命令检查 Sway 退出 watcher
+的分支，不会真的启停会话。脚本不会 switch、锁屏、挂起或重启；`--help` 不触发构建。
+只改文档时不需要运行它。
 
 Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
 [`AGENTS.md`](AGENTS.md)。
@@ -110,7 +111,7 @@ nix flake check --no-build
 
 ## 文档导航
 
-- 桌面组件协作、显示器文件、锁屏/挂起和故障入口：
+- 桌面组件协作、Sway/Niri 会话生命周期、显示器布局、锁屏/挂起和故障入口：
   [`docs/DESKTOP.md`](docs/DESKTOP.md)
 - 应用兼容、默认打开方式和 OBS：
   [`docs/APPS.md`](docs/APPS.md)

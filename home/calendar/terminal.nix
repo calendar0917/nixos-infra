@@ -26,7 +26,10 @@ in
       # duplicate its foreground/background/selection colours here: a partial
       # local palette makes the bar and terminal diverge. Only behaviour and
       # geometry settings are added below.
-      font_size = 11.5;
+      #
+      # 13.5 is main's size. The shared base stays at 11 so the mini host keeps
+      # its original terminal appearance.
+      font_size = 13.5;
 
       # Keep the text opaque and make only the background translucent. This
       # preserves text contrast while matching the Catppuccin Mocha Waybar on

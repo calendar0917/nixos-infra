@@ -10,7 +10,7 @@ Usage: scripts/check-desktop
 
 Build nixosConfigurations.main's Home Manager activationPackage, locate the
 generated niri-power-menu, niri-power, niri-lock-wait and niri-display-menu,
-then run the headless desktop and display-menu regressions.
+then run the headless desktop, display-menu and session/host regressions.
 
 No system activation, lock screen, suspend, reboot, or nix store scan is done.
 EOF
@@ -107,5 +107,10 @@ python3 "$repo_dir/tests/test_desktop_polish.py" \
   --narrow-style "$narrow_style"
 
 echo "check-desktop: running headless display menu regression"
-exec python3 "$repo_dir/tests/test_niri_display_menu.py" \
+python3 "$repo_dir/tests/test_niri_display_menu.py" \
   --display-menu "$helpers/niri-display-menu"
+
+echo "check-desktop: running headless session and host regression"
+exec python3 "$repo_dir/tests/test_session_and_hosts.py" \
+  --activation "$activation" \
+  --repo "$repo_dir"

@@ -1,0 +1,172 @@
+/* Catppuccin Mocha for main's Sway Waybar.
+ *
+ * This is a separate file from config/waybar/style.css so the mini host keeps
+ * its original teal panel. Geometry (height 34, 6px top margin, 8px side
+ * margins) comes from home/calendar/desktop/waybar/sway.nix; the rounded,
+ * translucent surface here mirrors config/waybar/style-niri.css without
+ * changing it. Sway keeps its own `sway/workspaces` module. */
+
+@define-color base #1e1e2e;
+@define-color surface0 #313244;
+@define-color surface1 #45475a;
+@define-color text #cdd6f4;
+@define-color subtext #a6adc8;
+@define-color overlay0 #6c7086;
+@define-color accent #89b4fa;
+@define-color red #f38ba8;
+@define-color yellow #f9e2af;
+@define-color green #a6e3a1;
+
+* {
+  font-family: "JetBrains Mono", "Noto Sans CJK SC", "Symbols Nerd Font", sans-serif;
+  font-size: 12px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+window#waybar {
+  background: rgba(30, 30, 46, 0.94);
+  color: @text;
+  border: 1px solid rgba(137, 180, 250, 0.12);
+  border-radius: 10px;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 4px;
+}
+
+/* ---------- Workspaces ---------- */
+
+#workspaces {
+  padding: 0 2px;
+}
+
+#workspaces button {
+  min-width: 20px;
+  min-height: 22px;
+  padding: 0 4px;
+  margin: 2px 1px;
+  color: @subtext;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+#workspaces button:hover {
+  color: @text;
+  background: @surface0;
+}
+
+#workspaces button.empty {
+  color: @overlay0;
+  background: transparent;
+}
+
+#workspaces button.visible {
+  color: @text;
+  background: rgba(137, 180, 250, 0.22);
+}
+
+#workspaces button.focused {
+  color: @base;
+  background: @accent;
+  font-weight: 600;
+}
+
+#workspaces button.urgent {
+  color: @base;
+  background: @red;
+}
+
+/* ---------- Sway-only modules ---------- */
+
+#mode {
+  padding: 0 8px;
+  color: @accent;
+  font-weight: 600;
+}
+
+#window {
+  padding: 0 10px;
+  color: @subtext;
+}
+
+/* ---------- Center clock ---------- */
+
+#clock,
+#custom-clock {
+  padding: 0 10px;
+  color: @text;
+  font-weight: 600;
+}
+
+/* ---------- Left: launcher ---------- */
+
+#custom-launcher {
+  padding: 0 8px 0 4px;
+  color: @accent;
+  font-size: 15px;
+}
+
+/* ---------- Right: resources and status ---------- */
+
+#cpu,
+#memory {
+  min-width: 62px;
+  padding: 0 5px;
+  color: @text;
+}
+
+#pulseaudio,
+#network {
+  padding: 0 6px;
+  color: @text;
+}
+
+#network.disconnected,
+#network.disabled {
+  color: @red;
+}
+
+#pulseaudio.muted {
+  color: @red;
+}
+
+#battery {
+  min-width: 96px;
+  padding: 0 6px;
+  color: @text;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: @green;
+}
+
+#battery.warning {
+  color: @yellow;
+}
+
+#battery.critical,
+#battery.critical.charging {
+  color: @red;
+}
+
+#tray {
+  padding: 0 2px;
+}
+
+#tray > .passive {
+  -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+  -gtk-icon-effect: highlight;
+}
