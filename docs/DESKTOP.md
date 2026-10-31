@@ -34,6 +34,22 @@ journalctl --user -u waybar.service -b --no-pager
 - 托盘中的 nm-applet、Blueman、Fcitx5 代理功能必须保留；不要靠杀进程减少图标。
 - Sway 读取自己的 `config/sway/config-main`、Waybar 配置和 Mako，不加载 niri 样式。
 
+### Super Productivity 快捷键（main，niri）
+
+main 的 `config/niri/config.kdl` 在应用启动键附近绑定两个 Super Productivity
+快捷键。两者都调用 `xdg-open` 和 Super Productivity 自带的 URL Scheme，没有额外
+脚本、systemd unit 或后台常驻进程：
+
+| 按键 | 动作 |
+| --- | --- |
+| `Mod+A` | `xdg-open 'superproductivity://add-task'`：打开并定位到新建任务输入框 |
+| `Mod+S` | `xdg-open 'superproductivity://toggle-visibility'`：显示/隐藏主窗口 |
+
+应用和 `xdg-utils` 只在 main 安装，handler 为 `superproductivity.desktop`，见
+[`APPS.md`](APPS.md)。小主机的 `config/niri/config-dms.kdl`（`Mod+S` 是 DMS 设置）
+和 `config/sway/config-main`（`Mod+A` 是 `focus parent`）都不受影响，没有同步改键。
+应用未启动时按这两个键是否能顺带启动应用、以及窗口隐藏/恢复行为，待实机验证。
+
 ### Sway 会话生命周期
 
 只有 main 用 systemd 管理 Sway 的子进程；小主机仍用 `config/sway/config` 里的裸

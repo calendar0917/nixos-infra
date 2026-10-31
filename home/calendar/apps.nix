@@ -29,6 +29,10 @@ in
       obsidian
       onlyoffice
       qq
+      # Niri binds `xdg-open superproductivity://...` to Mod+A/Mod+S, so both the
+      # app and the URL opener must be on the user's PATH.
+      super-productivity
+      xdg-utils
       wechat
       wemeet
     ];
@@ -71,6 +75,7 @@ in
       "application/vnd.oasis.opendocument.presentation" = "onlyoffice-desktopeditors.desktop";
 
       "x-scheme-handler/obsidian" = "md.obsidian.Obsidian.desktop";
+      "x-scheme-handler/superproductivity" = "superproductivity.desktop";
     };
 
     # OBS expects this directory to exist before the first recording. Create
