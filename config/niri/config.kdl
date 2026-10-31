@@ -78,6 +78,17 @@ binds {
     Mod+D hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
     Alt+Space hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
     Mod+M hotkey-overlay-title="System monitor: btop" { spawn "kitty" "btop"; }
+
+    // Super Productivity is launched through its own URL Scheme, not a wrapper
+    // script. `xdg-open` resolves the handlers from home/calendar/apps.nix.
+    Mod+A hotkey-overlay-title="Super Productivity: Add task" {
+        spawn "xdg-open" "superproductivity://add-task";
+    }
+
+    Mod+S hotkey-overlay-title="Super Productivity: Show/hide" {
+        spawn "xdg-open" "superproductivity://toggle-visibility";
+    }
+
     Mod+Alt+N hotkey-overlay-title="Notification center" { spawn "swaync-client" "-t" "-sw"; }
     Mod+P hotkey-overlay-title="Display settings: wdisplays" { spawn "wdisplays"; }
     Mod+Ctrl+P hotkey-overlay-title="Display mode menu" { spawn "niri-display-menu"; }
