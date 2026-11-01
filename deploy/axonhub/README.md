@@ -6,8 +6,10 @@ workstation. Do not replace the images with `latest`.
 ## Files and secrets
 
 - `compose.yaml`: PostgreSQL 16 + AxonHub, private `backend` network, separate
-  `egress` network, PostgreSQL without a host port, AxonHub bound to
-  `127.0.0.1:${AXONHUB_PORT:-8090}`.
+  `egress` network, PostgreSQL without a host port, AxonHub published through
+  `${AXONHUB_BIND_IP:-127.0.0.1}:${AXONHUB_PORT:-8090}`.
+- The local runtime `.env` sets `AXONHUB_BIND_IP=0.0.0.0`, so AxonHub listens on
+  all IPv4 interfaces. `.env.example` keeps the safe default `127.0.0.1`.
 - `.env.example`: versioned template. It contains no real password.
 - `.env`: local runtime file, mode `0600`, ignored by Git. It contains the
   PostgreSQL password. Never commit, upload, or paste it into a chat.
@@ -28,6 +30,19 @@ curl --fail --silent --show-error http://127.0.0.1:8090/health
 If this Docker installation does not discover the Compose CLI plugin, use
 `sudo docker-compose --env-file .env ...` instead. Do not install a second
 Compose implementation just to change the command name.
+
+## Access
+
+The local `.env` sets `AXONHUB_BIND_IP=0.0.0.0`; the running service is reachable
+at:
+
+- `http://<主机局域网IP>:8090`
+- `http://<主机Tailscale-IP>:8090`
+
+Use the existing web login and API key authentication. PostgreSQL remains on the
+internal `backend` network with no host port. Binding to `0.0.0.0` listens on
+every IPv4 interface; not having a public IPv4 address is not the same as
+network isolation. Do not add router port forwarding or UPnP for this service.
 
 ## Registry pulls and proxy
 
@@ -59,7 +74,7 @@ fall back to Docker Hub; the daemon proxy makes that fallback usable.
 Expected checks:
 
 ```bash
-ss -lntp | grep ':8090'          # must show only 127.0.0.1:8090
+ss -lntp | grep ':8090'          # must show 0.0.0.0:8090, not only 127.0.0.1:8090
 ss -lntp | grep ':5432'          # must show nothing on the host
 sudo docker compose --env-file .env ps
 ```
@@ -143,6 +158,9 @@ name from the live one.
 
 - `backend` is `internal: true`; PostgreSQL is reachable only by AxonHub.
 - `egress` gives AxonHub outbound access for upstream APIs.
+- The local `.env` publishes AxonHub on `0.0.0.0:8090`, which is every IPv4
+  interface. A missing public IPv4 address is not network isolation; keep the
+  web login and API keys enabled and do not add port forwarding or UPnP.
 - AxonHub drops all Linux capabilities, uses a non-root UID, a read-only root
   filesystem, and only a small `/tmp` tmpfs.
 - Do not add `privileged`, the Docker socket, Arch's home, or the backup USB to
