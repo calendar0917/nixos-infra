@@ -26,6 +26,11 @@
 
   networking.hostName = "main";
 
+  # Pi Web runs manually in the foreground. Open only its port for LAN IPv4
+  # access while the process is running. AxonHub's 8090 is already published
+  # by Docker and is not duplicated here.
+  networking.firewall.allowedTCPPorts = [ 30141 ];
+
   # Use the same desktop/Home Manager baseline as the mini host, but keep the
   # NixOS home on its own @nixos-home subvolume. Arch's ~/.config and ~/.local
   # are never copied or used as Home Manager targets.

@@ -47,7 +47,7 @@ services:
       AXONHUB_DB_DIALECT: postgres
       AXONHUB_DB_DSN: "postgres://axonhub:${DB_PASSWORD:?Set a random DB_PASSWORD in .env}@postgres:5432/axonhub?sslmode=disable"
     ports:
-      - "127.0.0.1:${AXONHUB_PORT:-8090}:8090"
+      - "${AXONHUB_BIND_IP:-127.0.0.1}:${AXONHUB_PORT:-8090}:8090"
     networks:
       - backend
       - egress

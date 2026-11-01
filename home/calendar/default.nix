@@ -5,7 +5,6 @@
 {
   imports = [
     ./shell.nix
-    ./pi.nix
     ./terminal.nix
     ./helix.nix
     ./apps.nix
