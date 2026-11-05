@@ -327,6 +327,21 @@ let
 in
 {
   config = lib.mkIf enabled {
+    # On-demand lid override: no WantedBy, no permanent logind.conf change.
+    # Only suppress logind's lid event; manual suspend and before-sleep
+    # locking still work. Stop the inhibitor when the niri session ends.
+    systemd.user.services.lid-keep-awake = {
+      Unit = niriLib.niriUnit // {
+        Description = "Temporarily ignore the laptop lid switch";
+      };
+      Service = {
+        Type = "simple";
+        ExecCondition = niriLib.noDmsGuard;
+        ExecStart = "${lib.getExe' pkgs.systemd "systemd-inhibit"} --what=handle-lid-switch --mode=block --who=lid-keep-awake --why=User-requested-lid-override ${lib.getExe' pkgs.coreutils "sleep"} infinity";
+        Restart = "no";
+      };
+    };
+
     home.packages = [
       powerMenu
       powerMenuLauncher

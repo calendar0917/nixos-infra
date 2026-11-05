@@ -244,6 +244,40 @@ window#waybar {
   color: @red;
 }
 
+/* ---------- Compact monitor drawer and lid control ---------- */
+
+#custom-monitor-toggle {
+  padding: 0 8px;
+  color: @subtext;
+  font-size: 17px;
+  border-radius: 6px;
+}
+
+#custom-monitor-toggle:hover {
+  color: @text;
+  background: @surface0;
+}
+
+#custom-lid-mode {
+  padding: 0 7px;
+  font-size: 14px;
+  border-radius: 6px;
+  color: @subtext;
+}
+
+#custom-lid-mode.awake {
+  color: @green;
+  background: rgba(166, 227, 161, 0.10);
+}
+
+#custom-lid-mode.normal {
+  color: @subtext;
+}
+
+#custom-lid-mode:hover {
+  background: @surface0;
+}
+
 /* ---------- Tray drawer ---------- */
 
 #custom-tray-toggle {
