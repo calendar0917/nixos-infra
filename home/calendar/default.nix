@@ -57,4 +57,39 @@
     Exec=true
     Hidden=true
   '';
+
+  # Declarative input method profile so the list (English (US), Rime, Pinyin)
+  # survives Fcitx5 restarts and reorderings done from the tray. Rime is
+  # DefaultIM, so the preferred Chinese method is Rime and not Pinyin.
+  xdg.configFile."fcitx5/profile".text = ''
+    [GroupOrder]
+    0=Default
+
+    [Groups/0]
+    Name=Default
+    Default Layout=us
+    DefaultIM=rime
+
+    [Groups/0/Items/0]
+    Name=keyboard-us
+
+    [Groups/0/Items/1]
+    Name=rime
+
+    [Groups/0/Items/2]
+    Name=pinyin
+  '';
+
+  # Rime Ice is provided by the rime-ice data package (see
+  # modules/desktop/common.nix); only this patch file is managed here. The rest
+  # of ~/.local/share/fcitx5/rime stays writable and owned by the user, so the
+  # learned dictionaries (*.userdb), custom phrases and build/ are untouched.
+  home.file.".local/share/fcitx5/rime/default.custom.yaml".text = ''
+    patch:
+      __include: rime_ice_suggestion:/
+      __patch:
+        schema_list:
+          - schema: rime_ice
+        "menu/page_size": 7
+  '';
 }
