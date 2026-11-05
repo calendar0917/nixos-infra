@@ -22,18 +22,42 @@ let
       noto-fonts-cjk-serif
     ];
   };
+
+  wechatWithFcitx = pkgs.symlinkJoin {
+    name = "wechat-fcitx";
+    paths = [ pkgs.wechat ];
+    buildInputs = [ pkgs.makeWrapper ];
+
+    postBuild = ''
+      wrapProgram "$out/bin/wechat" \
+        --set QT_IM_MODULE fcitx \
+        --set XMODIFIERS '@im=fcitx'
+    '';
+  };
+
+  qqWithFcitx = pkgs.qq.overrideAttrs (old: {
+    nativeBuildInputs =
+      (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
+
+    postFixup = (old.postFixup or "") + ''
+      wrapProgram "$out/bin/qq" \
+        --set NIXOS_OZONE_WL "" \
+        --set GTK_IM_MODULE fcitx \
+        --set XMODIFIERS '@im=fcitx'
+    '';
+  });
 in
 {
   config = lib.mkIf isMain {
     home.packages = with pkgs; [
       obsidian
       onlyoffice
-      qq
+      qqWithFcitx
       # Niri binds `xdg-open superproductivity://...` to Mod+A/Mod+S, so both the
       # app and the URL opener must be on the user's PATH.
       super-productivity
       xdg-utils
-      wechat
+      wechatWithFcitx
       wemeet
     ];
 

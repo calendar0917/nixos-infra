@@ -50,7 +50,19 @@
       waylandFrontend = true;
       addons = with pkgs; [
         qt6Packages.fcitx5-chinese-addons
-        fcitx5-rime
+
+        # Rime Ice ships its dictionaries as data packages rather than as a
+        # fork of fcitx5-rime. Keeping rime-data first lets Ice's upstream
+        # `__include: rime_ice_suggestion:/` resolve against the base data
+        # while rime-ice adds the ice schemas.
+        (fcitx5-rime.override {
+          rimeDataPkgs = [
+            rime-data
+            rime-ice
+          ];
+        })
+
+        fcitx5-gtk
       ];
     };
   };
