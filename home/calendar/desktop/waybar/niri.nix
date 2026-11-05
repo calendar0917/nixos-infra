@@ -8,11 +8,14 @@
 let
   enabled = osConfig != null && (osConfig.my.desktop.niri.enable or false);
   hasBattery = osConfig != null && (osConfig.my.desktop.niri.hasBattery or false);
-  hasBluetooth = osConfig != null && (osConfig.hardware.bluetooth.enable or false);
   # The mini host keeps DMS and must not grow the Waybar helper package.
   waybarShell = osConfig != null && (osConfig.my.desktop.niri.shell or "dms") == "waybar";
 
   waybar = import ./common.nix { inherit lib pkgs hasBattery; };
+
+  # Same plain package definition that shell.nix installs. The absolute store
+  # path keeps the Waybar on-click commands independent of the session PATH.
+  systemControl = import ../system-control.nix { inherit pkgs; };
 
   # The helper uses the absolute coreutils path and the session's LC_TIME, so
   # the weekday is localized without a hard-coded English name. The tooltip
@@ -63,18 +66,12 @@ let
 
   icon = {
     launcher = builtins.fromJSON ''"\uF0C9"'';
-    volume = builtins.fromJSON ''"\uF028"'';
     wifi = builtins.fromJSON ''"\uF1EB"'';
     bell = builtins.fromJSON ''"\uF0F3"'';
     bellOff = builtins.fromJSON ''"\uF1F6"'';
     battery = builtins.fromJSON ''"\uF240"'';
     charging = builtins.fromJSON ''"\uF0E7"'';
-    brightness = builtins.fromJSON ''"\uF185"'';
-    profilePerformance = builtins.fromJSON ''"\uF0E7"'';
-    profileBalanced = builtins.fromJSON ''"\uF24E"'';
-    profileSaver = builtins.fromJSON ''"\uF06C"'';
-    bluetooth = builtins.fromJSON ''"\uF293"'';
-    bluetoothConnected = builtins.fromJSON ''"\uF294"'';
+    gear = builtins.fromJSON ''"\uF013"'';
     down = builtins.fromJSON ''"\u2193"'';
     up = builtins.fromJSON ''"\u2191"'';
   };
@@ -95,9 +92,7 @@ let
       all-outputs = false;
       # Native whole-bar scroll: Waybar listens on the bar window and sends
       # FocusWorkspaceUp/Down. niri stops at the first/last workspace instead
-      # of wrapping. Modules with their own scroll handlers are remapped to the
-      # same actions below so one scroll cannot both change volume/brightness
-      # and switch workspaces.
+      # of wrapping. No right-side module captures scroll any more.
       enable-bar-scroll = true;
       workspace-taskbar = {
         enable = true;
@@ -106,29 +101,15 @@ let
     };
 
     # One native network instance carries both directions. Waybar reads the
-    # counters itself, so there is no polling shell script. This sits to the
-    # right of the workspaces; keep its reservation compact so it cannot
-    # squeeze the real taskbar icons at 1280 logical pixels.
+    # counters itself, so there is no polling shell script. This ends the left
+    # region; keep its reservation compact so it cannot squeeze the real
+    # taskbar icons at 1280 logical pixels.
     "network#traffic" = {
       interval = 2;
       format = "${icon.down}{bandwidthDownBytesCompact}/s ${icon.up}{bandwidthUpBytesCompact}/s";
       min-length = 14;
       max-length = 22;
       tooltip-format = "下载 {bandwidthDownBytes}/s\n上传 {bandwidthUpBytes}/s";
-    };
-
-    pulseaudio = {
-      format = "${icon.volume} {volume}%";
-      format-muted = "${icon.volume} muted";
-      on-click = "${lib.getExe pkgs.pavucontrol}";
-      # The pulseaudio module always installs its own scroll handler. Point it
-      # at the same niri actions instead of wpctl so scrolling over the volume
-      # label switches workspaces exactly like the rest of the bar and never
-      # changes volume at the same time. Volume stays on the media keys and the
-      # pavucontrol click action.
-      on-scroll-up = "${lib.getExe pkgs.niri} msg action focus-workspace-up";
-      on-scroll-down = "${lib.getExe pkgs.niri} msg action focus-workspace-down";
-      tooltip = false;
     };
 
     # The icon is constant to avoid a long SSID pushing the clock around.
@@ -140,7 +121,9 @@ let
       format-disconnected = icon.wifi;
       format-linked = icon.wifi;
       format-disabled = icon.wifi;
-      on-click = "${lib.getExe' pkgs.networkmanagerapplet "nm-connection-editor"}";
+      # The status label opens NetworkManager's terminal UI directly in the
+      # same floating Kitty window; the applet stays available in the tray.
+      on-click = "${lib.getExe systemControl} launch network";
       tooltip-format = "{ifname}\n{essid}\n{ipaddr}/{cidr}\n信号 {signalStrength}%";
     };
 
@@ -163,33 +146,19 @@ let
       on-click-right = "swaync-client -d -sw";
     };
 
-    # Keep frequently changing numbers behind a click-to-reveal drawer.
-    # CPU, RAM and network traffic continue to use their native modules.
-    "custom/monitor-toggle" = {
-      format = "⌁";
-      tooltip-format = "系统资源与实时网速（点击展开）";
-    };
-
-    "group/monitor" = {
-      orientation = "inherit";
-      modules = [
-        "custom/monitor-toggle"
-        "cpu"
-        "memory"
-        "network#traffic"
-      ];
-      drawer = {
-        transition-duration = 180;
-        click-to-reveal = true;
-        transition-left-to-right = false;
-      };
-    };
-
     "custom/lid-mode" = {
       exec = "${lib.getExe lidMode} status";
       interval = 3;
       return-type = "json";
       on-click = "${lib.getExe lidMode} toggle";
+    };
+
+    # One explicit entry point for network, Bluetooth, audio, brightness,
+    # power profiles and lid behaviour. Mod+S opens the same menu.
+    "custom/system-control" = {
+      format = icon.gear;
+      tooltip = "系统控制中心 · Mod+S";
+      on-click = "${lib.getExe systemControl} launch";
     };
 
     tray = {
@@ -244,59 +213,6 @@ let
       tooltip-format-full = "已充满\n健康度 {health}% · {cycles} 次循环";
     };
 
-    # Native PPD module. Left click cycles only the profiles the daemon
-    # actually exposes; no wrapper or forced profile on login/AC changes. The
-    # daemon itself starts at balanced and persists later manual selections.
-    "power-profiles-daemon" = {
-      format = "{icon}";
-      tooltip-format = "电源档位 {profile}\nCPU 驱动 {cpu_driver}\n平台驱动 {platform_driver}";
-      format-icons = {
-        default = icon.profileBalanced;
-        performance = icon.profilePerformance;
-        balanced = icon.profileBalanced;
-        "power-saver" = icon.profileSaver;
-      };
-    };
-
-    # The slider is the only brightness control besides the media keys. The
-    # bar-level scroll belongs to workspaces, so the label's native scroll is
-    # remapped instead of changing brightness a second time.
-    backlight = {
-      interval = 2;
-      # Probed on main: amdgpu_bl1 is the only screen backlight. If a kernel
-      # update renames it, remove `device` and let Waybar select the screen
-      # backlight automatically.
-      device = "amdgpu_bl1";
-      format = "${icon.brightness} {percent}%";
-      max-length = 7;
-      min-brightness = 5;
-      tooltip-format = "内屏亮度 {percent}%";
-      on-scroll-up = "${lib.getExe pkgs.niri} msg action focus-workspace-up";
-      on-scroll-down = "${lib.getExe pkgs.niri} msg action focus-workspace-down";
-    };
-
-    "backlight/slider" = {
-      device = "amdgpu_bl1";
-      min = 5;
-      max = 100;
-      interval = 1000;
-    };
-
-    # Click the brightness label to reveal the short native slider; the drawer
-    # expands to the left so the clock and right-side status modules stay put.
-    "group/backlight" = {
-      orientation = "inherit";
-      modules = [
-        "backlight"
-        "backlight/slider"
-      ];
-      drawer = {
-        transition-duration = 150;
-        click-to-reveal = true;
-        transition-left-to-right = false;
-      };
-    };
-
     "custom/clock" = {
       exec = "${clock}/bin/niri-waybar-clock";
       interval = 30;
@@ -304,36 +220,12 @@ let
     };
   };
 
-  bluetoothModule = {
-    format = "{icon}";
-    format-icons = {
-      disabled = icon.bluetooth;
-      off = icon.bluetooth;
-      on = icon.bluetooth;
-      connected = icon.bluetoothConnected;
-      "no-controller" = icon.bluetooth;
-    };
-    format-disabled = "{icon}";
-    format-off = "{icon}";
-    format-on = "{icon}";
-    format-connected = "{icon}";
-    format-no-controller = "{icon}";
-    on-click = "${lib.getExe' pkgs.blueman "blueman-manager"}";
-    tooltip-format = "{controller_alias}\n{status}";
-    tooltip-format-disabled = "蓝牙已禁用";
-    tooltip-format-off = "蓝牙已关闭";
-    tooltip-format-on = "{controller_alias}\n蓝牙已开启，未连接设备";
-    tooltip-format-connected = "{controller_alias}\n{device_enumerate}";
-    tooltip-format-enumerate-connected = "已连接 {device_alias}\n{device_address}";
-    tooltip-format-no-controller = "没有蓝牙适配器";
-  };
-
-  modules =
-    waybar.modules
-    // niriModules
-    // lib.optionalAttrs hasBluetooth {
-      bluetooth = bluetoothModule;
-    };
+  # Drop shared definitions this profile no longer places on the bar. The Sway
+  # profile still imports common.nix unchanged.
+  modules = builtins.removeAttrs (waybar.modules // niriModules) [
+    "network"
+    "pulseaudio"
+  ];
 
   settings =
     waybar.bar
@@ -345,33 +237,41 @@ let
       margin-bottom = 0;
       spacing = 4;
 
+      # CPU, RAM and traffic are always visible. They are compact native
+      # modules, not a click-to-reveal drawer, so the left region uses the
+      # space it already had.
       modules-left = [
         "custom/launcher"
         "niri/workspaces"
+        "cpu"
+        "memory"
+        "network#traffic"
       ];
       modules-center = [ "custom/clock" ];
       modules-right = [
-        "group/monitor"
-        "pulseaudio"
         "network#status"
       ]
-      ++ lib.optional hasBluetooth "bluetooth"
-      ++ lib.optional hasBattery "power-profiles-daemon"
-      ++ lib.optional hasBattery "group/backlight"
       ++ lib.optional hasBattery "battery"
       ++ lib.optional hasBattery "custom/lid-mode"
       ++ [
         "custom/notification"
+        "custom/system-control"
         "group/tray"
       ];
     }
     // modules;
 in
 {
-  config = lib.mkIf enabled {
+  # Gate the whole profile on the Waybar shell, not merely on niri being
+  # enabled. The mini host keeps DMS and must not receive this config file,
+  # its stylesheet or any control-center package reference.
+  config = lib.mkIf (enabled && waybarShell) {
     # The clock helper is referenced by absolute store path, so it does not
     # need to be in the session PATH. Only the Waybar host installs it.
-    home.packages = lib.optionals waybarShell [ clock lidMode ];
+    home.packages = [
+      clock
+      lidMode
+    ];
 
     # Generate the niri profile only. The Sway profile keeps using
     # ~/.config/waybar/config.jsonc, and the niri shell unit starts this file

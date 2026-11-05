@@ -34,21 +34,67 @@ journalctl --user -u waybar.service -b --no-pager
 - 托盘中的 nm-applet、Blueman、Fcitx5 代理功能必须保留；不要靠杀进程减少图标。
 - Sway 读取自己的 `config/sway/config-main`、Waybar 配置和 Mako，不加载 niri 样式。
 
-### Super Productivity 快捷键（main，niri）
+### Waybar 布局（main，niri）
 
-main 的 `config/niri/config.kdl` 在应用启动键附近绑定两个 Super Productivity
-快捷键。两者都调用 `xdg-open` 和 Super Productivity 自带的 URL Scheme，没有额外
-脚本、systemd unit 或后台常驻进程：
-
-| 按键 | 动作 |
+| 区域 | 模块顺序 |
 | --- | --- |
-| `Mod+A` | `xdg-open 'superproductivity://add-task'`：打开并定位到新建任务输入框 |
-| `Mod+S` | `xdg-open 'superproductivity://toggle-visibility'`：显示/隐藏主窗口 |
+| 左 | `custom/launcher`、`niri/workspaces`（含工作区应用任务栏）、`cpu`、`memory`、`network#traffic` |
+| 中 | `custom/clock` |
+| 右 | `network#status`、`battery`、`custom/lid-mode`、`custom/notification`、`custom/system-control`、`group/tray` |
 
-应用和 `xdg-utils` 只在 main 安装，handler 为 `superproductivity.desktop`，见
-[`APPS.md`](APPS.md)。小主机的 `config/niri/config-dms.kdl`（`Mod+S` 是 DMS 设置）
-和 `config/sway/config-main`（`Mod+A` 是 `focus parent`）都不受影响，没有同步改键。
-应用未启动时按这两个键是否能顺带启动应用、以及窗口隐藏/恢复行为，待实机验证。
+CPU、RAM 和实时上下行网速直接常驻，没有点击展开的监控抽屉；数值、tooltip 和
+点击打开 btop 的行为与共享模块一致。网速仍是 Waybar 原生 `network` 模块，不运行
+每秒轮询的 Shell 脚本。右栏的 `network#status` 与左侧 `network#traffic` 是两个
+独立原生实例。音量、蓝牙、亮度、电源档位不再常驻右栏，统一进入系统控制中心；
+底层 PipeWire、BlueZ、背光和 power-profiles-daemon 服务不变。
+
+托盘继续由 `group/tray` 的鼠标悬停抽屉展开，nm-applet、Blueman 等原有托盘程序
+保留，不通过杀进程精简。
+
+### 系统控制中心（main，niri）
+
+`Mod+S` 或点击右栏齿轮调用 `niri-system-control launch`，在单个 Kitty 浮动窗口中
+打开 fzf 主菜单。程序名和命令接口固定：
+
+| 菜单项 | 实际工具 |
+| --- | --- |
+| 网络连接 | `nmtui`（`pkgs.networkmanager`） |
+| 蓝牙设备 | `bluetui` |
+| 音频与音量 | `wiremix` |
+| 屏幕亮度 | 本仓库的 fzf 亮度界面 + `brightnessctl` |
+| 电源性能模式 | `powerprofilesctl`（只列实际支持的模式） |
+| 合盖行为 | `lid-keep-awake.service` |
+| 系统监控 | `btop` |
+| 退出 | 关闭菜单；Esc 同样退出 |
+
+- 主菜单按固定顺序显示以上八项；方向键选择、Enter 确认、Esc 关闭。
+- 进入 `nmtui`、`bluetui`、`wiremix` 或 `btop` 后，程序正常退出会回到同一个
+  Kitty 窗口的主菜单；异常退出会显示非零状态，按 Enter 后回到菜单，不会直接关窗。
+- `network#status` 左键直接执行 `niri-system-control launch network`，在同一浮动
+  窗口里打开 `nmtui`。
+- 控制中心由 `home/calendar/desktop/system-control.nix` +
+  `system-control.sh` 生成，工具依赖在 `runtimeInputs` 中固定，不读取交互式 Fish
+  的 PATH、alias 或函数。它只在 main 的 Waybar 条件安装，不进入小主机 DMS。
+- 诊断命令（除亮度/模式设置外均为只读）：
+
+```bash
+niri-system-control launch          # 与 Mod+S 相同的 GUI 入口
+niri-system-control menu            # 当前终端直接打开
+niri-system-control brightness-status
+niri-system-control brightness-step -5
+niri-system-control brightness-set 50
+niri-system-control power
+niri-system-control lid
+powerprofilesctl list
+systemctl --user status lid-keep-awake.service
+```
+
+`Mod+A` 仍是 `xdg-open 'superproductivity://add-task'`。原来的 `Mod+S` 显示/隐藏
+Super Productivity 正式弃用，只移除该快捷键；应用、URL Scheme 和用户数据保留。
+小主机 `config/niri/config-dms.kdl` 的 `Mod+S` 仍是 DMS 设置，`Mod+Alt+S` 仍是
+main 的 Orca 切换，均未改动。应用和 handler 的说明见 [`APPS.md`](APPS.md)。
+
+亮度和电源、合盖的细节见下文“滚轮、亮度与电源”和“main 的合盖模式与常驻资源”。
 
 ### Sway 会话生命周期
 
@@ -117,42 +163,51 @@ main 的 Sway 操作习惯与 niri 对齐；主要差异只在内核命令，不
 ### 滚轮、亮度与电源
 
 - `niri/workspaces` 启用原生 `enable-bar-scroll`；栏的普通区域上滚/下滚切换工作区，
-  niri 在首尾停止、不循环。音量与亮度模块自身也会截获滚轮，因此它们的
-  `on-scroll-*` 被显式映射到同一 niri 动作，避免一次滚动同时改音量/亮度并切工作区。
-  音量仍用媒体键或点击打开 `pavucontrol`。
-- 亮度标签使用原生 `backlight`，点击展开 group 内的原生 `backlight/slider`，最小
-  5%；滑条保留拖动和点击交互。固定 Waybar 构建已开启 `-Dlogin-proxy=true`，否则
-  滑条只能读不能写。内屏设备由实机只读探测为 `amdgpu_bl1`；按键仍由
-  `brightnessctl` 按实际最大值计算 5% 下限。
-- 仅 main 启用 `services.power-profiles-daemon`，Waybar 使用原生模块；左键循环
-  实际可用档位，tooltip 显示名称与驱动。首次是 `balanced`，之后由 PPD 保存手动
-  选择，登录/插拔电源不强制覆盖。
+  niri 在首尾停止、不循环。右栏已没有音量/亮度滑条，不会再出现一次滚动同时改
+  设备状态并切工作区的问题。
+- 亮度不再常驻 Waybar。`Mod+S` → 屏幕亮度进入 fzf 界面：预览持续显示
+  `当前亮度：NN%`；`←`/`h` 每次降低 5%，`→`/`l` 提高 5%，`H`/`L` 降低/提高 1%，
+  按键即时生效；`5%`、`25%`、`50%`、`75%`、`100%` 预设按 Enter 立即应用，
+  Esc 返回主菜单。
+- 亮度设备固定为 `amdgpu_bl1`。脚本先读取 `brightnessctl -d amdgpu_bl1 get` 和
+  `max` 计算百分比，再以绝对百分比写入；所有路径统一 clamp 到 **5%–100%**，
+  `brightness-set 0` 也会落到 5%。设备不存在、最大值为 0 或读取失败时直接报错，
+  绝不回退到其他背光设备。
+- `XF86MonBrightnessUp`/`XF86MonBrightnessDown` 仍由 niri 直接调用
+  `brightnessctl`，按实际最大值计算 5% 下限；亮度 TUI 是补充入口，不替代硬件键。
+- 仅 main 启用 `services.power-profiles-daemon`。控制中心的“电源性能模式”读取
+  `powerprofilesctl get` 和 `list`，只显示并允许实际支持的档位，当前档位有标记；
+  选择当前档位是空操作。首次仍是 `balanced`，之后由 PPD 保存手动选择，登录/
+  插拔电源不强制覆盖，也没有自动切换钩子。
 - 电池模块每 10 秒读取原生 `{power}`，只在放电格式显示电池侧功率；充电、插电、
   满电使用文字状态，不把充电功率标成整机耗电。`power_now` 不可用的硬件不应照搬
   该字段。
 
 同亮度、同负载比较档位时，分别用同一命令/构建在放电状态运行，记录
 `powerprofilesctl get`、Waybar 电池功率和 `time` 结果并重复一次。读数是电池侧
-功率，不是墙插整机功率。全栏滚动、滑条拖动、托盘滚动传播、档位切换和放电功率
-仍需应用 generation 后实机验收。
+功率，不是墙插整机功率。亮度按键、预设、下限和档位切换仍需应用 generation 后
+实机验收。
 
-### main 的合盖模式与紧凑监控
+### main 的合盖模式与常驻资源
 
-main 的 niri Waybar 把 CPU、RAM 和实时上下行网速放到 `⌁` 资源抽屉中。
-点击 `⌁` 展开或收起；原生模块的数值、tooltip 和点击打开 btop 的能力仍在。
-原来的电池百分比/放电功率、音量、网络状态、蓝牙、亮度滑条、电源模式、
-通知和托盘保留在外层。这个变化只影响 main 的 niri 配置，不改变 Sway 和小主机。
+main 的 niri Waybar 左侧直接常驻 CPU、RAM 和实时上下行网速，不再有点击展开的
+`⌁` 资源抽屉。数值、tooltip 和点击打开 btop 的能力保持不变。右栏保留
+电池百分比/放电功率、网络状态、合盖状态、通知、系统控制和托盘；音量、蓝牙、
+亮度、电源档位移入系统控制中心。这个变化只影响 main 的 niri 配置。
 
-电池附近的 `☾` / `☕` 是合盖行为切换：
+电池附近的 `☾` / `☕` 是合盖行为快捷切换；控制中心的“合盖行为”提供相同目标状态：
 
 - `☾`：默认模式；未主动拦截 logind 合盖事件。
 - `☕`：正在运行 `lid-keep-awake.service`，请求 logind 忽略合盖事件。
 - 点击图标调用 `niri-lid-mode toggle` 启停 user service；不会每次 rebuild。
+- 控制中心显示当前状态，并只在目标状态不同时执行
+  `systemctl --user start/stop lid-keep-awake.service`；重复选择同一状态是空操作，
+  不使用盲目的 toggle。
 - 该服务未启用开机自启，并且绑定 `niri.service` 生命周期，退出 niri 后清理。
 - 只拦截 `handle-lid-switch`，并不禁止主动 `systemctl suspend`。
   原有 `swayidle before-sleep` / `niri-lock-wait` 保持不变。
 - **保持运行模式不会自动触发 before-sleep 锁屏**。临时合盖离开电脑时先按
-  `Alt+L`，并避免在背包等散热不良的环境里长时间使用。
+  `Alt+L`，并避免在背包等散热不良的环境里长时间使用。控制中心会显示同一提示。
 - Docked 和外接屏幕时 logind 自身可能忽略合盖，测试需要分开进行。
 - 若获取 low-level inhibitor 被 polkit 拒绝，服务会启动失败；应先核实
   logind/polkit 权限，不要无条件放宽权限。
@@ -163,10 +218,11 @@ main 的 niri Waybar 把 CPU、RAM 和实时上下行网速放到 `⌁` 资源�
 systemctl --user status lid-keep-awake.service
 systemd-inhibit --list
 niri-lid-mode status
+niri-system-control lid
 ```
 
-应用新 generation 后，点击合盖图标并用以上命令检查 inhibitor 是否真的存在，
-再在可安全恢复的环境中进行合盖测试；GUI/固件实际效果待实机验证。
+应用新 generation 后，点击合盖图标或用控制中心切换，并用以上命令检查 inhibitor
+是否真的存在，再在可安全恢复的环境中进行合盖测试；GUI/固件实际效果待实机验证。
 
 ## 3. 显示器布局：wdisplays + kanshi
 
@@ -301,15 +357,21 @@ Python `tomllib` 或 TOML 工具。主题只清空 `ui.background`，让 kitty �
 
 ### 蓝牙
 
-main 启用 BlueZ（开机上电）和 Blueman；Waybar 使用原生 `bluetooth` 模块，不在
-后台每秒执行 `bluetoothctl`。左键打开 `blueman-manager`，设备详情放 tooltip。
-无适配器时显示 no-controller 状态，不应导致 Waybar 崩溃。不要新增第二个 applet。
+main 启用 BlueZ（开机上电）和 Blueman；右栏不再常驻 Waybar 原生 `bluetooth`
+模块，蓝牙设备统一从 `Mod+S` → 蓝牙设备（`bluetui`）进入。托盘中的 Blueman
+仍可用，`blueman-manager` 也保留为图形备用入口。不要新增第二个 applet，也不要
+为精简面板停用 BlueZ。
 
 ## 6. 检查与故障入口
 
 - 只改文档：检查本地链接和 `git diff --check`，不构建系统。
 - 桌面/Home Manager 改动：从 [`README.md`](../README.md) 的维护入口运行
   `scripts/check-desktop`；该脚本只做构建和无 GUI 回归，不激活 generation。
+- 系统控制中心改动：`scripts/check-desktop` 会定位生成的 `niri-system-control`，
+  用 stub 检查菜单、子 TUI 返回、亮度 clamp、电源档位、合盖状态、Waybar 布局和
+  `Mod+S`/`Mod+A` 绑定；不会改真实亮度、网络、蓝牙、电源模式或 inhibitor。
+  手动只读检查可用 `niri-system-control brightness-status` 和
+  `powerprofilesctl list`。
 - niri 配置改动：直接 `niri validate -c config/niri/config.kdl`。配置已不再 include
   `monitor.kdl`，不需要临时文件，也不会读写用户的布局记录。
 - Sway 配置改动：`sway -C -c config/sway/config-main`（小主机仍是
@@ -320,7 +382,8 @@ main 启用 BlueZ（开机上电）和 Blueman；Waybar 使用原生 `bluetooth`
   [`RECOVERY.md`](RECOVERY.md)。
 
 真实验收只保留简短方法：应用新 generation 并重新登录后，检查 Waybar 单元、
-`Alt+L` 与菜单“锁屏”、挂起前 `LockedHint=yes`、kitty 焦点透明度、wdisplays 能否
+`Mod+S` 浮动控制中心及其中网络/蓝牙/音频/亮度/电源/合盖入口、`Alt+L` 与菜单
+“锁屏”、挂起前 `LockedHint=yes`、kitty 焦点透明度、wdisplays 能否
 **Save to kanshi Config** 写回 `~/.config/kanshi/config`，以及 Sway 登录/退出后
 `sway-session.target` 是否真的停止。这些操作由用户主动执行；未实际执行的项目写
 “待实机验证”。
