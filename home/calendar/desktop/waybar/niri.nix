@@ -31,6 +31,36 @@ let
 
   # Nerd Font Symbols glyphs are written as JSON escapes so this file stays
   # plain ASCII. The font itself is installed by the main host configuration.
+  lidMode = pkgs.writeShellApplication {
+    name = "niri-lid-mode";
+    runtimeInputs = with pkgs; [ systemd ];
+    text = ''
+      set -euo pipefail
+      unit=lid-keep-awake.service
+
+      case "''${1:-status}" in
+        toggle)
+          if systemctl --user is-active --quiet "$unit"; then
+            systemctl --user stop "$unit"
+          else
+            systemctl --user start "$unit"
+          fi
+          ;;
+        status)
+          if systemctl --user is-active --quiet "$unit"; then
+            printf '%s\n' '{"text":"☕","tooltip":"合盖保持运行（点击恢复挂起）","class":"awake"}'
+          else
+            printf '%s\n' '{"text":"☾","tooltip":"合盖自动挂起（点击保持运行）","class":"normal"}'
+          fi
+          ;;
+        *)
+          echo "usage: niri-lid-mode [status|toggle]" >&2
+          exit 2
+          ;;
+      esac
+    '';
+  };
+
   icon = {
     launcher = builtins.fromJSON ''"\uF0C9"'';
     volume = builtins.fromJSON ''"\uF028"'';
@@ -131,6 +161,35 @@ let
       exec = "swaync-client -swb";
       on-click = "swaync-client -t -sw";
       on-click-right = "swaync-client -d -sw";
+    };
+
+    # Keep frequently changing numbers behind a click-to-reveal drawer.
+    # CPU, RAM and network traffic continue to use their native modules.
+    "custom/monitor-toggle" = {
+      format = "⌁";
+      tooltip-format = "系统资源与实时网速（点击展开）";
+    };
+
+    "group/monitor" = {
+      orientation = "inherit";
+      modules = [
+        "custom/monitor-toggle"
+        "cpu"
+        "memory"
+        "network#traffic"
+      ];
+      drawer = {
+        transition-duration = 180;
+        click-to-reveal = true;
+        transition-left-to-right = false;
+      };
+    };
+
+    "custom/lid-mode" = {
+      exec = "${lib.getExe lidMode} status";
+      interval = 3;
+      return-type = "json";
+      on-click = "${lib.getExe lidMode} toggle";
     };
 
     tray = {
@@ -289,12 +348,10 @@ let
       modules-left = [
         "custom/launcher"
         "niri/workspaces"
-        "network#traffic"
       ];
       modules-center = [ "custom/clock" ];
       modules-right = [
-        "cpu"
-        "memory"
+        "group/monitor"
         "pulseaudio"
         "network#status"
       ]
@@ -302,6 +359,7 @@ let
       ++ lib.optional hasBattery "power-profiles-daemon"
       ++ lib.optional hasBattery "group/backlight"
       ++ lib.optional hasBattery "battery"
+      ++ lib.optional hasBattery "custom/lid-mode"
       ++ [
         "custom/notification"
         "group/tray"
@@ -313,7 +371,7 @@ in
   config = lib.mkIf enabled {
     # The clock helper is referenced by absolute store path, so it does not
     # need to be in the session PATH. Only the Waybar host installs it.
-    home.packages = lib.optional waybarShell clock;
+    home.packages = lib.optionals waybarShell [ clock lidMode ];
 
     # Generate the niri profile only. The Sway profile keeps using
     # ~/.config/waybar/config.jsonc, and the niri shell unit starts this file
