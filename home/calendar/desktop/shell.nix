@@ -12,6 +12,10 @@ let
   enabled = niriEnabled && shell == "waybar";
   niriLib = import ./lib.nix { inherit pkgs lib; };
 
+  # The unified control center is a plain package, not another Home Manager
+  # module. This condition is the main host's Waybar shell only.
+  systemControl = import ./system-control.nix { inherit pkgs; };
+
   # On-demand display mode menu. It only changes niri's temporary output state;
   # persistent Profiles are written by wdisplays and applied by kanshi.
   displayMenu = pkgs.writeShellApplication {
@@ -51,6 +55,7 @@ in
       swaybg
       swaylock
       swaynotificationcenter
+      systemControl
       # The shell unit starts this package directly. It is the only Waybar
       # installation in the main user profile.
       waybar

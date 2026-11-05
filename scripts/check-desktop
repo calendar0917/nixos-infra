@@ -9,8 +9,9 @@ usage() {
 Usage: scripts/check-desktop
 
 Build nixosConfigurations.main's Home Manager activationPackage, locate the
-generated niri-power-menu, niri-power, niri-lock-wait and niri-display-menu,
-then run the headless desktop, display-menu and session/host regressions.
+generated niri-power-menu, niri-power, niri-lock-wait, niri-display-menu and
+niri-system-control, then run the headless desktop, display-menu, system-control
+and session/host regressions.
 
 No system activation, lock screen, suspend, reboot, or nix store scan is done.
 EOF
@@ -67,7 +68,7 @@ fi
 activation="${activation_paths[0]}"
 helpers="$activation/home-path/bin"
 
-for helper in niri-power-menu niri-power niri-lock-wait niri-display-menu; do
+for helper in niri-power-menu niri-power niri-lock-wait niri-display-menu niri-system-control; do
   [ -x "$helpers/$helper" ] || fail "missing generated helper: $helpers/$helper"
 done
 
@@ -109,6 +110,14 @@ python3 "$repo_dir/tests/test_desktop_polish.py" \
 echo "check-desktop: running headless display menu regression"
 python3 "$repo_dir/tests/test_niri_display_menu.py" \
   --display-menu "$helpers/niri-display-menu"
+
+echo "check-desktop: running headless system control regression"
+python3 "$repo_dir/tests/test_system_control.py" \
+  --system-control "$helpers/niri-system-control" \
+  --waybar-config "$activation/home-files/.config/waybar/niri.jsonc" \
+  --waybar-style "$activation/home-files/.config/waybar/style-niri.css" \
+  --niri-config "$activation/home-files/.config/niri/config.kdl" \
+  --repo "$repo_dir"
 
 echo "check-desktop: running headless session and host regression"
 exec python3 "$repo_dir/tests/test_session_and_hosts.py" \

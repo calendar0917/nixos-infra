@@ -61,8 +61,9 @@ xdg-open 'superproductivity://toggle-visibility'    # 显示/隐藏主窗口
 ```
 
 URL Scheme `x-scheme-handler/superproductivity` 的默认 handler 是
-`superproductivity.desktop`，因此 Niri 的 `Mod+A`（新建任务）与 `Mod+S`
-（显示/隐藏）只需调用 `xdg-open`，不另外写 shell 脚本。两个快捷键见
+`superproductivity.desktop`，因此 Niri 的 `Mod+A`（新建任务）只需调用
+`xdg-open`，不另外写 shell 脚本。`Mod+S` 现在打开系统控制中心，不再绑定
+Super Productivity 的显示/隐藏；应用和 URL Scheme 都保留。快捷键见
 [`DESKTOP.md`](DESKTOP.md)。
 
 应用偏好、任务和账户数据留在可写的 `~/.config/superProductivity/`，由用户在 GUI

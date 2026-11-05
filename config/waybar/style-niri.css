@@ -103,7 +103,7 @@ window#waybar {
   font-weight: 600;
 }
 
-/* ---------- Left: launcher, workspaces, traffic ---------- */
+/* ---------- Left: launcher, workspaces, resources, traffic ---------- */
 
 #custom-launcher {
   padding: 0 8px 0 4px;
@@ -111,71 +111,27 @@ window#waybar {
   font-size: 15px;
 }
 
-#network.traffic {
-  margin-left: 12px;
+/* CPU/RAM/traffic are always visible but deliberately quiet: no capsule,
+   no accent colour, no extra background. */
+#cpu,
+#memory {
+  min-width: 56px;
   padding: 0 4px;
   color: @subtext;
   font-size: 11px;
 }
 
-/* ---------- Right: resources and status ---------- */
-
-#cpu,
-#memory {
-  min-width: 62px;
-  padding: 0 5px;
-  color: @text;
-}
-
-#power-profiles-daemon,
-#backlight {
-  min-width: 22px;
-  padding: 0 6px;
-  color: @text;
-}
-
-#power-profiles-daemon.performance {
-  color: @yellow;
-}
-
-#power-profiles-daemon.power-saver {
-  color: @green;
-}
-
-#backlight {
-  min-width: 52px;
-}
-
-/* Native backlight slider, revealed by clicking the brightness label. */
-#backlight-slider {
-  min-width: 64px;
+#network.traffic {
+  min-width: 96px;
+  margin-left: 8px;
   padding: 0 4px;
+  color: @subtext;
+  font-size: 11px;
 }
 
-#backlight-slider trough {
-  min-height: 6px;
-  border-radius: 3px;
-  background: @surface1;
-}
+/* ---------- Right: status and system control ---------- */
 
-#backlight-slider highlight {
-  min-height: 6px;
-  border-radius: 3px;
-  background: @accent;
-}
-
-#backlight-slider slider {
-  min-width: 8px;
-  min-height: 8px;
-  margin: -3px 0;
-  background: @text;
-  border: none;
-  box-shadow: none;
-}
-
-#pulseaudio,
 #network,
-#bluetooth,
 #battery,
 #custom-notification {
   padding: 0 6px;
@@ -193,25 +149,6 @@ window#waybar {
 #network.status.disconnected,
 #network.status.disabled {
   color: @red;
-}
-
-#pulseaudio.muted,
-#pulseaudio.muted.bluetooth {
-  color: @red;
-}
-
-#bluetooth.disabled,
-#bluetooth.off,
-#bluetooth.no-controller {
-  color: @subtext;
-}
-
-#bluetooth.on {
-  color: @text;
-}
-
-#bluetooth.connected {
-  color: @accent;
 }
 
 #custom-notification {
@@ -244,19 +181,7 @@ window#waybar {
   color: @red;
 }
 
-/* ---------- Compact monitor drawer and lid control ---------- */
-
-#custom-monitor-toggle {
-  padding: 0 8px;
-  color: @subtext;
-  font-size: 17px;
-  border-radius: 6px;
-}
-
-#custom-monitor-toggle:hover {
-  color: @text;
-  background: @surface0;
-}
+/* ---------- Lid control and unified system control ---------- */
 
 #custom-lid-mode {
   padding: 0 7px;
@@ -275,6 +200,18 @@ window#waybar {
 }
 
 #custom-lid-mode:hover {
+  background: @surface0;
+}
+
+#custom-system-control {
+  padding: 0 7px;
+  color: @subtext;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+#custom-system-control:hover {
+  color: @accent;
   background: @surface0;
 }
 

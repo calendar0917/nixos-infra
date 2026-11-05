@@ -61,6 +61,17 @@ window-rule {
     draw-border-with-background false
 }
 
+// The unified control center is a single floating Kitty window. Match only its
+// fixed app-id so everyday kitty windows keep tiling and the kitty rule above
+// stays narrow. niri centers new floating windows by default.
+window-rule {
+    match app-id="^system-control$"
+    open-floating true
+    default-column-width { fixed 760; }
+    default-window-height { fixed 520; }
+    draw-border-with-background false
+}
+
 hotkey-overlay {
     skip-at-startup
 }
@@ -81,12 +92,14 @@ binds {
 
     // Super Productivity is launched through its own URL Scheme, not a wrapper
     // script. `xdg-open` resolves the handlers from home/calendar/apps.nix.
+    // Mod+S used to toggle the Super Productivity window; that binding is now
+    // the system control center. The app, its URL scheme and its data stay.
     Mod+A hotkey-overlay-title="Super Productivity: Add task" {
         spawn "xdg-open" "superproductivity://add-task";
     }
 
-    Mod+S hotkey-overlay-title="Super Productivity: Show/hide" {
-        spawn "xdg-open" "superproductivity://toggle-visibility";
+    Mod+S hotkey-overlay-title="System control center" {
+        spawn "niri-system-control" "launch";
     }
 
     Mod+Alt+N hotkey-overlay-title="Notification center" { spawn "swaync-client" "-t" "-sw"; }

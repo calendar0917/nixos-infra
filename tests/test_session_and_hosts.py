@@ -53,6 +53,8 @@ in {
   kanshiTarget = h.services.kanshi.systemdTarget;
   kanshiSettings = h.services.kanshi.settings;
   kittyFontSize = h.programs.kitty.settings.font_size;
+  homePackageNames = map (p: p.name or "") h.home.packages;
+  niriWaybarInstalled = h.xdg.configFile ? "waybar/niri.jsonc";
   niriUnsetEnvironment =
     c.config.systemd.user.services.niri.serviceConfig.UnsetEnvironment or [ ];
   swayUnits =
@@ -124,7 +126,17 @@ def test_host_split(evaluated: dict) -> None:
 
     assert main["swayUnits"] == ["sway-bg", "sway-exit-watch", "sway-mako", "sway-waybar"], main
     assert mini["swayUnits"] == [], mini
-    print("PASS: main and the mini host resolve their own Sway/Fuzzel/Waybar files")
+
+    # The control center and its terminal tools belong to main's Waybar shell
+    # only. The mini host keeps DMS and must not inherit these packages or the
+    # niri Waybar profile.
+    main_packages = main["homePackageNames"]
+    mini_packages = mini["homePackageNames"]
+    assert "niri-system-control" in main_packages, main_packages
+    assert "niri-system-control" not in mini_packages, mini_packages
+    assert main["niriWaybarInstalled"] is True, main
+    assert mini["niriWaybarInstalled"] is False, mini
+    print("PASS: main and the mini host resolve their own Sway/Fuzzel/Waybar files and packages")
 
 
 def test_no_bare_exec_in_main_sway_config() -> None:
