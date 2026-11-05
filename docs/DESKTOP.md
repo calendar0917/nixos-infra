@@ -136,6 +136,38 @@ main 的 Sway 操作习惯与 niri 对齐；主要差异只在内核命令，不
 功率，不是墙插整机功率。全栏滚动、滑条拖动、托盘滚动传播、档位切换和放电功率
 仍需应用 generation 后实机验收。
 
+### main 的合盖模式与紧凑监控
+
+main 的 niri Waybar 把 CPU、RAM 和实时上下行网速放到 `⌁` 资源抽屉中。
+点击 `⌁` 展开或收起；原生模块的数值、tooltip 和点击打开 btop 的能力仍在。
+原来的电池百分比/放电功率、音量、网络状态、蓝牙、亮度滑条、电源模式、
+通知和托盘保留在外层。这个变化只影响 main 的 niri 配置，不改变 Sway 和小主机。
+
+电池附近的 `☾` / `☕` 是合盖行为切换：
+
+- `☾`：默认模式；未主动拦截 logind 合盖事件。
+- `☕`：正在运行 `lid-keep-awake.service`，请求 logind 忽略合盖事件。
+- 点击图标调用 `niri-lid-mode toggle` 启停 user service；不会每次 rebuild。
+- 该服务未启用开机自启，并且绑定 `niri.service` 生命周期，退出 niri 后清理。
+- 只拦截 `handle-lid-switch`，并不禁止主动 `systemctl suspend`。
+  原有 `swayidle before-sleep` / `niri-lock-wait` 保持不变。
+- **保持运行模式不会自动触发 before-sleep 锁屏**。临时合盖离开电脑时先按
+  `Alt+L`，并避免在背包等散热不良的环境里长时间使用。
+- Docked 和外接屏幕时 logind 自身可能忽略合盖，测试需要分开进行。
+- 若获取 low-level inhibitor 被 polkit 拒绝，服务会启动失败；应先核实
+  logind/polkit 权限，不要无条件放宽权限。
+
+检查（不会主动挂起）：
+
+```bash
+systemctl --user status lid-keep-awake.service
+systemd-inhibit --list
+niri-lid-mode status
+```
+
+应用新 generation 后，点击合盖图标并用以上命令检查 inhibitor 是否真的存在，
+再在可安全恢复的环境中进行合盖测试；GUI/固件实际效果待实机验证。
+
 ## 3. 显示器布局：wdisplays + kanshi
 
 显示器配置分成三层，互不替代：
