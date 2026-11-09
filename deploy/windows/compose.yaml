@@ -1,0 +1,34 @@
+name: windows
+
+services:
+  windows:
+    image: dockurr/windows:6.05
+    container_name: windows
+
+    environment:
+      VERSION: "11"
+      RAM_SIZE: "4G"
+      CPU_CORES: "4"
+      DISK_SIZE: "64G"
+
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+
+    cap_add:
+      - NET_ADMIN
+
+    ports:
+      - "127.0.0.1:8006:8006/tcp"
+      - "127.0.0.1:3389:3389/tcp"
+      - "127.0.0.1:3389:3389/udp"
+
+    volumes:
+      - type: bind
+        source: /var/lib/windows/windows
+        target: /storage
+        bind:
+          create_host_path: false
+
+    restart: "no"
+    stop_grace_period: 2m

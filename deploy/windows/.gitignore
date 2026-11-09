@@ -1,0 +1,17 @@
+# Never commit VM disks, installer images, Windows identity files or local
+# environment overrides. Only compose.yaml and README.md belong in Git.
+*.img
+*.qcow2
+*.iso
+*.rom
+*.vars
+*.mac
+*.base
+*.boot
+*.ver
+windows/
+data/
+storage/
+.env
+.env.*
+!.env.example
