@@ -1,0 +1,5 @@
+# Local runtime settings, secrets, sessions and databases. Never commit these.
+.env
+data/
+backups/
+*.log
