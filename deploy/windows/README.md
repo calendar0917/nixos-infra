@@ -91,13 +91,15 @@ put the password in a command line, script, environment variable or Git file.
 xfreerdp \
   /v:127.0.0.1:3389 \
   /u:Docker \
+  /d:WIN-ERINGJ9FD3E \
   /cert:tofu \
   +dynamic-resolution \
   +clipboard
 ```
 
-`Docker` is Dockur's default account name. If the migrated installation uses
-a different account, use the name shown on the Windows login screen instead.
+`WIN-ERINGJ9FD3E` is the guest computer name, used here as the local account
+domain. `Docker` is the local account shown in `C:\Users\Docker`. If the
+account name is different, use the name shown on the Windows login screen.
 The password is entered interactively and is not stored in this repository.
 
 `/cert:tofu` is intentional. Do not switch the default to `/cert:ignore`.
