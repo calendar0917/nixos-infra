@@ -21,6 +21,11 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    lazyvim-nix = {
+      url = "github:pfassina/lazyvim-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -28,27 +33,42 @@
       nixpkgs,
       home-manager,
       sops-nix,
+      lazyvim-nix,
       ...
     }:
     let
       lib = nixpkgs.lib;
 
       mkHost =
-        host:
+        host: extraModules:
         lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             host
             sops-nix.nixosModules.sops
             home-manager.nixosModules.home-manager
-          ];
+          ] ++ extraModules;
         };
 
     in
     {
       nixosConfigurations = {
-        main = mkHost ./hosts/main;
-        nixos = mkHost ./hosts/nixos;
+        # LazyVim is a main-only addition. The extra module is appended after
+        # hosts/main, so the existing Home Manager user configuration keeps
+        # applying and only imports one more user module.
+        main = mkHost ./hosts/main [
+          {
+            home-manager.sharedModules = [
+              lazyvim-nix.homeManagerModules.default
+            ];
+
+            home-manager.users.calendar.imports = [
+              ./home/calendar/lazyvim.nix
+            ];
+          }
+        ];
+
+        nixos = mkHost ./hosts/nixos [ ];
       };
     };
 }
