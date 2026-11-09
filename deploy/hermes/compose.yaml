@@ -8,8 +8,10 @@ services:
     command: ["gateway", "run"]
 
     ports:
-      - "${TAILSCALE_IPV4:?Set TAILSCALE_IPV4}:9120:9120"
-      - "${TAILSCALE_IPV4:?Set TAILSCALE_IPV4}:9119:9119"
+      # Bound on every IPv4 interface at the user's request: loopback, the
+      # LAN and Tailscale. Hermes still requires a login on both ports.
+      - "0.0.0.0:9120:9120"
+      - "0.0.0.0:9119:9119"
 
     volumes:
       - ./data:/opt/data

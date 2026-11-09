@@ -164,6 +164,14 @@ if [[ "$container_state" == "running" ]]; then
   else
     fail "Dashboard HTTP endpoint did not become ready on port 9119"
   fi
+  for port in 9120 9119; do
+    code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$port/" 2>/dev/null || true)"
+    if [[ "$code" == "200" || "$code" == "302" || "$code" == "401" ]]; then
+      pass "loopback http://127.0.0.1:$port/ answers (HTTP $code)"
+    else
+      fail "loopback http://127.0.0.1:$port/ does not answer (HTTP ${code:-none})"
+    fi
+  done
 
   for port in 9120 9119; do
     if sudo docker exec hermes-agent /opt/hermes/.venv/bin/python -c \
@@ -196,12 +204,12 @@ if set(bindings) != {"9120/tcp", "9119/tcp"}:
     errors.append(f"published bindings are {sorted(bindings)}, expected 9120/tcp and 9119/tcp")
 for key, entries in bindings.items():
     for entry in entries or []:
-        if entry.get("HostIp") != ip:
-            errors.append(f"{key} host IP is {entry.get('HostIp')!r}, expected {ip}")
+        if entry.get("HostIp") not in ("0.0.0.0", ip):
+            errors.append(f"{key} host IP is {entry.get('HostIp')!r}, expected 0.0.0.0")
 if errors:
     print("\n".join("FAIL  " + item for item in errors))
     raise SystemExit(1)
-print("PASS  Docker publishes only 9119/9120 on the Tailscale IPv4")
+print("PASS  Docker publishes only 9119/9120, on 0.0.0.0")
 print("PASS  Gateway API port 8642 has no host binding")
 PY
     while IFS= read -r line; do
@@ -215,11 +223,13 @@ PY
     fail "cannot inspect the container port bindings"
   fi
 
-  if sudo ss -lntp 2>/dev/null | grep -Eq '(^|[[:space:]])(0\.0\.0\.0|\*|\[::\]):(9119|9120)([[:space:]]|$)'; then
-    fail "a Hermes host port is bound on all interfaces"
-  else
-    pass "no Hermes host port is bound on 0.0.0.0 or ::"
-  fi
+  for port in 9119 9120; do
+    if sudo ss -lntp 2>/dev/null | grep -Eq "(^|[[:space:]])0\\.0\\.0\\.0:$port[[:space:]]"; then
+      pass "docker-proxy listens on 0.0.0.0:$port (loopback, LAN and Tailscale)"
+    else
+      fail "nothing listens on 0.0.0.0:$port"
+    fi
+  done
   if sudo ss -lntp 2>/dev/null | grep -Eq ':(8642)([[:space:]]|$)'; then
     fail "something is listening on host port 8642"
   else
@@ -389,6 +399,17 @@ if [[ "$container_state" == "running" ]]; then
     pass "QQ Bot is disabled (safe default; no credentials or OpenID configured)"
     pending "QQ credentials and OpenID allowlist have not been provided"
   fi
+fi
+
+info ""
+info "== Exposure =="
+info "Ports 9119/9120 are published on 0.0.0.0: reachable from loopback, the LAN"
+info "and Tailscale. Login is still required on both; do not add router port"
+info "forwarding, UPnP or Tailscale Funnel."
+lan_ip="$(ip -4 -o addr show | awk '$2 != "lo" && $2 !~ /^(tailscale|docker|br-|veth)/ {split($4,a,"/"); print a[1]; exit}')"
+if [[ -n "$lan_ip" ]]; then
+  code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$lan_ip:9119/" 2>/dev/null || true)"
+  info "LAN address ${lan_ip}:9119 answers with HTTP ${code:-none} (must be a login, not content)"
 fi
 
 info ""

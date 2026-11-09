@@ -250,10 +250,42 @@ if ! env_has_nonempty "$DATA_ENV" HERMES_DASHBOARD_BASIC_AUTH_PASSWORD \
   unset web_password
 fi
 
-if ! env_has_nonempty "$DATA_ENV" HERMES_DASHBOARD_BASIC_AUTH_SECRET; then
+# Hermes refuses a signing secret shorter than 16 bytes, and a rejected
+# secret silently skips the password provider (the dashboard then fails
+# closed on a non-loopback bind). Keep a 32+ character margin and replace a
+# too-short value; this invalidates existing browser sessions by design.
+secret_len="$(python3 - "$DATA_ENV" <<'PY'
+import sys
+from pathlib import Path
+
+key = "HERMES_DASHBOARD_BASIC_AUTH_SECRET"
+path = Path(sys.argv[1])
+length = 0
+if path.is_file():
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        name = name.strip()
+        if name.startswith("export "):
+            name = name[7:].strip()
+        if name == key:
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+            length = len(value)
+            break
+print(length)
+PY
+)"
+if [[ "${secret_len:-0}" -lt 32 ]]; then
   session_secret="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
   env_set "$DATA_ENV" "HERMES_DASHBOARD_BASIC_AUTH_SECRET=$session_secret"
   unset session_secret
+  if [[ "${secret_len:-0}" -gt 0 ]]; then
+    log "Replaced a session secret shorter than 32 characters (existing sessions are reset)."
+  fi
 fi
 
 # These are authorization boundaries, not optional defaults.

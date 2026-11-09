@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Start Hermes on the current Tailscale IPv4 only. Never fall back to 0.0.0.0.
+# Start Hermes and publish 9119/9120 on all IPv4 interfaces.
+# The Tailscale IPv4 still defines the public URLs; it is checked, not guessed.
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -154,8 +155,10 @@ PY
 }
 
 log "Checking Tailscale..."
+# Ports are published on 0.0.0.0, but the public URLs (and the Dashboard's
+# trusted origin) still need a real Tailscale address, so this stays a gate.
 tailscale_ip="$(tailscale ip -4 2>/dev/null | head -n1 || true)"
-[[ -n "$tailscale_ip" ]] || fail "Tailscale has no IPv4 address. Refusing to fall back to 0.0.0.0."
+[[ -n "$tailscale_ip" ]] || fail "Tailscale has no IPv4 address; cannot build the public URLs."
 check_tailscale_ip "$tailscale_ip"
 
 configured_ip="$(env_value "$ENV_FILE" TAILSCALE_IPV4 || true)"
@@ -210,8 +213,8 @@ for entry in ports:
     published = str(entry.get("published", ""))
     target = int(entry.get("target", 0))
     protocol = entry.get("protocol", "tcp")
-    if host_ip != ip:
-        raise SystemExit(f"published port {published}:{target} binds {host_ip!r}, not {ip}")
+    if host_ip not in ("0.0.0.0", ip):
+        raise SystemExit(f"published port {published}:{target} binds {host_ip!r}, not 0.0.0.0")
     if protocol != "tcp":
         raise SystemExit(f"published port {published}:{target} uses {protocol}, not tcp")
     key = (published, target)
@@ -261,8 +264,8 @@ for key, entries in bindings.items():
     for entry in entries or []:
         host_ip = entry.get("HostIp")
         host_port = str(entry.get("HostPort", ""))
-        if host_ip != ip:
-            raise SystemExit(f"{key} is published on {host_ip!r}, not {ip}")
+        if host_ip not in ("0.0.0.0", ip):
+            raise SystemExit(f"{key} is published on {host_ip!r}, not 0.0.0.0")
         if key not in {"9120/tcp", "9119/tcp"}:
             raise SystemExit(f"unexpected published binding: {key} -> {host_port}")
 extra = set(bindings) - {"9120/tcp", "9119/tcp"}
@@ -270,21 +273,23 @@ if extra:
     raise SystemExit(f"unexpected published ports: {sorted(extra)}")
 PY
 
-for port in 9120 9119; do
-  ready="false"
-  for _ in $(seq 1 60); do
-    code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 3 "http://$tailscale_ip:$port/" 2>/dev/null || true)"
-    case "$code" in
-      000|503) sleep 2 ;;
-      *) ready="true"; break ;;
-    esac
+for host in "$tailscale_ip" 127.0.0.1; do
+  for port in 9120 9119; do
+    ready="false"
+    for _ in $(seq 1 60); do
+      code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 3 "http://$host:$port/" 2>/dev/null || true)"
+      case "$code" in
+        000|503) sleep 2 ;;
+        *) ready="true"; break ;;
+      esac
+    done
+    [[ "$ready" == "true" ]] || fail "Hermes did not become ready on $host:$port; check logs with: sudo docker compose --env-file .env logs --tail=200"
   done
-  [[ "$ready" == "true" ]] || fail "Hermes did not become ready on port $port; check logs with: sudo docker compose --env-file .env logs --tail=200"
 done
 
 log ""
-log "Hermes is running."
-log "  Webapp:    http://$tailscale_ip:9120"
-log "  Dashboard: http://$tailscale_ip:9119"
+log "Hermes is running (published on 0.0.0.0: loopback, LAN and Tailscale)."
+log "  Webapp:    http://$tailscale_ip:9120  /  http://127.0.0.1:9120"
+log "  Dashboard: http://$tailscale_ip:9119  /  http://127.0.0.1:9119"
 log "  Logs:      sudo docker compose --env-file .env logs -f --tail=100"
 log "  Check:     scripts/check.sh"

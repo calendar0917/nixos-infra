@@ -2,15 +2,15 @@
 
 本目录只部署在 `main` 主机：一个官方 `nousresearch/hermes-agent` 容器，同时运行
 Hermes Gateway、Webapp、Dashboard 和 QQ 官方 Bot 通道。使用 Docker bridge
-网络，宿主机端口只绑定当前 Tailscale IPv4，不发布 Gateway API 8642，不使用 host
-networking、Funnel 或公网端口转发。
+网络，宿主机端口发布在 `0.0.0.0`（loopback、局域网和 Tailscale 都可访问），
+不发布 Gateway API 8642，不使用 host networking、Funnel 或公网端口转发。
 
 ```text
-Tailscale 设备
-   │  http://<TAILSCALE_IPV4>:9120  Webapp
-   │  http://<TAILSCALE_IPV4>:9119  Dashboard
+本机 / 局域网 / Tailscale 设备
+   │  http://127.0.0.1:9120  http://<TAILSCALE_IPV4>:9120  Webapp
+   │  http://127.0.0.1:9119  http://<TAILSCALE_IPV4>:9119  Dashboard
    ▼
-nvme 主机 docker-proxy（只绑定 tailscale0 地址）
+nvme 主机 docker-proxy（绑定 0.0.0.0:9119、0.0.0.0:9120）
    ▼
 hermes-agent 容器
    ├─ gateway run（Gateway + Webapp :9120）
@@ -87,37 +87,51 @@ sudo docker compose --env-file .env logs --tail=200 hermes
 
 `start.sh` 会：
 
-- 拒绝 Tailscale 离线或没有 IPv4 的状态，绝不退化为 `0.0.0.0`；
+- 拒绝 Tailscale 离线或没有 IPv4 的状态（`webapp.public_url` 和 Dashboard
+  可信来源依赖它）；端口绑定固定为 `0.0.0.0`，不再随 IP 变化；
 - 比较当前 IP 与 `.env`，变化时更新 `.env` 和
   `data/config.yaml` 的 `webapp.public_url`；
 - 执行 `docker compose config --quiet`；
-- 解析 Compose 模型，确认 9120/9119 的 `host_ip` 就是当前 Tailscale IP，
+- 解析 Compose 模型，确认 9120/9119 的 `host_ip` 是 `0.0.0.0`，
   且没有 8642 或其他宿主端口；
 - 运行 `sudo docker compose up -d`，再检查容器的实际端口绑定。
 
 Docker 命令沿用仓库现有工作流：`sudo docker compose`。不要把 `calendar`
 加入 `docker` 组。
 
-## 从另一台 Tailscale 设备访问
+## 访问地址（本机 / 局域网 / Tailscale）
 
-在目标机器上确认 Tailscale 在线，然后打开：
+端口发布在 `0.0.0.0`，本机、同一局域网和 tailnet 设备都能连。推荐地址：
 
 ```text
-Webapp:    http://<TAILSCALE_IPV4>:9120
-Dashboard: http://<TAILSCALE_IPV4>:9119
+本机:     http://127.0.0.1:9119  http://127.0.0.1:9120
+Tailscale: http://<TAILSCALE_IPV4>:9119  http://<TAILSCALE_IPV4>:9120
+局域网:   http://<主机局域网IPv4>:9119  http://<主机局域网IPv4>:9120
 ```
+
+`webapp.public_url` 只能写一个地址，它是 Webapp 的“同源”基准：Webapp 的
+cookie 写入（发消息、改设置）只接受这个地址。当前值取自
+`TAILSCALE_IPV4`，所以 **Webapp 请用 Tailscale 地址打开**；从
+`http://127.0.0.1:9120` 打开可以登录和浏览，但写操作会返回 403
+（"Cookie-authenticated writes must come from the Webapp's own origin"）。
+Dashboard (`9119`) 不受这个限制，localhost 和局域网地址都能正常操作。
+
+如果只在笔记本本地用 Webapp，可以把 `data/config.yaml` 的
+`webapp.public_url` 改成 `http://127.0.0.1:9120` 并重启；代价是反过来
+Tailscale 地址上的写操作会被拒绝。
 
 本机可以用：
 
 ```bash
 ip=$(grep '^TAILSCALE_IPV4=' deploy/hermes/.env | cut -d= -f2)
-curl --noproxy '*' -I "http://$ip:9120/"
+curl --noproxy '*' -I "http://127.0.0.1:9119/"
 curl --noproxy '*' -I "http://$ip:9119/"
 ```
 
-未认证时页面应跳转到登录页，`/api/config` 应返回 401。`/api/status` 是公开的只读状态接口，不用于判断受保护内容。仓库没有修改
-NixOS 防火墙、Tailscale ACL 或 Docker daemon；能否从第二台设备访问由现有
-Tailscale ACL 决定。没有第二台设备时，这一项只能标记为“待人工验证”。
+未认证时页面应跳转到登录页，`/api/config` 应返回 401。`/api/status` 是公开的只读
+状态接口，不用于判断受保护内容。仓库没有修改 NixOS 防火墙、Tailscale ACL 或
+Docker daemon；端口绑定是 `0.0.0.0`，所以同网段设备也能连到登录页，能否进入
+只取决于密码。没有第二台设备时，“从另一台设备访问”只能标记为“待人工验证”。
 
 ## Web 登录认证
 
@@ -129,8 +143,12 @@ HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=<init.sh 随机生成>
 HERMES_DASHBOARD_BASIC_AUTH_SECRET=<init.sh 独立随机生成，至少 32 字节>
 ```
 
-- 密码由 `secrets.token_urlsafe()` 生成，不是固定示例值；
-- Session Secret 独立生成，用于签名登录会话；
+- 密码由 `secrets.token_urlsafe()` 生成，不是固定示例值；密码长度本身没有下限，
+  自己改短也可以；
+- Session Secret 独立生成，用于签名登录会话。Hermes 拒绝短于 16 字节的
+  Secret，且被拒绝时 basic-auth 不会注册，Dashboard 会 fail-closed 拒绝绑定；
+  因此 `init.sh` 把小于 32 字符的值视为需要重置（会打印一行提示，不打印值）。
+  需要看重置后的新值就重新读取 `data/.env`，不要在聊天或日志里传播；
 - `data/.env` 权限为 `0600`；
 - 不使用 `HERMES_DASHBOARD_INSECURE`；
 - Webapp 的 `webapp.public_url` 和 Dashboard 的非 loopback 绑定都会启用
@@ -223,24 +241,24 @@ cd deploy/hermes
 ./scripts/start.sh
 ```
 
-`start.sh` 会发现 `.env` 与 `tailscale ip -4` 不一致，更新：
+端口绑定固定为 `0.0.0.0`，IP 变化只影响 URL。`start.sh` 会发现 `.env` 与
+`tailscale ip -4` 不一致，更新：
 
 - `.env` 的 `TAILSCALE_IPV4`；
-- 容器端口的宿主绑定；
 - `data/config.yaml` 的 `webapp.public_url`；
 - Dashboard 的 `HERMES_DASHBOARD_PUBLIC_URL`（Compose 环境变量随 `.env` 更新）。
 
-如果 Tailscale 尚未就绪，脚本会失败并提示；不会回退到 `0.0.0.0`。不要在
-Tailscale 离线时手工把端口改成所有接口。
+如果 Tailscale 尚未就绪，脚本会失败并提示，避免写入一个过期或空的
+`public_url`。
 
 ## 休眠与开机顺序限制
 
 - 笔记本休眠后 Hermes 容器、QQ WebSocket 和 Tailscale 连接都可能暂停；唤醒后
   先确认 Tailscale 在线，再运行 `./scripts/start.sh` 和 `./scripts/check.sh`。
-- Docker 的 `restart: unless-stopped` 只负责容器退出后的重启，不负责等待
-  Tailscale 地址出现。若 Docker 先于 `tailscale0` 启动，容器可能因无法绑定
-  Tailscale IP 而启动失败。这是已知的启动顺序问题，不通过改回 `0.0.0.0`
-  规避。
+- `0.0.0.0` 绑定不再依赖 `tailscale0` 出现，所以开机顺序本身不会让端口绑定
+  失败；但 `webapp.public_url` 和 Dashboard 的公开地址仍是 Tailscale 地址，
+  Tailscale 尚未就绪时先跑 `./scripts/start.sh` 会直接报错。开机后等
+  `tailscale status` 正常再启动即可。
 - 第一版没有新增全局 systemd 服务，也没有修改 Tailscale 系统设置。恢复命令：
 
 ```bash
@@ -337,7 +355,9 @@ cd deploy/hermes
 
 ## 安全边界
 
-- 宿主机端口只绑定当前 Tailscale IPv4：`9120` Webapp、`9119` Dashboard；
+- 宿主机端口发布在 `0.0.0.0`：`9120` Webapp、`9119` Dashboard，loopback、
+  局域网和 Tailscale 都能访问；两个端口都强制登录，局域网设备不需要
+  Tailscale 就能看到登录页，所以密码强度就是这一层的边界；
 - 不发布 `8642` Gateway API；
 - 不使用 Docker host networking、`privileged`、Docker Socket 或宿主机
   `/home/calendar`；
@@ -350,7 +370,7 @@ cd deploy/hermes
 
 ## 已知待人工验证项目
 
-- 第二台 Tailscale 设备的访问和 ACL 边界；
+- 第二台 Tailscale 设备、以及同网段非 Tailscale 设备的访问和 ACL 边界；
 - 笔记本重启后 Docker 与 Tailscale 的启动顺序；
 - 真实 QQ 账号的授权私聊、非授权用户拒绝和群聊拒绝；
 - 休眠/唤醒后 QQ WebSocket 的恢复；
