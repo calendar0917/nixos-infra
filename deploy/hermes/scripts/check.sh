@@ -399,6 +399,17 @@ if [[ "$container_state" == "running" ]]; then
     pass "QQ Bot is disabled (safe default; no credentials or OpenID configured)"
     pending "QQ credentials and OpenID allowlist have not been provided"
   fi
+
+  # host-gateway points at the daemon's default bridge (docker0), not at the
+  # gateway of the compose network the container sits on; both are the host.
+  compose_gateway="$(sudo docker inspect hermes-agent --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' 2>/dev/null || true)"
+  host_gateway="$(ip -4 -o addr show dev docker0 2>/dev/null | awk '{split($4, a, "/"); print a[1]}')"
+  resolved="$(sudo docker exec -u hermes hermes-agent getent hosts host.docker.internal 2>/dev/null | awk 'NR==1 {print $1}' || true)"
+  if [[ -n "$resolved" && ( "$resolved" == "$host_gateway" || "$resolved" == "$compose_gateway" ) ]]; then
+    pass "host.docker.internal resolves to a host bridge address ($resolved)"
+  else
+    fail "host.docker.internal resolves to '${resolved:-nothing}', expected ${host_gateway:-docker0} or ${compose_gateway:-the compose gateway}"
+  fi
 fi
 
 info ""

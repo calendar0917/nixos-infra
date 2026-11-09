@@ -16,6 +16,13 @@ services:
     volumes:
       - ./data:/opt/data
 
+    # Stable name for the Docker host from inside the container, so Hermes can
+    # call host services (AxonHub, etc.) without hard-coding 172.x.0.1. Only
+    # services listening on 0.0.0.0 or that bridge address are reachable;
+    # a 127.0.0.1-only service on the host stays invisible.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     environment:
       HERMES_DASHBOARD: "1"
       HERMES_DASHBOARD_HOST: "0.0.0.0"

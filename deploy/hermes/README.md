@@ -133,6 +133,41 @@ curl --noproxy '*' -I "http://$ip:9119/"
 Docker daemon；端口绑定是 `0.0.0.0`，所以同网段设备也能连到登录页，能否进入
 只取决于密码。没有第二台设备时，“从另一台设备访问”只能标记为“待人工验证”。
 
+## 容器访问宿主机服务
+
+容器和宿主机是两个 netns，容器里的 `localhost` 是容器自己。Compose 里加了
+
+```yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+所以从容器内用 `host.docker.internal` 就能指到宿主机地址。它是一个 `host-gateway`
+别名，指向 Docker daemon 的默认网桥 `docker0`（当前 `172.17.0.1`），而不是容器所在
+compose 网络的网关 `172.21.0.1`；两者都是宿主机地址，只要有服务监听 `0.0.0.0`
+就都能连上。核对方式：
+
+```bash
+# 容器视角的网关
+sudo docker inspect hermes-agent --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}'
+sudo docker network inspect hermes_default --format '{{(index .IPAM.Config 0).Gateway}}'
+# 宿主机侧的网桥地址
+ip -4 -o addr show | grep br-
+
+# 容器内测试
+sudo docker exec -u hermes hermes-agent \
+  curl -s -o /dev/null -w '%{http_code}\n' http://host.docker.internal:8090/
+```
+
+只有监听在 `0.0.0.0` 或该网桥地址上的服务才可达。只绑 `127.0.0.1` 的宿主机
+服务（例如部分代理）容器永远连不到，需要改监听地址、在宿主机做 `socat` 转发，
+或者接受这部分功能不可用；不要为此改成 host networking。
+
+本机的 AxonHub 监听 `0.0.0.0:8090`，因此在 `hermes setup model` 里可以直接填
+OpenAI-compatible 的 Base URL：`http://host.docker.internal:8090/v1`（或
+`http://100.67.68.157:8090/v1`）。注意 `172.21.0.1` 这类 bridge 地址只在
+宿主机和容器网络内有效，浏览器访问请用局域网或 Tailscale 地址。
+
 ## Web 登录认证
 
 `data/.env` 中保存：
