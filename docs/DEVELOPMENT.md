@@ -9,7 +9,7 @@
 | 层 | 负责 | 不负责 |
 | --- | --- | --- |
 | NixOS 系统（`modules/`、`hosts/`） | 用户、SSH、网络、桌面、音频、字体、容器/虚拟化等基础设施 | 具体项目的 Python/Node 版本 |
-| Home Manager（`home/calendar/`） | Fish、Git、direnv、tmux、Helix、常用 CLI 和终端 | 项目依赖、全局 pip/npm 包 |
+| Home Manager（`home/calendar/`） | Fish、Git、direnv、tmux、Neovim（LazyVim）、常用 CLI 和终端 | 项目依赖、全局 pip/npm 包 |
 | 项目 devShell（项目自己的 `flake.nix`） | Python/Node/编译器/LSP CLI 等可执行文件 | 系统服务、全局配置 |
 | 项目数据 | `.venv`、`node_modules`、`.direnv`、`.pnpm-store` | 不进入 Git，必要时可删除重建 |
 

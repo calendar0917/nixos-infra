@@ -344,16 +344,26 @@ nixos 保持原终端外观（基础 `font_size = 11`，不带 Catppuccin 覆盖
 niri 的 tabbed-column 指示器。不要用全局窗口 opacity 或焦点切换脚本替代。
 最终视觉效果待实机验证。
 
-### Helix
+### Neovim
 
-`hx` 是两台主机的默认编辑器。配置是
-`~/.config/helix/config.toml`，属于 TOML；**不要用 jq 读取**。需要解析时使用
-Python `tomllib` 或 TOML 工具。主题只清空 `ui.background`，让 kitty 背景透出，
-状态栏、选区和诊断仍用 Catppuccin。
+`nvim` 是两台主机的默认编辑器：`home/calendar/nvim.nix` 打开
+`programs.neovim.defaultEditor`，由 Home Manager 导出 `EDITOR`/`VISUAL=nvim`。
+git 的 `core.editor`、fish 别名 `n` 和 Yazi 的编辑 opener 都指向同一个 `nvim`，
+没有第二份编辑器配置。
 
-语言服务器由 Home Manager 的 `extraPackages` 提供；`hx --health` 可检查入口，
-但启动 `hx` 不等于 LSP 已完成补全/诊断。旧 Neovim 运行时目录不由本仓库管理，
-也不因默认编辑器改为 Helix 而删除。
+`~/.config/nvim` 在 main 上由 `programs.lazyvim`（`home/calendar/lazyvim.nix`）
+生成：`appName = "nvim"`，所以直接运行 `nvim` 就是 LazyVim，不再需要
+`NVIM_APPNAME=lazyvim` 或 `lv` 别名。`init.lua` 是 Nix 生成的只读文件，由
+lazyvim-nix 的启动代码和 Home Manager 的 provider 设置两段组成；要改配置请改
+`home/calendar/lazyvim.nix`，不要在运行期编辑 `~/.config/nvim`。插件、语言服务器
+和格式化器全部来自 Nix，Mason 的运行时安装已关闭。
+
+小主机不导入 LazyVim 模块，只有 `programs.neovim` 的基础配置（同样的
+`EDITOR`/`VISUAL`），没有 LazyVim 插件集。
+
+启动 `nvim` 不等于 LSP 已完成补全/诊断；`:checkhealth` 可检查入口。旧的
+`~/.config/lazyvim`、`~/.local/share/lazyvim` 属于此前 `NVIM_APPNAME=lazyvim`
+的遗留目录，不由 Nix 管理，也不影响新的 `~/.config/nvim`。
 
 ### 蓝牙
 

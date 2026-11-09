@@ -43,7 +43,7 @@ in
         # files keep their default/Yazi desktop opener behaviour.
         opener.edit = [
           {
-            run = "env NVIM_APPNAME=lazyvim nvim %s";
+            run = "nvim %s";
             block = true;
             for = "unix";
           }

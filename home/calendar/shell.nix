@@ -11,7 +11,7 @@
       ll = "eza -al --group-directories-first";
       cat = "bat --style=plain";
       g = "git";
-      n = "hx";
+      n = "nvim";
       bt = "btop";
       cc = "cd ~/code";
       cdot = "cd ~/life/dotfiles";
@@ -170,7 +170,7 @@
         autoSetupRemote = true;
       };
       core = {
-        editor = "hx";
+        editor = "nvim";
       };
       color = {
         ui = "auto";
@@ -213,7 +213,7 @@
   # declaratively instead of patching shell rc files.
   home.sessionPath = [ "$HOME/.local/bin" ];
 
-  # EDITOR and VISUAL are set by programs.helix.defaultEditor. Keep only
+  # EDITOR and VISUAL are set by programs.neovim.defaultEditor. Keep only
   # unrelated shell defaults here so the editor has a single source of truth.
   home.sessionVariables = {
     PAGER = "less";

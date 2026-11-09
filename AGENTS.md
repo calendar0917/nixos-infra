@@ -70,8 +70,9 @@
   一份不要顺手改另一份。
 - wlogout 读取的是换行分隔的 JSON 对象流，不是 JSON 数组。
 - flake 只把 Git 跟踪的文件纳入构建；新增文件必须 `git add` 后才参与求值。
-- Helix 的 `config.toml` 是 TOML；需要解析时使用 Python `tomllib` 或 TOML
-  工具，不要用 `jq`。
+- 默认编辑器是 `nvim`（`home/calendar/nvim.nix` 的 `defaultEditor`）；main 的
+  `~/.config/nvim` 由 `programs.lazyvim` 生成，是只读 store 链接。改编辑器配置
+  改 `home/calendar/lazyvim.nix`，不要在运行期手改 `~/.config/nvim`。
 - 锁屏就绪指 logind 的 `LockedHint=yes`，不是“锁屏进程已启动”；systemd 262
   的会话所有者属性是 `User`，不是 `UID`。
 - `config/niri/config.kdl` 的 kitty 窗口规则只为透明窗口关闭焦点底板；不要
