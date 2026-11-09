@@ -1,0 +1,40 @@
+name: hermes
+
+services:
+  hermes:
+    image: ${HERMES_IMAGE:?Set HERMES_IMAGE}
+    container_name: hermes-agent
+    restart: unless-stopped
+    command: ["gateway", "run"]
+
+    ports:
+      - "${TAILSCALE_IPV4:?Set TAILSCALE_IPV4}:9120:9120"
+      - "${TAILSCALE_IPV4:?Set TAILSCALE_IPV4}:9119:9119"
+
+    volumes:
+      - ./data:/opt/data
+
+    environment:
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      HERMES_DASHBOARD_PORT: "9119"
+      HERMES_DASHBOARD_PUBLIC_URL: "http://${TAILSCALE_IPV4:?Set TAILSCALE_IPV4}:9119"
+      # Keep host-owned files owned by the desktop account. This is the
+      # image's supported UID/GID remap, not a custom `user:` override.
+      HERMES_UID: "${HERMES_UID:-1000}"
+      HERMES_GID: "${HERMES_GID:-1000}"
+
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 4g
+    cpus: 2.0
+    pids_limit: 256
+    shm_size: 1gb
+    stop_grace_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
