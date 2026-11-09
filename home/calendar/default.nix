@@ -9,6 +9,7 @@
     ./helix.nix
     ./apps.nix
     ./tmux.nix
+    ./yazi.nix
     ./desktop/niri.nix
     ./desktop/displays.nix
     ./desktop/clipboard.nix

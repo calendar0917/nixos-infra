@@ -30,6 +30,11 @@
       set -g allow-passthrough on
       set -g renumber-windows on
 
+      # Refresh the inner terminal identity so applications such as Yazi can
+      # detect Kitty and use its graphics protocol after attaching to tmux.
+      set -ga update-environment TERM
+      set -ga update-environment TERM_PROGRAM
+
       # Keep new panes/windows in the current working directory.
       bind | split-window -h -c "#{pane_current_path}"
       bind - split-window -v -c "#{pane_current_path}"

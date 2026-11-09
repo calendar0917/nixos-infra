@@ -50,6 +50,7 @@ in
 {
   config = lib.mkIf isMain {
     home.packages = with pkgs; [
+      freerdp
       obsidian
       onlyoffice
       qqWithFcitx
