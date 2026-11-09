@@ -1,15 +1,16 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
   # LazyVim is imported only by nixosConfigurations.main (see flake.nix).
-  # It deliberately runs under its own NVIM_APPNAME so any existing
-  # ~/.config/nvim is left alone and the whole setup can be removed by
-  # dropping the flake import.
+  # It owns the normal Neovim configuration path, so plain `nvim` (and
+  # EDITOR/VISUAL from nvim.nix) starts LazyVim on main.
   programs.lazyvim = {
     enable = true;
 
-    # Keep LazyVim config and state separate from a native Neovim setup.
-    appName = "lazyvim";
+    # Write to ~/.config/nvim rather than a separate NVIM_APPNAME, so there
+    # is one Neovim configuration on this host and no `lv` wrapper to
+    # remember. The mini host does not import this module.
+    appName = "nvim";
 
     # Plugins are still resolved and built by lazyvim-nix from LazyVim's
     # pinned plugin set. Nothing is downloaded by lazy.nvim at runtime.
@@ -158,5 +159,10 @@
     };
   };
 
-  programs.fish.shellAliases.lv = "env NVIM_APPNAME=lazyvim nvim";
+  # Two modules write ~/.config/nvim/init.lua: lazyvim-nix (the LazyVim boot
+  # code) and Home Manager's Neovim module (node/python3 provider settings).
+  # Both are `types.lines`, so the values concatenate; only `enable` differs
+  # and the Neovim module turns it off when it thinks the file is sideloaded.
+  # Force the merged file on instead of overriding either module's content.
+  xdg.configFile."nvim/init.lua".enable = lib.mkForce true;
 }

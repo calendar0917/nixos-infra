@@ -6,7 +6,7 @@
   imports = [
     ./shell.nix
     ./terminal.nix
-    ./helix.nix
+    ./nvim.nix
     ./apps.nix
     ./tmux.nix
     ./yazi.nix
