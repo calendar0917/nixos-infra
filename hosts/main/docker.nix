@@ -12,13 +12,14 @@
     # replace or disable the host's networking.nftables/firewall configuration.
     extraPackages = [ pkgs.nftables ];
 
-    daemon.settings."registry-mirrors" = [
-      "https://docker.1ms.run"
-      "https://docker.1panel.live"
-      "https://docker.m.ixdev.cn"
-      "https://hub.rat.dev"
-      "https://docker.xuanyuan.me"
-    ];
+    # Deliberately no "registry-mirrors". The public accelerators used here
+    # (docker.1ms.run, docker.1panel.live, docker.m.ixdev.cn, hub.rat.dev,
+    # docker.xuanyuan.me) now answer 401/403/404 on the manifest HEAD or hang
+    # for 30s, so dockerd burned the whole pull timeout on mirrors before ever
+    # reaching the real registry. Worse, dockerd re-fetches the digest-pinned
+    # manifest from whichever host served the index, so a dead mirror can stall
+    # the pull even after falling back. Pulls now go straight to
+    # registry-1.docker.io through the daemon proxy below.
   };
 
   # Docker pulls images in dockerd, not in the CLI. Shell proxy variables do
