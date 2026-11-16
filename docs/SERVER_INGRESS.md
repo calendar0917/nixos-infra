@@ -291,6 +291,7 @@ sudo -u caddy test -r /var/lib/acme/20050917.xyz/key.pem
 import /etc/caddy/sites-enabled/*.caddy
 
 http://127.0.0.1:2080 {
+    bind 127.0.0.1
     respond /health 200
     respond 404
 }
@@ -395,11 +396,13 @@ app.20050917.xyz {
 
 ```bash
 ingressctl list      # 列出运行时路由，普通用户可执行
-ingressctl status    # 证书、路由和 Caddy 服务状态，普通用户可执行
+ingressctl status    # 路由和 Caddy 服务状态；证书文件检查需 root
+sudo ingressctl status  # 完整证书和证书文件权限检查
 sudo ingressctl check
 ```
 
-`check` 和所有变更命令要求 root。`check` 只验证，不写文件、不 reload。
+`status` 在普通用户下会提示证书文件检查需要 root；`check` 和所有变更命令
+要求 root。`check` 只验证，不写文件、不 reload。
 
 ## 8. 新 Docker 服务标准流程
 
