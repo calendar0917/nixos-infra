@@ -70,6 +70,15 @@ scripts/check-desktop
 的分支，不会真的启停会话。脚本不会 switch、锁屏、挂起或重启；`--help` 不触发构建。
 只改文档时不需要运行它。
 
+小主机校园网/Mihomo 的无网络单元回归：
+
+```bash
+scripts/check-server-network
+```
+
+它只构建一个固定 Python 测试环境并运行 `tests/test_server_network.py`，不启动
+`campus-login`/`mihomo`，不读取真实凭据，也不改当前 generation。
+
 Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
 [`AGENTS.md`](AGENTS.md)。
 
@@ -93,9 +102,10 @@ nix flake check --no-build
 `hosts/main/waybar.nix` 固定上游 Waybar revision 以保留 `workspace-taskbar`；
 不要为了“清理覆盖”删掉它。
 
-`modules/base.nix` 把 Nix daemon 和客户端的 HTTP(S) 下载指向本地 Clash
-`http://127.0.0.1:7897`，loopback 直连。Clash 未运行时远程 fetch/build 会失败；
-修改该段后需要一次 `nixos-rebuild switch` 才写入 daemon 运行环境。
+`modules/base.nix` 把 Nix daemon 和客户端的 HTTP(S) 下载指向本地代理
+`http://127.0.0.1:7897`，loopback 直连。main 的监听者是 Clash Verge，nixos 的
+监听者是 Mihomo；代理未运行时远程 fetch/build 会失败。修改该段后需要一次
+`nixos-rebuild switch` 才写入 daemon 运行环境。
 
 ## 分支、部署与边界
 
@@ -117,6 +127,8 @@ nix flake check --no-build
   [`docs/APPS.md`](docs/APPS.md)
 - TTY/桌面恢复、网络、SOPS、Restic、SSH：
   [`docs/RECOVERY.md`](docs/RECOVERY.md)
+- 小主机校园网认证、无 GUI Mihomo、`proxyctl`、Profile/订阅和网络回滚：
+  [`docs/SERVER_NETWORK.md`](docs/SERVER_NETWORK.md)
 - 开发环境、devShell、tmux 和 Arch/NixOS 共享：
   [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
 - 双系统安装与恢复：

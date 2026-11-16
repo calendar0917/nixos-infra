@@ -34,8 +34,9 @@
 
     # nix-daemon performs store substitutions itself, so a proxy exported only
     # in an interactive shell does not reach cache downloads. Set the local
-    # Clash HTTP proxy for the daemon and for Nix clients doing flake fetches.
-    # Keep loopback direct; Clash must be running for remote Nix operations.
+    # HTTP proxy for the daemon and for Nix clients doing flake fetches. The
+    # listener is Clash Verge on main and Mihomo on nixos; both own 7897.
+    # Keep loopback direct; a proxy must be running for remote Nix operations.
     envVars = {
       http_proxy = "http://127.0.0.1:7897";
       https_proxy = "http://127.0.0.1:7897";

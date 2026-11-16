@@ -11,3 +11,7 @@ data/*
 # Local Artex runtime state and deployment secrets are never committed.
 deploy/artex/.env
 deploy/artex/data/
+
+# Python bytecode from local test imports.
+__pycache__/
+*.pyc
