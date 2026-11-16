@@ -178,7 +178,53 @@ direnv allow
   把闭包带到目标机；不要把整个 `/nix` 当普通文件同步。
 - 共享的是声明和 lock，不是运行时状态；`.envrc` 只写 `use flake`。
 
-## 6. 历史记录
+## 6. Security Lab（仅 main）
+
+`modules/security-lab.nix` 和 `home/calendar/security-lab.nix` 只由
+`nixosConfigurations.main` 导入。模块定义中的四个子开关默认都是 `false`；
+当前 main 的设置是：
+
+| 开关 | 内容 | main 当前值 |
+| --- | --- | --- |
+| `my.securityLab.reverse.enable` | IDA Pro 9.4（flakida-9.4） | `true` |
+| `my.securityLab.pwn.enable` | GDB、Pwndbg、pwntools、binutils、file、strace、ltrace | `true` |
+| `my.securityLab.web.enable` | Burp Suite Pro（第三方 Flake） | `true` |
+| `my.securityLab.network.enable` | Wireshark、nmap、tcpdump、wireshark 组抓包权限 | `true` |
+
+总开关 `my.securityLab.enable` 也参与判断；关闭它时上述四组都不会加入。
+
+### IDA Pro
+
+Reverse 使用固定 commit 的 `LyCecilion/flakida-9.4`，默认安装 IDA Pro 9.4 及
+上游自带的插件。不需要手动下载 `.run` 文件、执行导入脚本或向 Nix Store
+添加安装包；包体和运行环境由现有 Flake 管理。
+
+修改 `hosts/main/default.nix` 中的 `my.securityLab.reverse.enable` 后，需要
+重新构建并应用 NixOS 配置才会生效。IDA 的配置和分析数据保存在 Home 目录
+（例如 `~/.idapro` 和项目文件），本仓库不复制或覆盖它们。
+
+第三方包体及其自带授权文件的有效性未由本仓库保证；构建成功不等于已经获得
+软件授权。
+
+### 启动命令
+
+```bash
+ida-pro         # IDA Pro 9.4 GUI 和桌面入口
+idat            # IDA Pro 9.4 命令行入口
+pwndbg          # 官方独立启动命令，不修改全局 .gdbinit
+burpsuitepro    # 只安装第三方 Flake 的 Pro 包，不另装 pkgs.burpsuite
+wireshark       # GUI 由 NixOS programs.wireshark 提供
+```
+
+nmap 和 tcpdump 直接在终端使用。Wireshark 的 GUI、Burp Suite Pro 和 IDA Pro
+均**待实机验证**。
+
+本模块不配置 VM、容器靶机或完整 Kali 工具集；它只提供 main 上的课程工具，
+不改动网络路由、防火墙或全局抓包策略。NixOS 模块开关和软件包列表需要重建
+系统才会改变；已经安装的 GUI/CLI 日常运行不需要重建。许可证密钥、账号和
+凭据不写入仓库或 Nix Store。
+
+## 7. 历史记录
 
 - 2026-10-28 的临时 Python/Node 示例日志、GitHub/SSH 账号状态、Docker/Podman
   评估和当时的验证结论：

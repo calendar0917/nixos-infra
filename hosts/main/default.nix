@@ -17,6 +17,7 @@
     ./waybar.nix
     ../../modules/base.nix
     ../../modules/network.nix
+    ../../modules/security-lab.nix
     ../../modules/secrets.nix
     ../../modules/desktop/common.nix
     ../../modules/desktop/niri.nix
@@ -29,7 +30,7 @@
   # Pi Web runs manually in the foreground. Open only its port for LAN IPv4
   # access while the process is running. AxonHub's 8090 is already published
   # by Docker and is not duplicated here.
-  networking.firewall.allowedTCPPorts = [ 30141 ];
+  networking.firewall.allowedTCPPorts = [ 30141 7897 ];
 
   # Use the same desktop/Home Manager baseline as the mini host, but keep the
   # NixOS home on its own @nixos-home subvolume. Arch's ~/.config and ~/.local
@@ -74,6 +75,17 @@
   my.network = {
     tailscale.enable = true;
     clashVerge.enable = true;
+  };
+
+  # Optional course tooling. IDA Pro 9.4 comes from the pinned flakida flake;
+  # the other groups are enabled independently below. The mini host does not
+  # import this module.
+  my.securityLab = {
+    enable = true;
+    reverse.enable = true;
+    pwn.enable = true;
+    web.enable = true;
+    network.enable = true;
   };
 
   # Arch's user is UID/GID 1000:1000 with primary group "calendar" (gid 1000).
