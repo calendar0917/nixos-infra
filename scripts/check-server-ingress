@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Static/transactional regression for the KOLOE ingress stage. The script
+# builds a pinned Python environment and Caddy, then runs the DDNS, ingressctl
+# and NixOS checks. It never contacts Cloudflare, requests a certificate,
+# starts/reloads the real Caddy service, or changes a generation.
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ "$#" -gt 0 ]; then
+  echo "check-server-ingress: unexpected arguments: $*" >&2
+  exit 2
+fi
+
+command -v nix >/dev/null 2>&1 || {
+  echo "check-server-ingress: nix is not on PATH" >&2
+  exit 1
+}
+
+nixpkgs="$(nix eval --raw "$repo_dir#nixosConfigurations.nixos.pkgs.path")"
+
+python_env="$(
+  nix build --no-link --print-out-paths --impure --expr \
+    "let p = import $nixpkgs { system = \"x86_64-linux\"; };
+     in p.python3.withPackages (ps: [ ps.requests ])"
+)"
+
+caddy_bin="$(
+  nix build --no-link --print-out-paths --impure --expr \
+    "let p = import $nixpkgs { system = \"x86_64-linux\"; };
+     in p.caddy"
+)/bin/caddy"
+
+# The test uses the real Caddy only for `caddy adapt` on a generated fragment.
+# No listener, certificate or admin API is started.
+INGRESSCTL_TEST_CADDY="$caddy_bin" \
+  exec "$python_env/bin/python3" "$repo_dir/tests/test_server_ingress.py"

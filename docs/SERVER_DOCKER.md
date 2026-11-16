@@ -2,7 +2,8 @@
 
 本文对应 `nixosConfigurations.nixos` 的第二阶段服务器化基础。目标是让 KOLOE
 小主机具备可复现的 Docker Engine、Compose v2、loopback 测试服务和持久化目录
-约定；不包含 Caddy、IPv6 DDNS、公网入口或业务容器迁移。
+约定。第三阶段已增加宿主机 Caddy、Cloudflare IPv6 DDNS 和 ACME 通配符证书，
+见 [`SERVER_INGRESS.md`](SERVER_INGRESS.md)；Docker 本身仍不发布公网端口。
 
 相关文件：
 
@@ -235,7 +236,9 @@ curl --noproxy '*' http://127.0.0.1:18080/
 静态边界：
 
 - `127.0.0.1:18080` 只绑定 loopback。
-- 不增加 `networking.firewall.allowedTCPPorts` 的 18080、80 或 443。
+- 不增加 `networking.firewall.allowedTCPPorts` 的 18080。
+- 第三阶段由宿主机 Caddy 使用 80/443；这不是 Docker `ports`，也不允许业务
+  容器自行绑定公网端口。入口细节见 [`SERVER_INGRESS.md`](SERVER_INGRESS.md)。
 - Docker API 不监听 TCP；不开放数据库端口。
 - 不改变 SSH、Tailscale 或 campus-login 的防火墙策略。
 
@@ -347,19 +350,21 @@ sudo nixos-rebuild boot --rollback
 
 ## 14. 下一阶段
 
-未来公网入口按以下链路设计，但本阶段不启用：
+第三阶段的公网入口已经按以下链路实现，详见
+[`SERVER_INGRESS.md`](SERVER_INGRESS.md)：
 
 ```text
 Internet IPv6
     |
-NixOS firewall
+NixOS firewall (TCP 80/443)
     |
-Caddy (future)
+宿主机 Caddy
     |
 127.0.0.1:<app-port>
     |
 Docker service
 ```
 
-Caddy、HTTPS、IPv6 DDNS 和公网 SSH 都是独立变更；不要把当前 18080 测试端口
-直接开放到公网，也不要在本阶段创建反向代理容器。
+不要把当前 18080 测试端口直接开放到公网，也不要用反向代理容器替代宿主机
+Caddy。公网 SSH 仍是独立的安全变更，不能因为已有 HTTPS 入口就默认开放密码
+登录。

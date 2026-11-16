@@ -20,7 +20,8 @@ HTTPS 订阅，同时保留 Tailscale、SSH、Nix 下载和回滚能力。
 保留 niri、Sway、SDDM、Tailscale、NetworkManager、systemd-resolved、nftables
 和现有 SSH 配置。本阶段不启用 Docker、IPv6 DDNS、反向代理、HTTPS 或公网 SSH，
 也不把 7897/9090 开放到局域网或公网。Docker 基础已作为独立第二阶段实现，见
-[`SERVER_DOCKER.md`](SERVER_DOCKER.md)。
+[`SERVER_DOCKER.md`](SERVER_DOCKER.md)；Cloudflare DDNS、ACME 和宿主机 Caddy
+已在第三阶段实现，见 [`SERVER_INGRESS.md`](SERVER_INGRESS.md)。
 
 ### 1.1 固定监听约束
 
@@ -480,10 +481,12 @@ sudo nixos-rebuild switch --rollback
 - [ ] `resolvectl query` 和 `/etc/resolv.conf` 仍由 systemd-resolved 管理。
 - [ ] 重启后服务恢复正常，旧 generation 可回滚。
 
-## 12. 后续阶段：Docker 与 IPv6 DDNS
+## 12. 后续阶段：Docker、IPv6 DDNS 与 Caddy
 
 Docker 基础已在第二阶段实现并记录在
-[`SERVER_DOCKER.md`](SERVER_DOCKER.md)。daemon 的代理环境为：
+[`SERVER_DOCKER.md`](SERVER_DOCKER.md)。Cloudflare IPv6 DDNS、ACME 通配符证书
+和宿主机 Caddy 已在第三阶段实现，见 [`SERVER_INGRESS.md`](SERVER_INGRESS.md)。
+daemon 的代理环境为：
 
 ```text
 HTTP_PROXY=http://127.0.0.1:7897
@@ -491,4 +494,4 @@ HTTPS_PROXY=http://127.0.0.1:7897
 ```
 
 业务容器是否走代理仍需单独决定；不要默认把容器网络、Docker socket 或 7897
-暴露到公网。IPv6 DDNS、反向代理、HTTPS 和公网 SSH 仍是独立任务。
+暴露到公网。公网 SSH 仍是独立的安全变更，必须完成密钥登录验证后再调整。

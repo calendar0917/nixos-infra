@@ -14,7 +14,8 @@
 
 ## 目录地图
 
-- `hosts/main`、`hosts/nixos`：主机硬件、导入项和主机级开关。
+- `hosts/main`、`hosts/nixos`：主机硬件、导入项和主机级开关。小主机的
+  `ddns.nix`、`ingress.nix` 与 `scripts/` 管理 Cloudflare DDNS、ACME 和 Caddy。
 - `modules/`：NixOS 基础、网络、备份、桌面会话和 shell 选择。
 - `home/calendar/`：Home Manager 用户配置；桌面子目录含 Waybar、电源、锁屏、
   剪贴板和共享 helper。
@@ -45,6 +46,9 @@
 - 改 `modules/`、`hosts/`、系统服务或两机共享行为：分别求值/构建受影响主机。
 - 改小主机 Docker/Compose：运行 `scripts/check-server-docker`，构建 nixos
   toplevel；没有改共享模块时至少对 main 做求值检查。
+- 改小主机 DDNS/Caddy/ACME/动态路由：运行 `scripts/check-server-ingress`，构建
+  nixos toplevel；没有改共享模块时至少对 main 做求值检查。真实 Cloudflare、
+  证书签发、Caddy reload 和公网连通性必须单独报告，不能混入静态测试结论。
 - 改 niri 配置：直接 `niri validate -c config/niri/config.kdl`。配置已不 include
   `monitor.kdl`，不需要临时文件，也不读写用户的旧布局记录。
 - 改 Sway 配置：main 用 `sway -C -c config/sway/config-main`，小主机用
@@ -91,6 +95,19 @@
   `docker volume prune` 或 `docker compose down -v`，除非用户明确授权具体数据。
 - Docker daemon 的代理只用于镜像拉取；不要添加 Docker 对 Mihomo 的硬依赖，也
   不要把宿主机 7897 注入业务容器。
+- 新增普通 Docker 服务默认只修改 `deploy/`、`/srv/containers/<service>/` 和
+  `/etc/caddy/sites-enabled/`，使用 `sudo ingressctl publish <name> <port>`；不要
+  为了新增业务服务修改 `hosts/nixos/*.nix` 或执行 `nixos-rebuild switch`。只有
+  Docker Engine、宿主机防火墙、Caddy/ACME 基础策略等 NixOS 级变更才 switch。
+- Caddy 业务站点只放在 `/etc/caddy/sites-enabled/*.caddy`，由 `ingressctl` 事务
+  发布。不要在 `services.caddy.virtualHosts` 里逐个声明业务站点，不要手写任意
+  Caddyfile、指向非 loopback 上游或绕过 `caddy validate` + `systemctl reload`。
+- `/etc/cloudflare/token` 和 `/etc/cloudflare/zone-id` 只在实机安装，不进入 Git、
+  Nix store、日志或命令行；DDNS/ACME 使用 systemd credential。不要修改无关 DNS
+  记录、启用橙云代理或把真实 Token 写进测试。
+- `allowedTCPPorts = [ 80 443 ]` 同时作用于 IPv4/IPv6，不是 IPv6-only；本阶段不
+  开放 UDP 443，不通过 Docker `ports` 暴露 80/443。不要用 `trustedInterfaces`
+  全局信任校园网物理接口。
 
 ## 工作流
 

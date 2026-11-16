@@ -12,6 +12,8 @@
     ./campus.nix
     ./proxy.nix
     ./docker.nix
+    ./ddns.nix
+    ./ingress.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix

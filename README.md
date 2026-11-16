@@ -19,7 +19,7 @@
 ```text
 flake.nix / flake.lock              # 唯一入口和锁定版本
 hosts/main/                         # 笔记本 host、Waybar 覆盖、蓝牙/PAM
-hosts/nixos/                        # 小主机 host
+hosts/nixos/                        # 小主机 host、DDNS、Caddy/ACME 入口
 modules/                            # NixOS 基础、网络、备份、桌面模块
 home/calendar/                      # Home Manager：shell、终端、编辑器、桌面
 config/                             # niri、Sway、Waybar、SwayNC、壁纸
@@ -28,6 +28,7 @@ tests/                              # 无 GUI 的 Python 回归检查
 scripts/check-desktop               # 桌面回归入口
 scripts/check-server-network        # 小主机校园网/Mihomo 静态回归
 scripts/check-server-docker         # 小主机 Docker/Compose 静态回归
+scripts/check-server-ingress        # 小主机 DDNS/Caddy/ACME 静态与事务回归
 docs/                               # 桌面、应用、恢复、开发说明
 docs/history/                       # 带日期的历史观察，不是当前状态
 docs/install/                       # 双系统安装和历史迁移材料
@@ -92,6 +93,23 @@ scripts/check-server-docker
 `config -q`，求值 NixOS 配置并运行 `tests/test_server_docker.py`；不会连接
 Docker daemon、启动容器或修改持久化数据。
 
+小主机公网入口的静态与事务回归：
+
+```bash
+scripts/check-server-ingress
+```
+
+它用固定 Python 环境和 Caddy 运行 `tests/test_server_ingress.py`，覆盖 IPv6
+选择、模拟 Cloudflare API、`ingressctl` 发布/回滚、Caddyfile 解析和 NixOS
+配置检查；不会访问真实 Cloudflare、申请证书、启动 Caddy 或修改 generation。
+
+新增普通 Docker 服务的标准流程是：在 `deploy/<service>/` 写 Compose、准备
+`/srv/containers/<service>/`、`docker compose up -d`、验证 loopback，然后
+`sudo ingressctl publish <service> <port>`。**新增业务服务不需要修改
+`hosts/nixos/*.nix`，也不需要 `nixos-rebuild switch`。** 只有变更 Docker
+Engine、宿主机防火墙、Caddy/ACME 基础配置或系统软件时才重新 switch。详见
+[`docs/SERVER_INGRESS.md`](docs/SERVER_INGRESS.md)。
+
 Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
 [`AGENTS.md`](AGENTS.md)。
 
@@ -145,6 +163,8 @@ nix flake check --no-build
   [`docs/SERVER_NETWORK.md`](docs/SERVER_NETWORK.md)
 - 小主机 Docker/Compose、数据目录、代理、端口和回滚：
   [`docs/SERVER_DOCKER.md`](docs/SERVER_DOCKER.md)
+- 小主机 Cloudflare IPv6 DDNS、ACME 通配符证书、Caddy 动态入口和 `ingressctl`：
+  [`docs/SERVER_INGRESS.md`](docs/SERVER_INGRESS.md)
 - 开发环境、devShell、tmux 和 Arch/NixOS 共享：
   [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
 - 双系统安装与恢复：

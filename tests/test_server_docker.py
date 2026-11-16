@@ -135,11 +135,19 @@ class ServerDockerTest(unittest.TestCase):
             self.assertNotEqual(dependency, "mihomo.service")
             self.assertNotEqual(dependency, "campus-login.service")
 
-    def test_user_is_not_in_docker_group_and_firewall_is_not_opened(self) -> None:
+    def test_user_is_not_in_docker_group_and_only_ingress_ports_are_opened(self) -> None:
         self.assertNotIn("docker", self.nix["userGroups"])
-        self.assertNotIn(18080, self.nix["firewallTcpPorts"])
-        self.assertNotIn(80, self.nix["firewallTcpPorts"])
-        self.assertNotIn(443, self.nix["firewallTcpPorts"])
+        ports = set(self.nix["firewallTcpPorts"])
+        self.assertNotIn(18080, ports)
+        self.assertNotIn(7897, ports)
+        self.assertNotIn(9090, ports)
+        self.assertNotIn(2375, ports)
+        self.assertNotIn(2376, ports)
+        self.assertNotIn(5432, ports)
+        # Stage 3 adds the host Caddy entry. Docker itself still exposes no
+        # public container port; 80/443 are owned by the NixOS Caddy service.
+        self.assertIn(80, ports)
+        self.assertIn(443, ports)
 
     def test_main_docker_behavior_is_unchanged(self) -> None:
         self.assertTrue(self.nix["mainDockerEnable"])
