@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Build only a pinned Python test environment, then run the headless
+# campus-login/proxyctl regression. No system service, network, profile,
+# active generation or real credential is touched.
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ "$#" -gt 0 ]; then
+  echo "check-server-network: unexpected arguments: $*" >&2
+  exit 2
+fi
+
+command -v nix >/dev/null 2>&1 || {
+  echo "check-server-network: nix is not on PATH" >&2
+  exit 1
+}
+
+nixpkgs="$(nix eval --raw "$repo_dir#nixosConfigurations.nixos.pkgs.path")"
+python_env="$(
+  nix build --no-link --print-out-paths --impure --expr \
+    "let p = import $nixpkgs { system = \"x86_64-linux\"; };
+     in p.python3.withPackages (ps: [ ps.pyyaml ps.requests ])"
+)"
+
+exec "$python_env/bin/python3" "$repo_dir/tests/test_server_network.py"

@@ -9,6 +9,8 @@
   imports = [
     ./hardware-configuration.nix
     ./boot.nix
+    ./campus.nix
+    ./proxy.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix
@@ -51,15 +53,10 @@
     plasma.enable = false;
   };
 
-  # Clash Verge Rev is the only proxy implementation. The NixOS module
-  # installs the GUI, the service-mode daemon and TUN capabilities; the
-  # subscription and profiles are imported through the GUI.
-  my.network.clashVerge = {
-    enable = true;
-    # Confirm with `ip -brief link show type tun` after enabling TUN. The
-    # bundled Mihomo 1.19.x core defaults to "Meta".
-    tunInterface = "Meta";
-  };
+  # The mini host is headless and no longer runs the Clash Verge GUI.
+  # Mihomo (hosts/nixos/proxy.nix) owns the local 7897 proxy and is managed
+  # with `proxyctl`; the shared Clash Verge module remains for main.
+  my.network.clashVerge.enable = false;
 
   # Restic is manual-only and intentionally disabled until the real backup USB
   # UUID is known. Enable it only after setting usbUuid below; the module
