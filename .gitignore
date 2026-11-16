@@ -15,3 +15,7 @@ deploy/artex/data/
 # Python bytecode from local test imports.
 __pycache__/
 *.pyc
+
+# Runtime data and secrets for the nixos smoke Compose example.
+deploy/nixos-smoke/.env
+deploy/nixos-smoke/data/

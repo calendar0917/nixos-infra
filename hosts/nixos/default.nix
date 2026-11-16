@@ -11,6 +11,7 @@
     ./boot.nix
     ./campus.nix
     ./proxy.nix
+    ./docker.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix

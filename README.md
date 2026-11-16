@@ -23,8 +23,11 @@ hosts/nixos/                        # 小主机 host
 modules/                            # NixOS 基础、网络、备份、桌面模块
 home/calendar/                      # Home Manager：shell、终端、编辑器、桌面
 config/                             # niri、Sway、Waybar、SwayNC、壁纸
+deploy/                             # 各服务的 Compose 配置；运行数据不放这里
 tests/                              # 无 GUI 的 Python 回归检查
 scripts/check-desktop               # 桌面回归入口
+scripts/check-server-network        # 小主机校园网/Mihomo 静态回归
+scripts/check-server-docker         # 小主机 Docker/Compose 静态回归
 docs/                               # 桌面、应用、恢复、开发说明
 docs/history/                       # 带日期的历史观察，不是当前状态
 docs/install/                       # 双系统安装和历史迁移材料
@@ -79,6 +82,16 @@ scripts/check-server-network
 它只构建一个固定 Python 测试环境并运行 `tests/test_server_network.py`，不启动
 `campus-login`/`mihomo`，不读取真实凭据，也不改当前 generation。
 
+小主机 Docker/Compose 的静态回归：
+
+```bash
+scripts/check-server-docker
+```
+
+它会解析 `deploy/nixos-smoke/compose.yaml`，在 Compose CLI 可用时执行
+`config -q`，求值 NixOS 配置并运行 `tests/test_server_docker.py`；不会连接
+Docker daemon、启动容器或修改持久化数据。
+
 Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
 [`AGENTS.md`](AGENTS.md)。
 
@@ -109,8 +122,9 @@ nix flake check --no-build
 
 ## 分支、部署与边界
 
-从最新 Git `main` 建立短生命周期分支，完成后通过 PR 合入；遵守分支保护，不强推。
-系统切换、重启、真实锁屏和挂起由用户主动执行。
+默认直接在最新 Git `main` 上完成经过验证的改动；只有用户明确要求时才建立功能
+分支或 PR。不要覆盖用户未提交的内容，不要强推。系统切换、重启、真实锁屏和挂起
+由用户主动执行。
 
 - 默认不更新 flake inputs、不改另一台主机；只有任务明确要求时才扩大范围。
 - 不在未确认设备、分区和备份的情况下执行 `mkfs`、`parted`、`sgdisk`、`dd`、
@@ -129,6 +143,8 @@ nix flake check --no-build
   [`docs/RECOVERY.md`](docs/RECOVERY.md)
 - 小主机校园网认证、无 GUI Mihomo、`proxyctl`、Profile/订阅和网络回滚：
   [`docs/SERVER_NETWORK.md`](docs/SERVER_NETWORK.md)
+- 小主机 Docker/Compose、数据目录、代理、端口和回滚：
+  [`docs/SERVER_DOCKER.md`](docs/SERVER_DOCKER.md)
 - 开发环境、devShell、tmux 和 Arch/NixOS 共享：
   [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
 - 双系统安装与恢复：

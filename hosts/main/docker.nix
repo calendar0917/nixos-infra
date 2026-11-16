@@ -1,9 +1,10 @@
 { pkgs, ... }:
 
 {
-  # Docker is enabled only on the main workstation. The mini host keeps its
-  # existing configuration. Data stays in Docker's default /var/lib/docker on
-  # the NixOS root subvolume; never move it to Arch's @home or the backup USB.
+  # Docker is enabled on the main workstation here. The mini host has its own
+  # hosts/nixos/docker.nix module with a separate headless configuration. Data
+  # stays in Docker's default /var/lib/docker on the NixOS root subvolume;
+  # never move it to Arch's @home or the backup USB.
   virtualisation.docker = {
     enable = true;
 

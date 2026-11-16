@@ -19,6 +19,8 @@
 - `home/calendar/`：Home Manager 用户配置；桌面子目录含 Waybar、电源、锁屏、
   剪贴板和共享 helper。
 - `config/`：niri、Sway、Waybar、SwayNC 和壁纸等只读配置。
+- `deploy/`：各服务的 Compose 配置；运行数据不提交，放在服务器的
+  `/srv/containers/<service>/`。
 - `tests/`：无 GUI 的 Python 回归检查。
 - `docs/history/`、`docs/install/`、`START.sh`、`START_HERE.txt` 和
   `install-preflight.sh` 是历史或安装恢复材料；只在相关任务中读取，不作为
@@ -41,6 +43,8 @@
 - 只改 main 桌面或 Home Manager：检查相关生成脚本和样式，运行
   `scripts/check-desktop`；不默认重建两台 toplevel。
 - 改 `modules/`、`hosts/`、系统服务或两机共享行为：分别求值/构建受影响主机。
+- 改小主机 Docker/Compose：运行 `scripts/check-server-docker`，构建 nixos
+  toplevel；没有改共享模块时至少对 main 做求值检查。
 - 改 niri 配置：直接 `niri validate -c config/niri/config.kdl`。配置已不 include
   `monitor.kdl`，不需要临时文件，也不读写用户的旧布局记录。
 - 改 Sway 配置：main 用 `sway -C -c config/sway/config-main`，小主机用
@@ -80,12 +84,19 @@
 - main 的每周自动 GC 只回收无引用 store 内容，`nix.gc.options` 明确覆盖为空，
   不删除 profile generation；nixos 仍暂停自动 GC。修改该覆盖前确认不会继承
   `--delete-older-than`。
+- 小主机 Docker 只从 `hosts/nixos/docker.nix` 配置；main 的 Docker 行为保持独立。
+  `calendar` 不加入 `docker` 组，Docker API 只保留本地 Unix socket，不开放 TCP。
+- Compose 示例只监听 loopback；运行数据用 `/srv/containers/<service>/`，不放进
+  Nix store、`/home/calendar` 或 Git。不要执行 `docker system prune`、
+  `docker volume prune` 或 `docker compose down -v`，除非用户明确授权具体数据。
+- Docker daemon 的代理只用于镜像拉取；不要添加 Docker 对 Mihomo 的硬依赖，也
+  不要把宿主机 7897 注入业务容器。
 
 ## 工作流
 
-- 从最新 Git `main` 建立短生命周期分支，保留用户未提交内容；不要回退到旧
-  SHA 覆盖新状态。
-- 提交按行为分组，同一任务用一个 PR；遵守分支保护，不强推。
+- 默认从最新 Git `main` 直接工作，保留用户未提交内容；不要回退到旧 SHA 覆盖
+  新状态。只有用户明确要求时才建立功能分支或 PR。
+- 提交按行为分组；直接在 `main` 提交并 push，遵守分支保护，不强推。
 - 每阶段简短报告完成项、验证结果和下一步；长构建说明等待目标。
 - 按影响范围选择检查；只有新错误、真实行为变化或依赖变化才扩大验证。
-- 合并后提供最终 main SHA、实际通过项、未执行项和待实机项目，然后停止。
+- 完成后提供最终 main SHA、实际通过项、未执行项和待实机项目，然后停止。
