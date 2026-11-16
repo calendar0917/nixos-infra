@@ -99,10 +99,13 @@ rsync 这个目录即可。
 ```bash
 sudo rsync -aH --no-owner --no-group \
   --exclude='/tasks/7/' \
+  -e 'ssh -F /home/calendar/.ssh/config \
+      -i /home/calendar/.ssh/id_rsa \
+      -o UserKnownHostsFile=/home/calendar/.ssh/known_hosts' \
   /home/calendar/nixos-infra/deploy/artex/data/ \
   nixos:/srv/containers/artex/data/
 
-sudo ssh nixos 'sudo chown -R root:root /srv/containers/artex/data'
+ssh nixos 'sudo chown -R root:root /srv/containers/artex/data'
 ```
 
 `artex_skills` 是独立 volume，不能漏；它只有几百 KB，可先复制到临时目录，再用
