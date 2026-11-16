@@ -545,6 +545,27 @@ def _validation_env(tmpdir: str) -> dict:
     return env
 
 
+def _seed_validation_geodata(tmpdir: str) -> None:
+    """Make pinned GeoIP/GeoSite data visible to ``mihomo -t``.
+
+    A profile using ``geodata-mode`` otherwise tries to download these files
+    on first validation. That fails on a network that has not completed portal
+    login yet, so the NixOS wrapper points these variables at store paths.
+    """
+    for env_name, filename in (
+        ("PROXYCTL_GEOSITE", "GeoSite.dat"),
+        ("PROXYCTL_GEOIP", "GeoIP.dat"),
+    ):
+        source = os.environ.get(env_name)
+        if not source:
+            continue
+        if not os.path.isfile(source):
+            raise ConfigError(f"{env_name} does not point to a readable file")
+        destination = Path(tmpdir) / filename
+        shutil.copyfile(source, destination)
+        destination.chmod(0o600)
+
+
 def validate_with_mihomo(data: bytes, secret: str) -> None:
     binary = mihomo_bin()
     if not binary:
@@ -555,6 +576,7 @@ def validate_with_mihomo(data: bytes, secret: str) -> None:
         raise ConfigError(f"mihomo binary is not executable: {binary}")
 
     with tempfile.TemporaryDirectory(prefix="proxyctl-test.") as tmpdir:
+        _seed_validation_geodata(tmpdir)
         config_path = Path(tmpdir) / "config.yaml"
         atomic_write(config_path, data, 0o600)
         try:

@@ -257,6 +257,12 @@ sudo proxyctl refresh airport
 sudo proxyctl refresh airport --via-proxy   # 直连失败时，经当前 7897 下载
 ```
 
+使用 `geodata-mode`、`geosite:cn` 或 `geoip:cn` 的 Profile 需要 GeoIP/GeoSite
+数据。NixOS 模块会从 `v2ray-geoip` 和 `v2ray-domain-list-community` 安装固定
+版本，并在 `mihomo.service` 启动前写入私有状态目录；`proxyctl` 的 `mihomo -t`
+校验也会使用同一份数据。不要依赖 Mihomo 首次启动时从 GitHub 下载，因为校园网
+尚未认证时这条下载路径不可用。
+
 `refresh` 只更新 `profiles/<name>.yaml`，不会自动切换当前运行配置，也不会新增
 订阅更新 timer。若订阅只能经代理下载，先用一个本地 Profile 完成下面的 `use`，
 再执行 `refresh --via-proxy`；不要在没有可用 7897 监听者时假设代理刷新会成功。

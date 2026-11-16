@@ -313,6 +313,38 @@ class ServerNetworkTest(unittest.TestCase):
         self.assertNotIn("0.0.0.0", dump)
         self.assertNotIn("input-secret", dump)
 
+    def test_validation_seeds_pinned_geodata(self) -> None:
+        geosite = self.root / "geosite.dat"
+        geoip = self.root / "geoip.dat"
+        geosite.write_bytes(b"geosite-test")
+        geoip.write_bytes(b"geoip-test")
+        fake = self.root / "fake-mihomo-geodata"
+        make_exec(
+            fake,
+            """\
+            #!/usr/bin/env python3
+            import os
+            import sys
+
+            data_dir = sys.argv[sys.argv.index("-d") + 1]
+            with open(os.path.join(data_dir, "GeoSite.dat"), "rb") as handle:
+                assert handle.read() == b"geosite-test"
+            with open(os.path.join(data_dir, "GeoIP.dat"), "rb") as handle:
+                assert handle.read() == b"geoip-test"
+            print("configuration test is successful")
+            """,
+        )
+        with mock.patch.dict(
+            os.environ,
+            {
+                "PROXYCTL_MIHOMO": str(fake),
+                "PROXYCTL_GEOSITE": str(geosite),
+                "PROXYCTL_GEOIP": str(geoip),
+            },
+            clear=False,
+        ):
+            proxy.validated_runtime_config(GOOD_PROFILE.encode(), "s" * 64)
+
     def test_additional_inbound_listener_is_rejected(self) -> None:
         data = GOOD_PROFILE.replace(
             "proxies:\n  - name: on",
