@@ -835,6 +835,7 @@ class ServerIngressTest(unittest.TestCase):
             self.nix["caddyExtraConfig"],
         )
         self.assertIn("127.0.0.1:2080", self.nix["caddyExtraConfig"])
+        self.assertIn("bind 127.0.0.1", self.nix["caddyExtraConfig"])
         self.assertIn("admin 127.0.0.1:2019", self.nix["caddyGlobalConfig"])
         self.assertEqual(self.nix["caddyUser"], "caddy")
         self.assertEqual(self.nix["caddyGroup"], "caddy")

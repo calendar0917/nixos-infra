@@ -507,14 +507,20 @@ class IngressManager:
         healthy = True
         marker = self.acme_dir / "acme-success"
         print(f"acme directory: {self.acme_dir}")
-        print(f"certificate issued: {'yes' if marker.is_file() else 'no'}")
-        try:
-            self.check_certificate()
-        except IngressError as exc:
-            healthy = False
-            print(f"certificate check: FAILED: {exc}")
+        if os.geteuid() == 0:
+            print(f"certificate issued: {'yes' if marker.is_file() else 'no'}")
+            try:
+                self.check_certificate()
+            except IngressError as exc:
+                healthy = False
+                print(f"certificate check: FAILED: {exc}")
+            else:
+                print("certificate check: ok")
         else:
-            print("certificate check: ok")
+            print(
+                "certificate check: requires root; run "
+                "'sudo ingressctl status' for file/group verification"
+            )
 
         routes = self.list_sites()
         print(f"enabled routes: {len(routes)}")

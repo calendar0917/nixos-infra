@@ -49,6 +49,7 @@ in
       # Keep Caddy valid and observable when no dynamic route exists yet. This
       # is loopback-only and is not opened in the firewall.
       http://127.0.0.1:2080 {
+        bind 127.0.0.1
         respond /health 200
         respond 404
       }
