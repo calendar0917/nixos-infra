@@ -685,3 +685,111 @@ sudo nixos-rebuild switch --flake .#nixos
 
 如果缺少真实 Token、Zone ID 或校外验证环境，只完成代码、静态测试、文档和
 Git 提交；不要声称证书已真实签发或公网入口已可用。
+
+## 11. 公网 IPv4 备援入口：hw frps + frpc
+
+校园网/运营商不允许 IPv6 入站时，`artex.20050917.xyz` 可以改走已有的公网
+IPv4 主机 `hw`。`hw` 上已经有 `frps` 监听 `80/443`，不需要安装 Caddy、
+nginx，也不需要把证书复制到 `hw`：
+
+```text
+外部客户端
+  │ https://artex.20050917.xyz:443
+  ▼
+hw:443 frps（按 SNI 路由，TLS 直通）
+  │
+  ▼
+nixos frpc-artex
+  │
+  ▼
+127.0.0.1:443 Caddy
+  │
+  ▼
+127.0.0.1:8787 artex
+```
+
+### 11.1 运行时文件
+
+```text
+/etc/frp/
+├── frpc-artex.toml   # 0600 root:root，包含 frps token
+└── ca.crt            # 0644 root:root，hw frps 的公网 CA 证书
+```
+
+`frpc-artex.toml` 不由 NixOS 生成，也不能进入 Git、Nix store 或 systemd
+`ExecStart`：
+
+```toml
+serverAddr = "183.87.144.211"
+serverPort = 7000
+transport.tls.enable = true
+transport.tls.trustedCaFile = "/etc/frp/ca.crt"
+auth.token = "<frps token>"
+
+[[proxies]]
+name = "artex"
+type = "https"
+customDomains = ["artex.20050917.xyz"]
+localIP = "127.0.0.1"
+localPort = 443
+```
+
+`hosts/nixos/frp.nix` 只定义 `frpc-artex.service` 和 `/etc/frp` 目录。服务
+从 nixos 主动连接 `hw:7000`，不开放新的入站端口；`frps` 侧不修改配置。
+
+### 11.2 DNS
+
+走 IPv4 入口时，精确记录改为：
+
+```text
+Type: A
+Name: artex
+Content: 183.87.144.211
+Proxy: DNS only
+TTL: 120
+```
+
+必须删除 `artex` 的精确 AAAA，避免双栈客户端优先尝试不可入站的 IPv6。
+不要修改 `nixos` 的 AAAA、通配符记录或其他域名。`hw` 没有 IPv6，因此该
+入口只覆盖 IPv4 客户端；需要 IPv6-only 客户端时，应使用 Cloudflare 隧道
+或另行增加 IPv6 中继。
+
+### 11.3 启动与验证
+
+先把 `hw` 的 `/etc/frp/token` 和 `/etc/frp/certs/ca.crt` 以 root-only 方式
+安装到 nixos；不要输出 token 内容。然后：
+
+```bash
+sudo systemctl start frpc-artex.service
+sudo systemctl status frpc-artex.service
+sudo journalctl -u frpc-artex.service -n 50
+
+# 在 DNS 切换前，用 --resolve 直接验证 hw 入口和端到端证书
+curl -4 -I --resolve artex.20050917.xyz:443:183.87.144.211 \
+  https://artex.20050917.xyz/login
+
+# DNS 切换后
+dig A artex.20050917.xyz
+curl -4 -I https://artex.20050917.xyz/login
+```
+
+`frpc` 日志出现 `start proxy success`，且 `--resolve` 请求返回 200，才说明
+隧道和 TLS 直通正常。只看到 `frpc` 进程存在，不等于公网入口可用。
+
+### 11.4 回滚
+
+```bash
+sudo systemctl stop frpc-artex.service
+sudo systemctl disable frpc-artex.service
+```
+
+`hw` 侧无需回滚；再把 `artex` 的 DNS 恢复为原来的 AAAA 即可。`hw` 的
+`frps` 配置和现有代理不受影响。
+
+### 11.5 限制
+
+- `hw` 只有 IPv4，没有全局 IPv6。
+- frps token 是共享凭据；`/etc/frp/frpc-artex.toml` 必须是 `0600 root`。
+- frps 只按 SNI 转发，TLS 终止仍在 nixos Caddy；不要在 `hw` 上安装
+  通配符私钥。
+- 校外验收必须从真实 IPv4 网络执行，不能用同一校园网链路代替。

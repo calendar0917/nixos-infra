@@ -14,6 +14,7 @@
     ./docker.nix
     ./ddns.nix
     ./ingress.nix
+    ./frp.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/secrets.nix
