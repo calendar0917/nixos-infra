@@ -109,15 +109,21 @@ ssh nixos 'sudo chown -R root:root /srv/containers/artex/data'
 `artex_skills` 是独立 volume，不能漏；它只有几百 KB，可先复制到临时目录，再用
 一个临时容器写入 `artex_artex_skills`。不要用 `docker volume prune`。
 
-## 域名与证书
+## 域名、证书与公网入口
 
-DNS 使用精确 AAAA：
+小主机所在的校园网/运营商不允许 IPv6 入站，因此公网入口走已有的 IPv4
+主机 `hw`：
 
 ```text
-artex.20050917.xyz  AAAA  240e:398:f11:c63b:d14c:310d:1d3b:f194  DNS only
+artex.20050917.xyz  A  183.87.144.211  DNS only  TTL 120
 ```
 
-证书由 `*.20050917.xyz` 通配符证书覆盖，不需要新增 ACME 配置。发布路由：
+`hw` 上已有的 `frps` 只做 SNI 路由和 TLS 直通；nixos 的 `frpc-artex.service`
+主动连出，把流量送到本机 `127.0.0.1:443` 的 Caddy。证书仍由
+`*.20050917.xyz` 通配符证书覆盖，不需要在 `hw` 上安装证书。完整的 token、
+CA 和 frpc 配置边界见 `docs/SERVER_INGRESS.md` 第 11 节。
+
+发布 Caddy 路由：
 
 ```bash
 sudo ingressctl publish artex 8787
@@ -127,9 +133,16 @@ sudo ingressctl status
 验证：
 
 ```bash
-curl --noproxy '*' --resolve \
-  'artex.20050917.xyz:443:[240e:398:f11:c63b:d14c:310d:1d3b:f194]' \
-  -I https://artex.20050917.xyz/login
+sudo systemctl status frpc-artex.service
+curl --noproxy '*' -4 -I https://artex.20050917.xyz/login
+```
+
+如果要在 DNS 切换前直接验证 `hw` 入口：
+
+```bash
+curl --noproxy '*' -4 -I --resolve \
+  artex.20050917.xyz:443:183.87.144.211 \
+  https://artex.20050917.xyz/login
 ```
 
 不要把 8788 发布到 Caddy。应用自身有 `/login`；公网开放前确认登录密码不是
@@ -147,3 +160,10 @@ sudo docker compose \
 
 `stop` 保留容器、镜像、volume 和 `/srv/containers/artex`。不要使用
 `docker compose down -v`、`docker system prune` 或 `docker volume prune`。
+
+如果只需恢复直连 IPv6 入口，先停止 frpc，再把 `artex` 的 A 记录恢复为
+原 AAAA；`hw` 侧不需要改动：
+
+```bash
+sudo systemctl stop frpc-artex.service
+```

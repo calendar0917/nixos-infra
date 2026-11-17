@@ -18,6 +18,7 @@
 | `hosts/nixos/ddns.nix` | DDNS systemd service/timer、运行时目录 |
 | `hosts/nixos/scripts/cf-ddns.py` | IPv6 选择与 Cloudflare AAAA 更新 |
 | `hosts/nixos/ingress.nix` | Caddy、ACME 通配符证书、80/443 防火墙、`ingressctl` 包装 |
+| `hosts/nixos/frp.nix` | 公网 IPv4 的 `frpc-artex` 隧道客户端 |
 | `hosts/nixos/scripts/ingressctl.py` | 动态站点片段、证书检查、Caddy 校验和 reload |
 | `tests/test_server_ingress.py` | DDNS/Caddy/NixOS 静态和事务回归 |
 | `scripts/check-server-ingress` | 上述测试的唯一入口 |
