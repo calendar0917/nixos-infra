@@ -13,6 +13,7 @@
     ./desktop/niri.nix
     ./desktop/displays.nix
     ./desktop/clipboard.nix
+    ./desktop/screenshot.nix
     ./desktop/lock.nix
     ./desktop/power.nix
     ./desktop/shell.nix

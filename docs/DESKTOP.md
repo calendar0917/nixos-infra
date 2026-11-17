@@ -12,6 +12,7 @@
 | 电源菜单、锁屏等待、swayidle | `home/calendar/desktop/power.nix`、`lib.nix`、`lock.nix` | 不启用 |
 | Sway 备用会话 | `config/sway/config-main` + `sway-*.service` | `config/sway/config` 原文件 |
 | 显示器布局 | `home/calendar/desktop/displays.nix`（wdisplays + kanshi） | 不启用 |
+| 文件管理与截图 | Yazi 增强 + Mark Shot（`home/calendar/yazi.nix`、`desktop/screenshot.nix`） | 仅基础 Yazi，无本次增强、无 Mark Shot |
 
 不要把 DMS、`config-dms.kdl`、Sway 或可选 Plasma 模块当成 main 专属内容删除。
 共享 Home Manager 文件必须在两台主机求值，但 main 的面板、Hyprlock、蓝牙和电源
@@ -147,18 +148,21 @@ main 的 Sway 操作习惯与 niri 对齐；主要差异只在内核命令，不
 | 按键 | 动作 |
 | --- | --- |
 | `Mod+T` | kitty |
-| `Mod+E` | Nautilus |
+| `Mod+E` | `kitty -e yazi` |
 | `Mod+D`、`Alt+Space` | Fuzzel |
 | `Mod+M` | `kitty -e btop` |
 | `Mod+P` | wdisplays |
 | `Mod+V` | 切换浮动（原 `Mod+V` 的 `split v` 改到 `Mod+Ctrl+V`） |
 | `Mod+Ctrl+V` | `split v` |
 | `Alt+L` | swaylock |
+| `Ctrl+Q` / `Ctrl+Shift+Q` / `Ctrl+Alt+Q` | Mark Shot 截图 / 滚动长截图 / 贴图 |
+| `Print`、`Ctrl+Print`、`Mod+Print` | grim + slurp 原生备用截图 |
 | `Mod+Shift+E` | 退出确认（swaynag） |
 | `Mod+Shift+C` / `Mod+Shift+R` | reload / restart |
 
-音量、亮度、截图、焦点移动、工作区数字键和 resize mode 保持原样。原文件
-`config/sway/config` 不变，只给小主机使用；新增文件是 `config/sway/config-main`。
+音量、亮度、焦点移动、工作区数字键和 resize mode 保持原样。`Mod+E`、三种
+Mark Shot 快捷键与 niri 对齐；`Print` 仍保留 `grim`/`slurp` 备用路径。原文件
+`config/sway/config` 不变，只给小主机使用；main 使用 `config/sway/config-main`。
 
 ### 滚轮、亮度与电源
 
@@ -372,7 +376,95 @@ main 启用 BlueZ（开机上电）和 Blueman；右栏不再常驻 Waybar 原�
 仍可用，`blueman-manager` 也保留为图形备用入口。不要新增第二个 applet，也不要
 为精简面板停用 BlueZ。
 
-## 6. 检查与故障入口
+## 6. Yazi 与 Mark Shot（仅 main）
+
+本次新增的 Yazi 增强和 Mark Shot 只在 main 启用；基础 Yazi 仍由共享的
+`home/calendar/shell.nix` 在两台主机提供。已有的 Fish `y` 函数、退出 Yazi 后回传 CWD、
+LazyVim 的 `yazi.nvim` 集成、图像/视频/SVG 预览工具都保留；小主机仍只有原来的
+基础 Yazi 配置，没有 ouch、mount、smart-paste 或 Mark Shot。
+
+### Yazi 文件管理
+
+`Mod+E` 在 Kitty 中打开 Yazi。Nautilus 没有被删除，`inode/directory` 仍由
+`org.gnome.Nautilus.desktop` 处理；本次没有改 MIME 关联、`xdg-open` 或 XDG 文件
+选择器。因此浏览器、ONLYOFFICE、Obsidian 等 GUI 程序打开文件夹时仍调用
+Nautilus。Yazi 只是 main 的键盘文件管理入口，不是系统级目录 handler。
+
+`~/.config/yazi` 由 Home Manager 生成，是只读 Store 链接；改配置请改
+`home/calendar/yazi.nix`，不要运行期手改。主要按键：
+
+| 按键 | 作用 |
+| --- | --- |
+| `Enter` | 智能进入目录或用默认方式打开文件 |
+| `C` | 压缩光标文件、文件夹或已选中的多个项目；插件会询问输出文件名 |
+| `Enter`（在压缩包上） | 用 Yazi 内置 extract opener 解压到当前目录 |
+| `E` | 对光标/选中的压缩包执行显式解压，同样走内置 `ya pub extract` |
+| `c i` | 把 Wayland 实时剪贴板中的图片保存到 **Yazi 当前目录** |
+| `c t` | 把光标指向的图片交给 Mark Shot 贴图 |
+| `c p` | smart-paste：粘贴到光标所在目录；普通 `p`/`P` 不变 |
+| `M` | 打开挂载管理器；其中 `m` 挂载、`u` 卸载、`e` 弹出 |
+| `d` / `D` | `d` 移入回收站；`D` 才是永久删除 |
+| `g t` | 进入回收站；用 `O` 选择“Restore selected files”可恢复 |
+| `g h` / `g c` | Home / `~/code` |
+| `g d` / `g p` / `g s` | Downloads / Pictures / Pictures/Screenshots |
+| `g r` | 当前 Git 仓库根目录 |
+| `y` / `x` / `p` / `P` | 复制 / 剪切 / 粘贴 / 强制粘贴（保持原行为） |
+| `c m` / `T` / `<A-p>` | 权限修改 / 最大化预览 / 隐藏预览（保持原行为） |
+
+压缩和预览使用固定 nixpkgs 中的 `pkgs.ouch` + `pkgs.yaziPlugins.ouch`。输出
+文件名由插件交互输入，格式由扩展名决定；`ouch` 支持 ZIP、7z、tar.gz 等，不需要
+额外的 `compress.yazi`。压缩包预览来自同一个 `ouch` 插件。解压不另写只支持 ZIP
+的脚本：`Enter` 和 `E` 都复用 Yazi 内置 extract 流程。
+
+挂载插件使用现有 `services.udisks2`/`gvfs`，Yazi wrapper 只额外固定
+`udisksctl`、`lsblk`、`eject` 和 `gdbus` 的 PATH；不会自动挂载、卸载或弹出任何
+真实设备。`d` 的行为仍是 Yazi 默认的 FreeDesktop 回收站，`D` 仍需要明确确认。
+
+### Mark Shot 截图
+
+Mark Shot 固定为 v0.2.0 的 Linux x86_64 AppImage，通过
+`pkgs.appimageTools.wrapType2` 包装；SHA256 固定为
+`b85f67274916b4a1636c3a3e1a9797a6393eff3b6f84c0ba17b31ed9c3469981`。
+`mark-shot` 本身在用户 PATH 上，可直接执行 `mark-shot picture.png` 标注已有图片。
+没有启用托盘、内置全局快捷键服务、上传服务或第三方 OCR。
+
+统一入口是 `desktop-shot`：
+
+| 快捷键 | 命令 | 行为 |
+| --- | --- | --- |
+| `Ctrl+Q` | `desktop-shot capture` | 区域截图并进入标注编辑器 |
+| `Ctrl+Shift+Q` | `desktop-shot scroll` | 选择区域后滚动长截图并拼接 |
+| `Ctrl+Alt+Q` | `desktop-shot pin` | 把剪贴板图片或文本贴成置顶窗口 |
+| `Print` | niri 原生 `screenshot` | 备用截图，不经过 Mark Shot |
+
+niri 中 `Ctrl+Print`/`Alt+Print` 仍分别是原生整屏/窗口截图。Sway 备用会话同步使用
+`Ctrl+Q`/`Ctrl+Shift+Q`/`Ctrl+Alt+Q`，`Print` 仍是 `grim`/`slurp` 路径。
+
+区域截图完成后，用编辑器工具栏选择箭头、文字、矩形、椭圆、编号、马赛克/遮挡
+（redact）等标注；标注可以移动、缩放。`Enter` 执行默认完成动作，`Ctrl+C` 复制，
+`Ctrl+S` 保存，`Ctrl+P` 贴图，`Esc` 取消。滚动长截图选择区域后滚动内容，按
+Mark Shot 屏幕提示结束，由它完成拼接；具体按键提示以实际版本界面为准。
+
+普通截图和滚动长截图都写入 `~/Pictures/Screenshots`，并由 Mark Shot 自己完成
+“复制到剪贴板 + 保存文件”（`-t cs`）。目录由 `desktop-shot` 以当前用户权限创建，
+不写 Nix Store，不移动或覆盖已有截图。Mark Shot 的历史和偏好留在可写用户目录，
+不要链接成只读 Home Manager 文件。
+
+Yazi 的 `c i` 是另一条路径（脚本源文件为
+`home/calendar/desktop/yazi-paste-image.sh`）：它把实时剪贴板图片保存到 **Yazi 当前
+目录**，而不是强制保存到 `~/Pictures/Screenshots`。需要进入截图目录时按 `g s`。
+`c t` 只对真实图片文件调用 `mark-shot --pin-image`，目录或文本文件会得到提示，不会
+启动贴图；该 helper 也定义在 `desktop/screenshot.nix`。
+
+cliphist 仍是现有的会话级实现和 2 MiB 单项限制，本次没有改写。Mark Shot 的大截图
+可能因为超过限制而不进入 `cliphist` 历史，但实时剪贴板仍可被 `c i` 读取，Mark Shot
+自己的历史也可单独使用。不要为了长截图无限提高 cliphist 上限。
+
+以上 Yazi 和 Mark Shot 的 GUI 行为（截图、标注、滚动拼接、贴图、剪贴板粘贴、
+压缩/解压、挂载、回收站恢复和 `Mod+E`）均需应用新 generation 后由用户在真实图形
+会话中验收；静态构建和无 GUI 测试通过不等同于 GUI 已验证。
+
+## 7. 检查与故障入口
 
 - 只改文档：检查本地链接和 `git diff --check`，不构建系统。
 - 桌面/Home Manager 改动：从 [`README.md`](../README.md) 的维护入口运行
@@ -382,6 +474,11 @@ main 启用 BlueZ（开机上电）和 Blueman；右栏不再常驻 Waybar 原�
   `Mod+S`/`Mod+A` 绑定；不会改真实亮度、网络、蓝牙、电源模式或 inhibitor。
   手动只读检查可用 `niri-system-control brightness-status` 和
   `powerprofilesctl list`。
+- Yazi/Mark Shot 改动：`scripts/check-desktop` 还会定位 `desktop-shot`、
+  `yazi-paste-image`、`yazi-pin-image` 和 `mark-shot`，运行
+  `tests/test_yazi_screenshot.py`。测试只使用临时目录和 fake `wl-paste`/
+  `mark-shot`，不会读取真实剪贴板、截图、USB 设备或 Mark Shot 历史；也会确认
+  `mark-shot --version` 为 0.2.0。
 - niri 配置改动：直接 `niri validate -c config/niri/config.kdl`。配置已不再 include
   `monitor.kdl`，不需要临时文件，也不会读写用户的布局记录。
 - Sway 配置改动：`sway -C -c config/sway/config-main`（小主机仍是
@@ -391,9 +488,12 @@ main 启用 BlueZ（开机上电）和 Blueman；右栏不再常驻 Waybar 原�
 - 看不清桌面时用 TTY 或 Sway 备用会话恢复，具体步骤见
   [`RECOVERY.md`](RECOVERY.md)。
 
-真实验收只保留简短方法：应用新 generation 并重新登录后，检查 Waybar 单元、
-`Mod+S` 浮动控制中心及其中网络/蓝牙/音频/亮度/电源/合盖入口、`Alt+L` 与菜单
-“锁屏”、挂起前 `LockedHint=yes`、kitty 焦点透明度、wdisplays 能否
-**Save to kanshi Config** 写回 `~/.config/kanshi/config`，以及 Sway 登录/退出后
-`sway-session.target` 是否真的停止。这些操作由用户主动执行；未实际执行的项目写
-“待实机验证”。
+真实验收只保留简短方法：应用新 generation 并重新登录后，检查 `Mod+E` 在 niri 和
+Sway 中都打开 Yazi；`Ctrl+Q` 区域截图/标注、`Ctrl+Shift+Q` 滚动长截图、
+`Ctrl+Alt+Q` 贴图、`Print` 原生截图仍可用；Yazi 的 `c i`/`c t`、ZIP/7z/tar.gz
+压缩/预览/解压、USB 挂载/卸载/弹出、回收站恢复；以及 Nautilus 仍能处理 GUI 应用
+发起的目录打开。再检查 Waybar 单元、`Mod+S` 浮动控制中心及其中网络/蓝牙/音频/
+亮度/电源/合盖入口、`Alt+L` 与菜单“锁屏”、挂起前 `LockedHint=yes`、kitty 焦点
+透明度、wdisplays 能否 **Save to kanshi Config** 写回 `~/.config/kanshi/config`，
+以及 Sway 登录/退出后 `sway-session.target` 是否真的停止。这些操作由用户主动
+执行；未实际执行的项目写“待实机验证”。

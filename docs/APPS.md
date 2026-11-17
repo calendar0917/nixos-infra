@@ -1,8 +1,10 @@
 # 应用兼容与默认打开方式
 
-main 额外安装 Obsidian、腾讯会议、QQ、微信、ONLYOFFICE、OBS Studio 和 Super
-Productivity；小主机不安装这些应用。应用模块是 `home/calendar/apps.nix`，只在
-`networking.hostName == "main"` 时生效。包、桌面项和交互效果仍以实机图形会话为准。
+main 额外安装 Obsidian、腾讯会议、QQ、微信、ONLYOFFICE、OBS Studio、Super
+Productivity 和 Mark Shot；小主机不安装这些应用。应用模块是
+`home/calendar/apps.nix`，只在 `networking.hostName == "main"` 时生效；Mark Shot
+及其入口在 `home/calendar/desktop/screenshot.nix`。包、桌面项和交互效果仍以实机
+图形会话为准。
 
 ## 1. 兼容约定
 
@@ -34,7 +36,13 @@ main 的 `xdg.mimeApps.defaultApplications` 增加：
 | `x-scheme-handler/superproductivity` | `superproductivity.desktop` |
 
 没有设置 `video/*` 通配符，也没有接管 HTTP(S) 或目录的默认处理。目录仍由
-Nautilus 打开，HTTP(S) 仍由 Firefox 打开。可用只读查询核对：
+Nautilus 打开，HTTP(S) 仍由 Firefox 打开。`Mod+E` 现在只是在 main 打开
+`kitty -e yazi`，不改变这张 MIME 表，也没有把 `inode/directory` 从
+`org.gnome.Nautilus.desktop` 拿走；`xdg-open` 和 XDG 文件选择器都没有被包装。
+因此浏览器、ONLYOFFICE、Obsidian 等 GUI 程序打开文件夹时仍调用 Nautilus。
+Yazi 的日常快捷键见 [`DESKTOP.md`](DESKTOP.md)。
+
+可用只读查询核对：
 
 ```bash
 xdg-mime query default application/pdf
@@ -89,3 +97,20 @@ Super Productivity 的显示/隐藏；应用和 URL Scheme 都保留。快捷键
 OBS 的 profile/scene 和用户数据保持可写；没有把整个配置目录链接到只读 store。
 完整测试需要真实屏幕、麦克风和系统声音，由用户主动执行一分钟录屏、MKV remux
 和 Firefox 回放。
+
+## 5. Mark Shot 截图（仅 main）
+
+Mark Shot 使用 GitHub Release v0.2.0 的 Linux x86_64 AppImage，经
+`pkgs.appimageTools.wrapType2` 包装，SHA256 固定为
+`b85f67274916b4a1636c3a3e1a9797a6393eff3b6f84c0ba17b31ed9c3469981`。没有使用
+`curl | sh`、Cargo 安装、Flatpak 或移动分支 Flake，也没有为了它升级 nixpkgs。
+
+统一入口由 `desktop-shot` 提供：`capture` 区域截图/标注，`scroll` 滚动长截图，
+`pin` 贴剪贴板；对应 niri/Sway 快捷键为 `Ctrl+Q`、`Ctrl+Shift+Q`、`Ctrl+Alt+Q`。
+截图保存到 `~/Pictures/Screenshots`，并用 Mark Shot 的 `--output`/`-t cs` 完成
+保存和复制。`Print` 仍是原生截图备用。没有启动托盘、内置全局快捷键服务、
+上传或第三方 OCR；Mark Shot 的配置、历史和截图目录保持用户可写。
+
+标注、滚动长截图、贴图、与 Yazi `c i`/`c t` 的配合，以及 `Print`/Nautilus 的边界，
+见 [`DESKTOP.md`](DESKTOP.md)。截图、标注、滚动拼接和贴图都需要真实图形会话，
+未在 agent 会话中实际点击验证。

@@ -93,8 +93,8 @@ SDDM 的 greeter 刻意运行在 X11 后端
 
 首次登录后依次检查：
 
-1. `Mod+E` 打开 Nautilus；`inode/directory` 的默认应用是
-   `org.gnome.Nautilus.desktop`。
+1. `Mod+E` 打开 Kitty 中的 Yazi；Nautilus 仍安装并继续处理
+   `inode/directory`，GUI 程序打开文件夹的行为不变。
 2. Fish 中运行 `y`，退出后当前目录变成 Yazi 最后选中的目录。
 3. main 的 niri 使用 Waybar + SwayNC；小主机的 niri 使用 DMS；Sway 使用
    Waybar + Mako。三套 shell 不应在同一个会话里混跑。

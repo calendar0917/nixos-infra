@@ -85,7 +85,7 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     Mod+T hotkey-overlay-title="Terminal: kitty" { spawn "kitty"; }
-    Mod+E hotkey-overlay-title="File manager: Nautilus" { spawn "nautilus"; }
+    Mod+E hotkey-overlay-title="File manager: Yazi" { spawn "kitty" "-e" "yazi"; }
     Mod+D hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
     Alt+Space hotkey-overlay-title="Application launcher: Fuzzel" { spawn "fuzzel"; }
     Mod+M hotkey-overlay-title="System monitor: btop" { spawn "kitty" "btop"; }
@@ -269,7 +269,11 @@ binds {
     Mod+W { toggle-column-tabbed-display; }
 
     // ---------- Screenshots ----------
-    Ctrl+Q { screenshot; }
+    // Mark Shot is the primary screenshot workflow; niri's own screenshot
+    // actions remain available on the Print keys as a fallback.
+    Ctrl+Q { spawn "desktop-shot" "capture"; }
+    Ctrl+Shift+Q { spawn "desktop-shot" "scroll"; }
+    Ctrl+Alt+Q { spawn "desktop-shot" "pin"; }
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }

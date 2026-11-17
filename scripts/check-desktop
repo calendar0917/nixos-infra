@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Thin desktop regression entry point. Builds main's Home Manager activation
-# package, locates the generated helpers, and runs the existing headless test.
+# package, locates the generated helpers, and runs the existing headless tests.
 # It never activates a generation, locks the screen, suspends, or reboots.
 set -euo pipefail
 
@@ -9,11 +9,11 @@ usage() {
 Usage: scripts/check-desktop
 
 Build nixosConfigurations.main's Home Manager activationPackage, locate the
-generated niri-power-menu, niri-power, niri-lock-wait, niri-display-menu and
-niri-system-control, then run the headless desktop, display-menu, system-control
-and session/host regressions.
+generated niri and Yazi/Mark Shot helpers, then run the headless desktop,
+display-menu, system-control, Yazi/screenshot and session/host regressions.
 
-No system activation, lock screen, suspend, reboot, or nix store scan is done.
+No system activation, lock screen, suspend, reboot, clipboard read, device
+mount, or nix store scan is done.
 EOF
 }
 
@@ -68,7 +68,7 @@ fi
 activation="${activation_paths[0]}"
 helpers="$activation/home-path/bin"
 
-for helper in niri-power-menu niri-power niri-lock-wait niri-display-menu niri-system-control; do
+for helper in niri-power-menu niri-power niri-lock-wait niri-display-menu niri-system-control desktop-shot yazi-paste-image yazi-pin-image mark-shot; do
   [ -x "$helpers/$helper" ] || fail "missing generated helper: $helpers/$helper"
 done
 
@@ -120,6 +120,11 @@ python3 "$repo_dir/tests/test_system_control.py" \
   --repo "$repo_dir"
 
 echo "check-desktop: running headless session and host regression"
-exec python3 "$repo_dir/tests/test_session_and_hosts.py" \
+python3 "$repo_dir/tests/test_session_and_hosts.py" \
+  --activation "$activation" \
+  --repo "$repo_dir"
+
+echo "check-desktop: running headless Yazi and screenshot regression"
+exec python3 "$repo_dir/tests/test_yazi_screenshot.py" \
   --activation "$activation" \
   --repo "$repo_dir"

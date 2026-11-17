@@ -517,7 +517,7 @@ def test_sway_bindings() -> None:
 
     expected_lines = [
         "bindsym $mod+t exec kitty",
-        "bindsym $mod+e exec nautilus",
+        "bindsym $mod+e exec kitty -e yazi",
         "bindsym $mod+d exec fuzzel",
         "bindsym Mod1+space exec fuzzel",
         "bindsym $mod+m exec kitty -e btop",
@@ -537,6 +537,9 @@ def test_sway_bindings() -> None:
         "XF86MonBrightnessUp",
         "XF86MonBrightnessDown",
         "grim",
+        "bindsym Ctrl+q exec desktop-shot capture",
+        "bindsym Ctrl+Shift+q exec desktop-shot scroll",
+        "bindsym Ctrl+Alt+q exec desktop-shot pin",
         "workspace number 1",
         "workspace number 9",
         "focus left",
@@ -579,6 +582,11 @@ def test_nwg_displays_overlay_is_gone() -> None:
             continue
         relative = path.relative_to(REPO)
         if relative.parts[0] in {".git", "docs"}:
+            continue
+        # deploy/*/data is ignored runtime state (browser profiles, task
+        # artifacts), not repository configuration. Do not scan it for stale
+        # code references; that would also read unrelated user data.
+        if relative.parts[0] == "deploy" and "data" in relative.parts:
             continue
         if relative.name in allowed:
             continue

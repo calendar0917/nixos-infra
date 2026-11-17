@@ -107,6 +107,15 @@
     ++ lib.optionals config.my.network.clashVerge.enable [ "clash-verge" ];
   };
 
+
+  # ---------- Memory / Swap ----------
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50;
+    priority = 100;
+  };
+
   # The workstation owner explicitly requested passwordless sudo. This is
   # root-equivalent for every process running as this wheel user; do not add
   # other interactive users to wheel.
