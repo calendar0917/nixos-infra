@@ -27,6 +27,33 @@
 
   networking.hostName = "nixos";
 
+  # This host is administered over SSH. Wheel users may run sudo without an
+  # interactive password; main keeps its own policy.
+  security.sudo.wheelNeedsPassword = false;
+
+  # Rakazo runs its bot computers on deterministic rakazo-c* bridges. Apply the
+  # upstream egress ruleset at boot; the runtime script ships with the Compose
+  # deployment under /srv/containers/rakazo. The rules only match those bridges.
+  systemd.services.rakazo-computer-egress = {
+    description = "Restrict Rakazo bot-computer egress (rakazo-c* bridges)";
+    wantedBy = [ "multi-user.target" ];
+    requires = [ "docker.service" ];
+    after = [ "docker.service" ];
+    partOf = [ "docker.service" ];
+    unitConfig.ConditionPathExists = "/srv/containers/rakazo/restrict-computer-egress.sh";
+    path = with pkgs; [
+      bash
+      coreutils
+      gawk
+      iptables
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.bash}/bin/bash /srv/containers/rakazo/restrict-computer-egress.sh --apply";
+    };
+  };
+
   # ---------- Remote access ----------
   # Keep this block in sync with the running machine. The public key below is
   # the one already installed in /etc/ssh/authorized_keys.d/ on this host; a

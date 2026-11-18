@@ -37,9 +37,13 @@
 
   environment.systemPackages = with pkgs; [
     docker-compose
+    # Used by the Rakazo computer egress ruleset and its systemd unit.
+    iptables
+    # Used by the published-images installer when it generates secrets.
+    openssl
   ];
 
-  # Compose files live in Git; runtime bind mounts live here. Only the shared
+  # Compose files normally live in Git; runtime bind mounts live here. Only the shared
   # root is created here. Each service owns its UID/GID and subdirectories;
   # never recursively chown existing application data from this module.
   systemd.tmpfiles.rules = [
