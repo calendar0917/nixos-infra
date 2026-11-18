@@ -14,3 +14,9 @@ services:
     environment: *no-proxy
   worker:
     environment: *no-proxy
+  supervisor:
+    environment:
+      # One computer per Space and one active desktop per computer: the host has
+      # 5.7 GiB RAM, so concurrent Chromium instances would compete for swap.
+      SANDBOX_MAX_COMPUTERS_PER_SPACE: "1"
+      SANDBOX_TEAM_SCREEN_LIMIT: "1"

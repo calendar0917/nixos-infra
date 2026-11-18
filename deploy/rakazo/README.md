@@ -49,6 +49,31 @@ sudo docker compose --env-file .env -f docker-compose.images.yml -f docker-compo
   `/srv/containers/rakazo/restrict-computer-egress.sh --apply`，只匹配
   `rakazo-c*` 网桥。
 
+### bot computer 资源
+
+- `.env`：`RAKAZO_COMPUTER_MEMORY=2g`、`RAKAZO_COMPUTER_CPUS=2`、
+  `SANDBOX_MAX_COMPUTERS_PER_USER=1`。
+- `docker-compose.override.yml`：supervisor 设置
+  `SANDBOX_MAX_COMPUTERS_PER_SPACE=1`、`SANDBOX_TEAM_SCREEN_LIMIT=1`。
+- 修改后只重建受影响服务：
+
+```bash
+sudo docker compose --env-file .env -f docker-compose.images.yml \
+  -f docker-compose.override.yml up -d --wait api worker supervisor
+```
+
+`2g` 是 cgroup 上限，不是预留内存。主机 5.7 GiB，启动 computer 后用
+`free -h` 和 `docker stats` 观察；内存压力大时先降到 `1536m`，不要同时开多个
+computer 或桌面。已经运行的 computer 保持创建时的上限，需在 UI 停止该 computer
+或停止 bot，下一次打开时才会按新值创建。
+
+### computer use 模型
+
+Docker provider 已启用，不需要 E2B。屏幕操作要求模型能接收图片：在
+**Settings → Models** 选择支持图片的模型并设为 **Computer-use model**，或把
+主模型换成视觉模型。纯文本模型仍可使用 shell、文件和网页文本工具，但不能
+截图和点击桌面。
+
 ## 升级与回滚
 
 升级前备份 `.env` 和 volumes。修改 `RAKAZO_IMAGE_TAG` /
@@ -66,7 +91,8 @@ sudo ingressctl remove bot
 ## 已知限制
 
 - nixos 无入站 IPv6，公网只走 hw 的 IPv4 frps。
-- 内存 5.7 GiB；bot computer 限制为 `1g`/`1` CPU，启动 computer 后需观察内存。
+- 内存 5.7 GiB；bot computer 上限 `2g`/`2` CPU，每个用户和 Space 各 1 个
+  computer、每个 computer 1 个活动桌面；启动后需观察内存和 swap。
 - api/worker 不继承宿主 shell 的 7897 代理；如需容器出站代理，必须改成容器内
   可达的地址，不能直接使用 `127.0.0.1`。
 - 未启用 `updater` profile，升级手动执行。
