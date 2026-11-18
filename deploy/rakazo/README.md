@@ -31,10 +31,13 @@ bot.20050917.xyz
 ```bash
 cd /srv/containers/rakazo
 
-sudo docker compose --env-file .env -f docker-compose.images.yml ps
-sudo docker compose --env-file .env -f docker-compose.images.yml up -d --wait
-sudo docker compose --env-file .env -f docker-compose.images.yml logs --tail=100
+sudo docker compose --env-file .env -f docker-compose.images.yml -f docker-compose.override.yml ps
+sudo docker compose --env-file .env -f docker-compose.images.yml -f docker-compose.override.yml up -d --wait
+sudo docker compose --env-file .env -f docker-compose.images.yml -f docker-compose.override.yml logs --tail=100
 ```
+
+- `docker-compose.override.yml` 清空 api/worker 的宿主代理变量；手动执行 Compose
+  时要带上它，`install-images.sh` 会自动检测。
 
 - `.env` 为 `0600 root:root`，包含数据库/认证/加密密钥；不要提交或输出。
 - 必须备份 `.env` 中的 `ENCRYPTION_KEY`；丢失后已加密内容不可恢复。
@@ -64,5 +67,7 @@ sudo ingressctl remove bot
 
 - nixos 无入站 IPv6，公网只走 hw 的 IPv4 frps。
 - 内存 5.7 GiB；bot computer 限制为 `1g`/`1` CPU，启动 computer 后需观察内存。
+- api/worker 不继承宿主 shell 的 7897 代理；如需容器出站代理，必须改成容器内
+  可达的地址，不能直接使用 `127.0.0.1`。
 - 未启用 `updater` profile，升级手动执行。
 - bot computer 的实际启动和屏幕代理尚未在实机验证。

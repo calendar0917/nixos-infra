@@ -1,0 +1,16 @@
+# Keep the host shell's proxy variables out of the app containers. The host
+# Docker daemon already has its own proxy for image pulls; inside a container
+# 127.0.0.1:7897 is the container itself, not Mihomo.
+x-no-proxy: &no-proxy
+  HTTP_PROXY: ""
+  HTTPS_PROXY: ""
+  NO_PROXY: ""
+  http_proxy: ""
+  https_proxy: ""
+  no_proxy: ""
+
+services:
+  api:
+    environment: *no-proxy
+  worker:
+    environment: *no-proxy
