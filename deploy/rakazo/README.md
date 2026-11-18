@@ -1,0 +1,68 @@
+# Rakazo
+
+`bot.20050917.xyz` 的自托管部署记录。运行目录是服务器的
+`/srv/containers/rakazo`，不属于 Git；本目录只记录必要信息。
+
+## 版本与镜像
+
+- 上游 release：`v0.12.0`，Compose 与安装脚本按该 tag 固定。
+- 应用/computer 镜像：`ghcr.nju.edu.cn/elie222/rakazo/{app,computer}:v0.12.0`。
+- Postgres/busybox：`docker.m.daocloud.io/library/{postgres:16,busybox:1}`。
+- 镜像站是第三方 GHCR/Docker Hub 镜像；升级时保持 app 与 computer 同 tag。
+
+## 入口
+
+```text
+bot.20050917.xyz
+  -> hw:183.87.144.211 frps（TLS 直通，自定义域 bot.20050917.xyz）
+  -> nixos frpc-artex
+  -> Caddy :443（/etc/caddy/sites-enabled/bot.caddy）
+  -> 127.0.0.1:5173 Rakazo web
+```
+
+- Cloudflare 只新增精确 A 记录 `bot -> 183.87.144.211`，TTL 120，DNS only；
+  不修改 `*.20050917.xyz` 通配、apex 或 `nixos` 记录。
+- Caddy 路由由 `sudo ingressctl publish bot 5173` 管理；撤销用
+  `sudo ingressctl remove bot`。
+- `hw` 只有 IPv4；`bot` 没有 AAAA。
+
+## 运行
+
+```bash
+cd /srv/containers/rakazo
+
+sudo docker compose --env-file .env -f docker-compose.images.yml ps
+sudo docker compose --env-file .env -f docker-compose.images.yml up -d --wait
+sudo docker compose --env-file .env -f docker-compose.images.yml logs --tail=100
+```
+
+- `.env` 为 `0600 root:root`，包含数据库/认证/加密密钥；不要提交或输出。
+- 必须备份 `.env` 中的 `ENCRYPTION_KEY`；丢失后已加密内容不可恢复。
+- 数据在 Docker named volumes：`rakazo_pgdata`、`rakazo_appdata`、
+  `rakazo_webassets`。停止用 `down`，不要用 `down -v`。
+- 首次账号：运行 `sudo bash /srv/containers/rakazo/bootstrap-owner.sh`，交互输入
+  邮箱和至少 16 位密码。`SIGNUPS_ENABLED=false`，不开放公开注册。
+- bot computer 的 egress 由 NixOS 服务 `rakazo-computer-egress.service` 执行
+  `/srv/containers/rakazo/restrict-computer-egress.sh --apply`，只匹配
+  `rakazo-c*` 网桥。
+
+## 升级与回滚
+
+升级前备份 `.env` 和 volumes。修改 `RAKAZO_IMAGE_TAG` /
+`RAKAZO_COMPUTER_IMAGE_TAG` 后执行 `pull` 和 `up -d --wait`；迁移失败时先保留
+旧镜像和 volumes，不要 `down -v`。
+
+回滚公网入口：
+
+```bash
+sudo ingressctl remove bot
+# 恢复 /etc/frp/frpc-artex.toml.bak-* 并 restart frpc-artex
+# 在 Cloudflare 删除精确 bot A 记录，恢复通配覆盖
+```
+
+## 已知限制
+
+- nixos 无入站 IPv6，公网只走 hw 的 IPv4 frps。
+- 内存 5.7 GiB；bot computer 限制为 `1g`/`1` CPU，启动 computer 后需观察内存。
+- 未启用 `updater` profile，升级手动执行。
+- bot computer 的实际启动和屏幕代理尚未在实机验证。
