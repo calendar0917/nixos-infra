@@ -23,8 +23,16 @@
         "root"
         "@wheel"
       ];
+      # Substituters are tried in order, so the CERNET mirrors come first and
+      # cache.nixos.org stays as the last fallback. Measured from main on
+      # 2026-11-19 for the same 20 MB nar: cache.nixos.org 0.4-2 MB/s, SJTU
+      # 15-17 MB/s, USTC 6-18 MB/s. TUNA was dropped: it no longer carries the
+      # nixos-unstable paths this pin references (37 misses out of 400 probed).
+      # Both mirrors serve cache.nixos.org signatures, so the single trusted
+      # key below is still the correct one.
       substituters = [
-        "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+        "https://mirror.sjtu.edu.cn/nix-channels/store"
+        "https://mirrors.ustc.edu.cn/nix-channels/store"
         "https://cache.nixos.org/"
       ];
       trusted-public-keys = [

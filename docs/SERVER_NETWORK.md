@@ -375,7 +375,10 @@ systemctl status nix-daemon
 http://127.0.0.1:7897
 ```
 
-loopback 直连。若代理未运行，远程 fetch/build 会失败；先确认：
+loopback 直连。替换器按顺序为 SJTU → USTC → cache.nixos.org，前两个是
+CERNET 镜像，官方源只作最后回退。镜像同样返回 `cache.nixos.org-1` 签名，因此
+`trusted-public-keys` 不需要增加其他密钥。若代理未运行，远程 fetch/build 会失败；
+先确认：
 
 ```bash
 systemctl status mihomo.service
