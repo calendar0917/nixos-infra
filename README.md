@@ -153,7 +153,7 @@ feature 裁剪。除非需要 release 里还没有的模块，否则不要重新
   [`docs/DESKTOP.md`](docs/DESKTOP.md)
 - 应用兼容、默认打开方式和 OBS：
   [`docs/APPS.md`](docs/APPS.md)
-- TTY/桌面恢复、网络、SOPS、Restic、SSH：
+- TTY/桌面恢复、重装顺序、网络、SOPS、Restic、SSH：
   [`docs/RECOVERY.md`](docs/RECOVERY.md)
 - 小主机校园网认证、无 GUI Mihomo、`proxyctl`、Profile/订阅和网络回滚：
   [`docs/SERVER_NETWORK.md`](docs/SERVER_NETWORK.md)

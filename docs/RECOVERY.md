@@ -637,3 +637,38 @@ sudo restic -r /mnt/usb/restic-nixos --password-file /media/offline/restic-passw
 
 重装不会自动恢复应用内状态；Nautilus 书签、Yazi 历史、Fcitx5 词库和 Clash Verge
 订阅都依赖你自己的备份/离线材料。
+
+### 7.1 main：保留 Arch 的双系统重装
+
+main 与 Arch 共用 1 GiB ESP（挂 `/boot`），同一 Btrfs 分区上已有 Arch 的
+`@`/`@home` 等子卷。重装只动 NixOS 自己的三个子卷
+（`@nixos`/`@nixos-home`/`@nixos-nix`）和 ESP 上的 systemd-boot 文件：不重新分区、
+不格式化 Btrfs、不格式化 ESP，也不写 NVRAM——`hosts/main/boot.nix` 设
+`canTouchEfiVariables = false`，启动顺序由 Arch 控制。
+
+1. 备份与核对：先跑一次 Restic 备份；用 `lsblk -o NAME,SIZE,MODEL,SERIAL,FSTYPE,LABEL,UUID`
+   确认磁盘；把 ESP 打包到离线介质（`sudo tar -C /boot -cf <offline>/arch-esp-$(date +%F).tar .`），
+   并确认 `/boot/EFI/Linux/arch-linux-lts.efi` 存在。缺失时 `boot.nix` 的 hook 会
+   故意让安装失败，避免 NixOS 变成默认启动项。
+2. 从 ISO 进入后先挂 Btrfs 顶层：`sudo mount -o subvolid=5 /dev/disk/by-uuid/<BTRFS_UUID> /run/btrfs-root`，
+   用 `test ! -e` 确认三个名字都不存在，再
+   `btrfs subvolume create /run/btrfs-root/@nixos`（另两个同理），最后卸载顶层。
+   不要 `set-default`、balance 或删除任何现有子卷。
+3. 挂载目标：`/mnt`=`subvol=@nixos`、`/mnt/home`=`subvol=@nixos-home`、
+   `/mnt/nix`=`subvol=@nixos-nix`、`/mnt/boot`=现有 ESP（不要 `mkfs`）。用
+   `findmnt` 逐项核对，Arch 的 `@home` 绝不挂进目标。
+4. `sudo nixos-generate-config --root /mnt`，用生成结果替换
+   `hosts/main/hardware-configuration.nix`：`/` 必须是 `subvol=@nixos`（不是 `@`）、
+   `/home` 是 `@nixos-home`、`/nix` 是 `@nixos-nix`、`/boot` 是 vfat 且
+   `fmask=0077,dmask=0077`、`swapDevices` 为空或只含明确要用的 swap，且没有 Arch
+   子卷或 NTFS 项。改完 `git add`，否则 flake 求值看不到改动。
+5. 先只构建：`nix build --no-link .#nixosConfigurations.main.config.system.build.toplevel`。
+   通过并经用户授权后再执行 `sudo nixos-install --flake .#main`；不要装
+   `.#nixos`，那是小主机配置。
+6. 安装会写 ESP 上的 systemd-boot 文件和 `nixos-*` 入口，并通过 `boot.nix` 的 hook
+   把 `loader.conf` 的 `default` 写回 `arch-linux-lts.efi`。hook 报错时先查
+   `/boot/EFI/Linux` 和 `/boot/loader`，从 ESP 备份恢复，再重跑引导步骤。
+7. 首次启动后按第 5 节从离线介质恢复 age 私钥，按第 6 节恢复 Restic 密码；先
+   验证 TTY、SDDM、niri/Sway、Fcitx5 和直连网络，再启用 Clash Verge/TUN。
+8. 回滚仍走 3.2：systemd-boot 菜单保留最近 3 个 NixOS generation
+   （`configurationLimit = 3`）。
