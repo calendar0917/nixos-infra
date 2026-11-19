@@ -23,7 +23,11 @@ in
       domain = "*.20050917.xyz";
       dnsProvider = "cloudflare";
       group = "caddy";
-      dnsPropagationCheck = true;
+      # nixpkgs split the single dnsPropagationCheck switch into an
+      # authoritative and a recursive check. Keep both enabled, which is what
+      # the previous single switch did.
+      dnsAuthoritativePropagationCheck = true;
+      dnsRecursivePropagationCheck = true;
 
       credentialFiles = {
         "CLOUDFLARE_DNS_API_TOKEN_FILE" = "/etc/cloudflare/token";

@@ -118,7 +118,7 @@ Agent 的目录范围、默认禁止动作和按影响范围检查的约定见
 `flake.nix` 固定 NixOS/nixpkgs 的不可变 commit：
 
 ```text
-31ecbaca1bdefa45dffc409f0250bd8039ea0010   # nixos-unstable, 2026-10-27
+04906337b6d53e8bb0eaf0470ae9f070a4d4eb55   # nixos-unstable, 2026-11-17
 ```
 
 Home Manager 和 sops-nix 只通过 `follows = "nixpkgs"` 使用同一组包。升级时修改

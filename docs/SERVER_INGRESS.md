@@ -245,7 +245,8 @@ security.acme.certs."20050917.xyz" = {
   domain = "*.20050917.xyz";
   dnsProvider = "cloudflare";
   group = "caddy";
-  dnsPropagationCheck = true;
+  dnsAuthoritativePropagationCheck = true;
+  dnsRecursivePropagationCheck = true;
   credentialFiles."CLOUDFLARE_DNS_API_TOKEN_FILE" = "/etc/cloudflare/token";
   reloadServices = [ "caddy.service" ];
 };
@@ -253,7 +254,8 @@ security.acme.certs."20050917.xyz" = {
 
 - 只申请 `*.20050917.xyz`，暂不包含 apex `20050917.xyz`。
 - 使用 DNS-01，不需要公网 HTTP-01 验证。
-- 不关闭 DNS 传播检查。
+- 不关闭 DNS 传播检查。nixpkgs 已把原来的单个 `dnsPropagationCheck` 拆成
+  authoritative 和 recursive 两项，这里两项都保持 `true`，与拆分前的行为一致。
 - 证书和私钥由 systemd 自动申请/续期，路径为
   `/var/lib/acme/20050917.xyz/`。
 - 私钥不进入 Nix store；文件属组为 `caddy`，Caddy 通过组成员关系读取。

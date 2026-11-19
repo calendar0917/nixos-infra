@@ -247,7 +247,8 @@ class ServerIngressTest(unittest.TestCase):
           acmeGroup = acme.group;
           acmeCredentialFiles = acme.credentialFiles;
           acmeReloadServices = acme.reloadServices;
-          acmePropagation = acme.dnsPropagationCheck;
+          acmeAuthoritativePropagation = acme.dnsAuthoritativePropagationCheck;
+          acmeRecursivePropagation = acme.dnsRecursivePropagationCheck;
           acmeEmail = acme.email;
           mainCaddyEnable = main.services.caddy.enable;
           mainFirewallTcpPorts = main.networking.firewall.allowedTCPPorts;
@@ -864,7 +865,8 @@ class ServerIngressTest(unittest.TestCase):
             {"CLOUDFLARE_DNS_API_TOKEN_FILE": "/etc/cloudflare/token"},
         )
         self.assertIn("caddy.service", self.nix["acmeReloadServices"])
-        self.assertTrue(self.nix["acmePropagation"])
+        self.assertTrue(self.nix["acmeAuthoritativePropagation"])
+        self.assertTrue(self.nix["acmeRecursivePropagation"])
         self.assertIsNone(self.nix["acmeEmail"])
 
     def test_firewall_opens_only_http_https_tcp(self) -> None:
