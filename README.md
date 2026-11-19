@@ -30,12 +30,7 @@ scripts/check-server-network        # 小主机校园网/Mihomo 静态回归
 scripts/check-server-docker         # 小主机 Docker/Compose 静态回归
 scripts/check-server-ingress        # 小主机 DDNS/Caddy/ACME 静态与事务回归
 docs/                               # 桌面、应用、恢复、开发说明
-docs/history/                       # 带日期的历史观察，不是当前状态
-docs/install/                       # 双系统安装和历史迁移材料
 ```
-
-`START.sh`、`START_HERE.txt` 和 `install-preflight.sh` 是 Arch 现场安装入口；
-只有相关任务才需要读取。
 
 ## 日常命令
 
@@ -168,7 +163,3 @@ feature 裁剪。除非需要 release 里还没有的模块，否则不要重新
   [`docs/SERVER_INGRESS.md`](docs/SERVER_INGRESS.md)
 - 开发环境、devShell、tmux 和 Arch/NixOS 共享：
   [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
-- 双系统安装与恢复：
-  [`docs/install/ARCH_DUAL_BOOT.md`](docs/install/ARCH_DUAL_BOOT.md)
-- 历史观察（main 2026-10-28 快照、开发环境旧记录）：
-  [`docs/history/`](docs/history/)

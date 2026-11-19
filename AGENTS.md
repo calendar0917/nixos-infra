@@ -23,9 +23,9 @@
 - `deploy/`：各服务的 Compose 配置；运行数据不提交，放在服务器的
   `/srv/containers/<service>/`。
 - `tests/`：无 GUI 的 Python 回归检查。
-- `docs/history/`、`docs/install/`、`START.sh`、`START_HERE.txt` 和
-  `install-preflight.sh` 是历史或安装恢复材料；只在相关任务中读取，不作为
-  当前运行状态。
+- Arch 安装期的 `START.sh`、`install-preflight.sh`、`docs/install/` 和
+  `docs/history/` 已移除；需要旧现场步骤时从 Git 历史取
+  （`git log --all --diff-filter=D -- docs/install`），不要重建这些入口。
 
 ## 默认边界
 

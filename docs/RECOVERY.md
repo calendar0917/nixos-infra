@@ -431,9 +431,8 @@ MagicDNS 与 systemd-resolved/Clash DNS 争抢，也避免 subnet router 改写 
 
 Arch 与小主机之间的有线直连不是“插线即通”：两端 `direct-nixos`/`direct-arch`
 目前是 `autoconnect no`，同一网卡的自动 DHCP profile 还会抢占接口并等待 DHCP。
-2026-10-27 的复现、临时恢复、持久修复建议（需授权）和 ISO 内流程见
-`docs/install/ARCH_DUAL_BOOT.md` 4.3。ISO 现场只按 `START_HERE.txt` 阶段 B 执行，不要
-把代理问题当成链路问题，也不要为了连通而关闭防火墙或开放 mihomo 的局域网监听。
+2026-10-27 的复现和临时恢复记录已随安装期材料移出仓库，需要时从 Git 历史取。
+不要为了连通而关闭防火墙或开放 mihomo 的局域网监听。
 
 ## 5. age / SOPS 密钥恢复
 

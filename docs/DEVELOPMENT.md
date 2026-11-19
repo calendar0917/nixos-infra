@@ -1,8 +1,6 @@
 # 开发环境与远程会话
 
-本文只记录可复用的开发方法。具体某次临时目录、账号、网络和容器评估记录已移到
-[`history/development-notes.md`](history/development-notes.md)；那些快照不代表
-当前环境。
+本文只记录可复用的开发方法。
 
 ## 1. 分层原则
 
@@ -223,11 +221,3 @@ nmap 和 tcpdump 直接在终端使用。Wireshark 的 GUI、Burp Suite Pro 和 
 不改动网络路由、防火墙或全局抓包策略。NixOS 模块开关和软件包列表需要重建
 系统才会改变；已经安装的 GUI/CLI 日常运行不需要重建。许可证密钥、账号和
 凭据不写入仓库或 Nix Store。
-
-## 7. 历史记录
-
-- 2026-10-28 的临时 Python/Node 示例日志、GitHub/SSH 账号状态、Docker/Podman
-  评估和当时的验证结论：
-  [`history/development-notes.md`](history/development-notes.md)。
-- main 的迁移与运行状态快照：
-  [`history/main-workstation-2026-10-28.md`](history/main-workstation-2026-10-28.md)。
