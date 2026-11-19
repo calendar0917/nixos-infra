@@ -51,6 +51,16 @@
   # this on main only; the mini host's DMS/font setup is unchanged.
   fonts.packages = [ pkgs.nerd-fonts.symbols-only ];
 
+  # Hand-downloaded AppImages are user data, not pinned derivations: main runs
+  # them through Gear Lever (installed via Home Manager) instead of a
+  # per-application wrapper. binfmt registers the AppImage magic on this host
+  # only, so an executable AppImage can be started directly. The mini host
+  # keeps just the shared `appimage-run` from modules/base.nix.
+  programs.appimage = {
+    enable = true;
+    binfmt = true;
+  };
+
   # Standard power profiles only: power-profiles-daemon manages the CPU
   # platform profile. TLP and auto-cpufreq are not enabled and would conflict
   # with this service. The daemon starts at balanced and persists later manual

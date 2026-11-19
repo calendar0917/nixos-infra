@@ -13,6 +13,7 @@ clipboard, screenshots, Mark Shot history, or disk devices.
 
 import argparse
 import base64
+import json
 import os
 import re
 import subprocess
@@ -554,55 +555,76 @@ def test_mark_shot_package() -> None:
     print("PASS: mark-shot 0.2.0 is packaged and starts without a display")
 
 
-def test_appimage_entry() -> None:
-    """The hand-maintained AppImage needs a launcher entry and a detached run.
+def eval_appimage(host: str) -> dict:
+    result = run(
+        [
+            "nix",
+            "eval",
+            "--json",
+            "--apply",
+            "c: {"
+            " enable = c.config.programs.appimage.enable;"
+            " binfmt = c.config.programs.appimage.binfmt;"
+            " registrations = builtins.attrNames c.config.boot.binfmt.registrations; }",
+            f"{REPO}#nixosConfigurations.{host}",
+        ],
+        timeout=600,
+    )
+    check(result.returncode == 0, result.stderr)
+    return json.loads(result.stdout)
 
-    `appimage-run` is a foreground program: run bare in a terminal it holds that
-    terminal until the app exits. Both entry points go through the `ds-bot`
-    wrapper, which forks the runner into its own session, and the desktop entry
-    additionally declares Terminal=false so no terminal is created at all.
+
+def test_appimage_management() -> None:
+    """Hand-downloaded AppImages are managed by Gear Lever, not by Nix.
+
+    Home Manager only installs Gear Lever: the desktop entry comes from the
+    package itself, and executing an AppImage is the host's `programs.appimage`
+    binfmt job. The old DS Bot wrapper, desktop entry and icon link are gone, so
+    the user integrates the AppImage once inside Gear Lever.
     """
-    binary = BIN / "ds-bot"
+    binary = BIN / "gearlever"
     check(binary.is_file() and os.access(binary, os.X_OK), f"missing {binary}")
 
-    wrapper = read(binary)
-    check("setsid -f" in wrapper, "ds-bot does not detach appimage-run")
-    check("appimage-run" in wrapper, "ds-bot does not call appimage-run")
-
-    # Missing images must fail loudly instead of launching an empty window.
-    with tempfile.TemporaryDirectory(prefix="ds-bot-test-") as raw:
-        missing = Path(raw) / "absent.AppImage"
-        result = run(
-            [str(binary)],
-            env={"DS_BOT_APPIMAGE": str(missing)},
-            timeout=60,
-        )
-    check(result.returncode == 1, (result.returncode, result.stderr))
-    check("no executable AppImage" in result.stderr, result.stderr)
-
-    # xdg.desktopEntries installs the file through home.packages, so it lives
-    # in the profile share directory rather than home-files. Exec points at the
-    # wrapper's own store path, which is the same program the profile symlinks
-    # to, so compare the trailing component instead of the whole path.
-    packaged = sorted((ACTIVATION / "home-path/share/applications").glob("ds-bot.desktop"))
-    check(bool(packaged), "ds-bot.desktop was not installed")
+    # The entry is the package's own file, exposed through home.packages; it is
+    # not declared in the repository.
+    packaged = sorted(
+        (ACTIVATION / "home-path/share/applications").glob("it.mijorus.gearlever.desktop")
+    )
+    check(bool(packaged), "gearlever.desktop was not installed by its package")
     entry = read(packaged[0])
-    check("Terminal=false" in entry, entry)
-    check("Icon=dsbot" in entry, entry)
-    check("StartupWMClass=dsbot" in entry, entry)
     exec_line = next(
         (line for line in entry.splitlines() if line.startswith("Exec=")), ""
     )
-    check(exec_line.endswith("/bin/ds-bot"), (exec_line, entry))
-    check(
-        not re.search(r"^Icon=/nix/store", entry, re.MULTILINE),
-        "Icon must be a theme name, not a store path",
-    )
+    command = exec_line.removeprefix("Exec=").split()[0] if exec_line else ""
+    check(command.rsplit("/", 1)[-1] == "gearlever", (exec_line, entry))
+    check("Terminal=false" in entry, entry)
 
+    # Nothing may recreate the per-AppImage wrapper, launcher or icon link.
+    check(not (BIN / "ds-bot").exists(), "ds-bot wrapper is still generated")
+    for applications in (
+        ACTIVATION / "home-path/share/applications",
+        HOME_FILES / ".local/share/applications",
+    ):
+        check(
+            not list(applications.glob("ds-bot.desktop")),
+            f"ds-bot.desktop is still generated in {applications}",
+        )
     icon = HOME_FILES / ".local/share/icons/hicolor/256x256/apps/dsbot.png"
-    check(icon.is_file(), f"missing icon {icon}")
+    check(not icon.exists(), f"DS Bot icon link is still installed: {icon}")
 
-    print("PASS: DS Bot has a detached command and a Terminal=false launcher entry")
+    # binfmt is main-only, so an executable AppImage runs directly there while
+    # the mini host keeps just the shared appimage-run command.
+    main = eval_appimage("main")
+    mini = eval_appimage("nixos")
+    check(main["enable"] is True, main)
+    check(main["binfmt"] is True, main)
+    check("appimage_type_1" in main["registrations"], main)
+    check("appimage_type_2" in main["registrations"], main)
+    check(mini["enable"] is False, mini)
+    check(mini["binfmt"] is False, mini)
+    check(mini["registrations"] == [], mini)
+
+    print("PASS: Gear Lever manages AppImages and main alone enables their binfmt")
 
 
 def main() -> None:
@@ -612,7 +634,7 @@ def main() -> None:
     test_yazi_config()
     test_compositor_bindings()
     test_mark_shot_package()
-    test_appimage_entry()
+    test_appimage_management()
 
 
 if __name__ == "__main__":

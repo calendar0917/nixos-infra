@@ -1,8 +1,8 @@
 # 应用兼容与默认打开方式
 
 main 额外安装 Obsidian、腾讯会议、QQ、微信、ONLYOFFICE、OBS Studio、Super
-Productivity 和 Mark Shot；DS Bot 作为手工下载的 AppImage 提供桌面入口。小主机
-不安装这些应用。应用模块是 `home/calendar/apps.nix`，只在
+Productivity 和 Mark Shot，并用 Gear Lever 管理手工下载的 AppImage；小主机不安装
+这些应用。应用模块是 `home/calendar/apps.nix`，只在
 `networking.hostName == "main"` 时生效；Mark Shot 及其入口在
 `home/calendar/desktop/screenshot.nix`。包、桌面项和交互效果仍以实机图形会话为准。
 
@@ -17,44 +17,55 @@ Productivity 和 Mark Shot；DS Bot 作为手工下载的 AppImage 提供桌面�
   `pkgs.obs-studio` 再加进 `home.packages`，否则会出现第二套未包装入口。
 - OBS 走现有 PipeWire/WirePlumber 和桌面 Portal；没有新增 PulseAudio 服务，也
   没有启用虚拟摄像头、背景移除或直播扩展。
-- `modules/base.nix` 在两台主机上都安装 `appimage-run`，用于临时试跑尚未打包的
+- `modules/base.nix` 在两台主机上都安装 `appimage-run`，可用于临时试跑尚未打包的
   AppImage。仓库里已固定的应用（如 Mark Shot）仍用
-  `pkgs.appimageTools.wrapType2` 生成声明式入口，不要改成每次手跑
-  `appimage-run`。
-- 手工下载、随时会被换掉的 AppImage 走 `appimage-run` 的直接入口，不要为了它
-  虚构一个版本号和 SHA256 去用 `wrapType2`。见下一节。
+  `pkgs.appimageTools.wrapType2` 生成声明式入口，不要改成手工 AppImage 流程。
+- 手工下载、随时会被换掉的 AppImage 交给 Gear Lever 和主机的 AppImage binfmt，
+  不要为了它虚构版本号和 SHA256 去用 `wrapType2`。见下一节。
 
 这些应用的输入法、HiDPI、文件打开和音视频能力都需要用户账号与图形设备，未在
 agent 会话中实际点击验证。
 
-## 1.1 手工维护的 AppImage（DS Bot）
+## 1.1 手工维护的 AppImage（Gear Lever）
 
-`appimage-run` 是在终端里跑 AppImage 的前台程序：它占着那个终端直到应用退出，
-关掉终端应用也会跟着结束。桌面启动器不需要终端，所以 DS Bot 同时有两种入口，
-都由 `home/calendar/apps.nix` 生成：
+手工下载、由用户自己更新的 AppImage 不再由 Home Manager 逐个生成 wrapper 或
+`.desktop`，改由 Gear Lever 管理：
 
-| 入口 | 用途 |
-| --- | --- |
-| `ds-bot`（PATH 中的命令） | 在终端里启动后立刻拿回提示符 |
-| `ds-bot.desktop`（fuzzel 里搜 “DS Bot”） | 图形启动，不产生终端窗口 |
+- 只有 `main` 通过 `hosts/main/default.nix` 的
+  `programs.appimage = { enable = true; binfmt = true; }` 启用 AppImage binfmt；
+  `nixos` 小主机不启用该 binfmt，只保留 `modules/base.nix` 共享的
+  `appimage-run` 命令。
+- binfmt 注册后，具有可执行权限的 `.AppImage` 可以直接执行，不再需要手写
+  `appimage-run <file>`。直接从交互式终端执行仍可能占用该终端直到应用退出：
+  binfmt 只负责启动解释器，不负责后台化。需要脱离终端时用桌面入口或自行加
+  `&`/`setsid`。
+- Gear Lever（`pkgs.gearlever`，只进 main 的 `home.packages`）负责导入 AppImage、
+  生成桌面入口与图标，并可替换更新后的 AppImage 文件。
+- 首次使用时必须在 Gear Lever 里手动导入并选择“集成到应用菜单”；安装 Gear Lever
+  本身不会自动发现或导入已有的 AppImage。
+- 集成完成后用 Fuzzel 搜索应用名称启动，不需要专门打开终端。
+- Gear Lever 生成的 `.desktop` 条目和图标属于应用自己的用户数据，不由 Home
+  Manager 声明，也不要写成 `xdg.desktopEntries`。
+- AppImage 文件和 Gear Lever 的数据都留在用户可写目录（如 `~/appimage/`、
+  `~/.local/share/`），不进入 Nix Store。
+- 更新手工安装的 AppImage 不需要重新 `nixos-rebuild`；替换与重新集成动作由用户
+  在 Gear Lever 内完成。
 
-两者都指向同一个包装器，行为差别只在谁来 fork：
+首次切换后的一次性流程：
 
-- 包装器用 `setsid -f` 把 `appimage-run` 放到新会话里。它 2 ms 内返回，应用
-  继续在后台运行，并且不再挂在调用者的控制终端上，关掉终端不会连带结束应用。
-- desktop 条目用 `Terminal=false`，启动器直接执行程序，本来就没有终端可占。条目
-  里的 `StartupWMClass=dsbot` 是 Electron 报告的实际 `app_id`，Waybar 和 niri
-  据此把窗口和条目归到一起。
-- 图标放在 `config/icons/dsbot.png`，安装到
-  `~/.local/share/icons/hicolor/256x256/apps/dsbot.png`，条目按主题名
-  `Icon=dsbot` 引用；不要把 Nix store 绝对路径写进 `Icon`。
+1. 执行 `sudo nixos-rebuild switch --flake .#main`。
+2. 从 Fuzzel 启动 Gear Lever。
+3. 在 Gear Lever 中导入 `~/appimage/DS-Bot.AppImage`。
+4. 选择集成到应用菜单。
+5. 从 Fuzzel 搜索 `DS Bot` 并启动。
 
-镜像路径默认是 `~/appimage/DS-Bot.AppImage`，可以用 `DS_BOT_APPIMAGE` 覆盖。更新
-版本时直接替换该文件即可，仓库里没有版本号或哈希需要同步。文件不存在时包装器
-会报错退出，而不是静默启动一个空白窗口。
+`config/icons/dsbot.png` 只是仓库里的原始资源，已不再由 Home Manager 安装；图标
+由 Gear Lever 在集成时生成。AppImage 由 binfmt 交给 `appimage-run` 解包到
+`~/.cache/appimage-run/<hash>/` 后再执行；换掉 AppImage 会生成新的缓存目录，旧
+目录不会自动清理。
 
-AppImage 由 `appimage-run` 解包到 `~/.cache/appimage-run/<hash>/` 后再执行；换掉
-AppImage 会生成新的缓存目录，旧目录不会自动清理。
+Gear Lever 的导入、集成和 Fuzzel 启动都依赖真实图形会话，未在 agent 会话中执行，
+均为待实机验证。
 
 ## 2. 默认打开方式
 
