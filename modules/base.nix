@@ -140,6 +140,7 @@
   environment.systemPackages = with pkgs; [
     # Recovery and inspection tools available without a graphical session.
     age
+    appimage-run
     btrfs-progs
     btop
     curl
