@@ -199,7 +199,7 @@
     uv
     wl-clipboard
     yq
-    nodejs_22
+    nodejs_24
     # `rr` (the remote-research-runner CLI) is a stdlib-only Python program
     # whose launcher is `python3 -m rr`. Arch had a system python3 on PATH;
     # NixOS does not, so provide one explicitly. Project venvs keep using

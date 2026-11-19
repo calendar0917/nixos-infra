@@ -89,7 +89,7 @@ Node.js/TypeScript 项目同样由 devShell 提供 Node 和 pnpm，项目依赖�
       pkgs = nixpkgs.legacyPackages.${system};
     in {
       devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs.nodejs_22 pkgs.pnpm_10 ];
+        packages = [ pkgs.nodejs_24 pkgs.pnpm_10 ];
       };
     };
 }
