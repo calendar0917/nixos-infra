@@ -1,10 +1,10 @@
 # 应用兼容与默认打开方式
 
 main 额外安装 Obsidian、腾讯会议、QQ、微信、ONLYOFFICE、OBS Studio、Super
-Productivity 和 Mark Shot；小主机不安装这些应用。应用模块是
-`home/calendar/apps.nix`，只在 `networking.hostName == "main"` 时生效；Mark Shot
-及其入口在 `home/calendar/desktop/screenshot.nix`。包、桌面项和交互效果仍以实机
-图形会话为准。
+Productivity 和 Mark Shot；DS Bot 作为手工下载的 AppImage 提供桌面入口。小主机
+不安装这些应用。应用模块是 `home/calendar/apps.nix`，只在
+`networking.hostName == "main"` 时生效；Mark Shot 及其入口在
+`home/calendar/desktop/screenshot.nix`。包、桌面项和交互效果仍以实机图形会话为准。
 
 ## 1. 兼容约定
 
@@ -17,9 +17,44 @@ Productivity 和 Mark Shot；小主机不安装这些应用。应用模块是
   `pkgs.obs-studio` 再加进 `home.packages`，否则会出现第二套未包装入口。
 - OBS 走现有 PipeWire/WirePlumber 和桌面 Portal；没有新增 PulseAudio 服务，也
   没有启用虚拟摄像头、背景移除或直播扩展。
+- `modules/base.nix` 在两台主机上都安装 `appimage-run`，用于临时试跑尚未打包的
+  AppImage。仓库里已固定的应用（如 Mark Shot）仍用
+  `pkgs.appimageTools.wrapType2` 生成声明式入口，不要改成每次手跑
+  `appimage-run`。
+- 手工下载、随时会被换掉的 AppImage 走 `appimage-run` 的直接入口，不要为了它
+  虚构一个版本号和 SHA256 去用 `wrapType2`。见下一节。
 
 这些应用的输入法、HiDPI、文件打开和音视频能力都需要用户账号与图形设备，未在
 agent 会话中实际点击验证。
+
+## 1.1 手工维护的 AppImage（DS Bot）
+
+`appimage-run` 是在终端里跑 AppImage 的前台程序：它占着那个终端直到应用退出，
+关掉终端应用也会跟着结束。桌面启动器不需要终端，所以 DS Bot 同时有两种入口，
+都由 `home/calendar/apps.nix` 生成：
+
+| 入口 | 用途 |
+| --- | --- |
+| `ds-bot`（PATH 中的命令） | 在终端里启动后立刻拿回提示符 |
+| `ds-bot.desktop`（fuzzel 里搜 “DS Bot”） | 图形启动，不产生终端窗口 |
+
+两者都指向同一个包装器，行为差别只在谁来 fork：
+
+- 包装器用 `setsid -f` 把 `appimage-run` 放到新会话里。它 2 ms 内返回，应用
+  继续在后台运行，并且不再挂在调用者的控制终端上，关掉终端不会连带结束应用。
+- desktop 条目用 `Terminal=false`，启动器直接执行程序，本来就没有终端可占。条目
+  里的 `StartupWMClass=dsbot` 是 Electron 报告的实际 `app_id`，Waybar 和 niri
+  据此把窗口和条目归到一起。
+- 图标放在 `config/icons/dsbot.png`，安装到
+  `~/.local/share/icons/hicolor/256x256/apps/dsbot.png`，条目按主题名
+  `Icon=dsbot` 引用；不要把 Nix store 绝对路径写进 `Icon`。
+
+镜像路径默认是 `~/appimage/DS-Bot.AppImage`，可以用 `DS_BOT_APPIMAGE` 覆盖。更新
+版本时直接替换该文件即可，仓库里没有版本号或哈希需要同步。文件不存在时包装器
+会报错退出，而不是静默启动一个空白窗口。
+
+AppImage 由 `appimage-run` 解包到 `~/.cache/appimage-run/<hash>/` 后再执行；换掉
+AppImage 会生成新的缓存目录，旧目录不会自动清理。
 
 ## 2. 默认打开方式
 

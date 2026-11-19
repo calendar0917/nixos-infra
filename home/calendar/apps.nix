@@ -35,6 +35,30 @@ let
     '';
   };
 
+  # DS Bot only ships as an AppImage and the user refreshes it by hand, so
+  # there is no release URL/SHA to pin and `wrapType2` is the wrong tool. The
+  # wrapper exists for the detached launch: `setsid -f` forks the runner away
+  # from the caller's controlling terminal, so a shell prompt returns at once
+  # and closing the terminal no longer takes the app down with it. The desktop
+  # entry below does not need it (Terminal=false spawns no terminal at all),
+  # but both entry points then behave identically.
+  dsBot = pkgs.writeShellApplication {
+    name = "ds-bot";
+    runtimeInputs = [
+      pkgs.appimage-run
+      pkgs.util-linux
+    ];
+    text = ''
+      image="''${DS_BOT_APPIMAGE:-$HOME/appimage/DS-Bot.AppImage}"
+      if [ ! -x "$image" ]; then
+        echo "ds-bot: no executable AppImage at $image" >&2
+        echo "ds-bot: set DS_BOT_APPIMAGE to use another file" >&2
+        exit 1
+      fi
+      exec setsid -f appimage-run "$image" "$@"
+    '';
+  };
+
   qqWithFcitx = pkgs.qq.overrideAttrs (old: {
     nativeBuildInputs =
       (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
@@ -50,6 +74,7 @@ in
 {
   config = lib.mkIf isMain {
     home.packages = with pkgs; [
+      dsBot
       freerdp
       obsidian
       onlyoffice
@@ -101,6 +126,27 @@ in
 
       "x-scheme-handler/obsidian" = "md.obsidian.Obsidian.desktop";
       "x-scheme-handler/superproductivity" = "superproductivity.desktop";
+    };
+
+    # The launcher entry for the hand-downloaded AppImage. Without it the only
+    # way in is running `appimage-run` inside a terminal, which keeps that
+    # terminal occupied for the whole session. Terminal=false means the
+    # launcher starts the app directly, and StartupWMClass pins the detail that
+    # Electron announces `dsbot` as its app_id, so the taskbar groups the
+    # window with this entry instead of showing an unrelated icon. The icon is
+    # installed under its theme name rather than written as an absolute store
+    # path, which is what launchers look up.
+    home.file.".local/share/icons/hicolor/256x256/apps/dsbot.png".source =
+      ../../config/icons/dsbot.png;
+
+    xdg.desktopEntries.ds-bot = {
+      name = "DS Bot";
+      comment = "DS Bot desktop app";
+      exec = "${dsBot}/bin/ds-bot";
+      icon = "dsbot";
+      terminal = false;
+      categories = [ "Utility" ];
+      settings.StartupWMClass = "dsbot";
     };
 
     # OBS expects this directory to exist before the first recording. Create

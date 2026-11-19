@@ -554,6 +554,57 @@ def test_mark_shot_package() -> None:
     print("PASS: mark-shot 0.2.0 is packaged and starts without a display")
 
 
+def test_appimage_entry() -> None:
+    """The hand-maintained AppImage needs a launcher entry and a detached run.
+
+    `appimage-run` is a foreground program: run bare in a terminal it holds that
+    terminal until the app exits. Both entry points go through the `ds-bot`
+    wrapper, which forks the runner into its own session, and the desktop entry
+    additionally declares Terminal=false so no terminal is created at all.
+    """
+    binary = BIN / "ds-bot"
+    check(binary.is_file() and os.access(binary, os.X_OK), f"missing {binary}")
+
+    wrapper = read(binary)
+    check("setsid -f" in wrapper, "ds-bot does not detach appimage-run")
+    check("appimage-run" in wrapper, "ds-bot does not call appimage-run")
+
+    # Missing images must fail loudly instead of launching an empty window.
+    with tempfile.TemporaryDirectory(prefix="ds-bot-test-") as raw:
+        missing = Path(raw) / "absent.AppImage"
+        result = run(
+            [str(binary)],
+            env={"DS_BOT_APPIMAGE": str(missing)},
+            timeout=60,
+        )
+    check(result.returncode == 1, (result.returncode, result.stderr))
+    check("no executable AppImage" in result.stderr, result.stderr)
+
+    # xdg.desktopEntries installs the file through home.packages, so it lives
+    # in the profile share directory rather than home-files. Exec points at the
+    # wrapper's own store path, which is the same program the profile symlinks
+    # to, so compare the trailing component instead of the whole path.
+    packaged = sorted((ACTIVATION / "home-path/share/applications").glob("ds-bot.desktop"))
+    check(bool(packaged), "ds-bot.desktop was not installed")
+    entry = read(packaged[0])
+    check("Terminal=false" in entry, entry)
+    check("Icon=dsbot" in entry, entry)
+    check("StartupWMClass=dsbot" in entry, entry)
+    exec_line = next(
+        (line for line in entry.splitlines() if line.startswith("Exec=")), ""
+    )
+    check(exec_line.endswith("/bin/ds-bot"), (exec_line, entry))
+    check(
+        not re.search(r"^Icon=/nix/store", entry, re.MULTILINE),
+        "Icon must be a theme name, not a store path",
+    )
+
+    icon = HOME_FILES / ".local/share/icons/hicolor/256x256/apps/dsbot.png"
+    check(icon.is_file(), f"missing icon {icon}")
+
+    print("PASS: DS Bot has a detached command and a Terminal=false launcher entry")
+
+
 def main() -> None:
     test_paste_image()
     test_desktop_shot()
@@ -561,6 +612,7 @@ def main() -> None:
     test_yazi_config()
     test_compositor_bindings()
     test_mark_shot_package()
+    test_appimage_entry()
 
 
 if __name__ == "__main__":
