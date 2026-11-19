@@ -130,8 +130,9 @@ nix flake check --no-build
 ```
 
 不要手写 `flake.lock` 的 `narHash`，也不要在升级 nixpkgs 时顺带全量更新 inputs。
-`hosts/main/waybar.nix` 固定上游 Waybar revision 以保留 `workspace-taskbar`；
-不要为了“清理覆盖”删掉它。
+`hosts/main/waybar.nix` 不再固定上游 Waybar revision：nixpkgs 的 Waybar 0.16.0
+已经包含 `workspace-taskbar` 和 `enable-bar-scroll`，这里只保留关闭 Cava/WWAN 的
+feature 裁剪。除非需要 release 里还没有的模块，否则不要重新加回源码 pin。
 
 `modules/base.nix` 把 Nix daemon 和客户端的 HTTP(S) 下载指向本地代理
 `http://127.0.0.1:7897`，loopback 直连。main 的监听者是 Clash Verge，nixos 的
