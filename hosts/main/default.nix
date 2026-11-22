@@ -20,6 +20,7 @@
     ../../modules/network.nix
     ../../modules/security-lab.nix
     ../../modules/secrets.nix
+    ../../modules/vaultwarden.nix
     ../../modules/desktop/common.nix
     ../../modules/desktop/niri.nix
     ../../modules/desktop/sway.nix
