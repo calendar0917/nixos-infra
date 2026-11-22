@@ -15,6 +15,7 @@
     ./docker.nix
     ./clash.nix
     ./waybar.nix
+    ./tunnel.nix
     ../../modules/base.nix
     ../../modules/network.nix
     ../../modules/security-lab.nix

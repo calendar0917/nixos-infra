@@ -95,6 +95,10 @@ export PI_SKIP_VERSION_CHECK=1
 export PI_TELEMETRY=0
 export PI_WEB_SKIP_VERSION_CHECK=1
 
+# 经 Cloudflare Tunnel 访问时的外部主机名（见 docs/UNIFIED_ACCESS.md）。
+# 不加这一项，经隧道打开登录页会报 403 Untrusted request。
+export PI_WEB_ALLOWED_HOSTS="${PI_WEB_ALLOWED_HOSTS:-pi.20050917.xyz}"
+
 echo
 echo "Pi Web 即将启动"
 echo "监听地址: 0.0.0.0:30141"

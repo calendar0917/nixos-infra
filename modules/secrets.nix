@@ -10,12 +10,16 @@
   #   sudo install -d -m 0700 /var/lib/sops-nix
   #   sudo install -m 0600 ~/.config/sops/age/keys.txt /var/lib/sops-nix/keys.txt
   #
-  # Declare `sops.secrets."<name>"` next to the module that consumes it. The
-  # old `mihomo-config` ciphertext in secrets/secrets.yaml is intentionally
-  # preserved for manual migration to Clash Verge Rev, but nothing decrypts
-  # or loads it until a real consumer is added.
+  # The same key file stays in ~/.config/sops/age/keys.txt so secrets can be
+  # edited with `sops` without sudo. Back that file up: without it every
+  # ciphertext in secrets/secrets.yaml is unrecoverable.
+  #
+  # Declare `sops.secrets."<name>"` next to the module that consumes it; the
+  # ciphertext lives in the default file below. Current secrets:
+  #   cloudflared-tunnel-token -- consumed by hosts/main/tunnel.nix
   sops = {
     age.keyFile = "/var/lib/sops-nix/keys.txt";
+    defaultSopsFile = ../secrets/secrets.yaml;
     validateSopsFiles = true;
   };
 

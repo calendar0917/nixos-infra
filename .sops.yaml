@@ -1,5 +1,5 @@
 keys:
-  - &laptop age1ce6lurdq9acgvd0rzzfmemfgpkty2rtk9muh90lk8cd5x8jnw3cqj9yxyg
+  - &laptop age144w7ncjge90453qgaaywxzeydfazpweajwaqqwqnwcze3k7dkcmqmhn397
 creation_rules:
   - path_regex: secrets/.*\.yaml$
     key_groups:
