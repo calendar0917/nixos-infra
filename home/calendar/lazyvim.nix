@@ -28,6 +28,14 @@
       coding.blink.enable = true;
     };
 
+    # LazyVim turns 'spell' on for text and markdown buffers, and its default
+    # 'spelllang' is English only, so every Chinese character is reported as
+    # a misspelling (red squiggles). Adding "cjk" tells Vim to leave East
+    # Asian characters alone while English spelling is still checked.
+    config.options = ''
+      vim.opt.spelllang = { "en", "cjk" }
+    '';
+
     # Nix owns the language servers, formatters and linters. Mason's runtime
     # installer stays disabled below.
     extraPackages = with pkgs; [
