@@ -1,0 +1,108 @@
+# Inbox hub for main: mail/RSS aggregation (Cypht) + push notifications (ntfy).
+#
+# Only loopback ports are published; Cloudflare Tunnel (cloudflared-pi) reaches
+# them from 127.0.0.1, so no inbound firewall port is opened. See README.md.
+name: inbox
+
+services:
+  cypht-db:
+    image: ${MARIADB_IMAGE:?Set MARIADB_IMAGE in .env}
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${CYPHT_DB_ROOT_PASSWORD:?Set CYPHT_DB_ROOT_PASSWORD in .env}
+      MARIADB_DATABASE: cypht
+      MARIADB_USER: cypht
+      MARIADB_PASSWORD: ${CYPHT_DB_PASSWORD:?Set CYPHT_DB_PASSWORD in .env}
+    volumes:
+      - cypht_db:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cypht:
+    image: ${CYPHT_IMAGE:?Set CYPHT_IMAGE in .env}
+    restart: unless-stopped
+    depends_on:
+      cypht-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${CYPHT_PORT:-24080}:80"
+    environment:
+      AUTH_USERNAME: ${CYPHT_AUTH_USERNAME:-admin}
+      AUTH_PASSWORD: ${CYPHT_AUTH_PASSWORD:?Set CYPHT_AUTH_PASSWORD in .env}
+      DB_CONNECTION_TYPE: host
+      DB_DRIVER: mysql
+      DB_HOST: cypht-db
+      DB_NAME: cypht
+      DB_USER: cypht
+      DB_PASS: ${CYPHT_DB_PASSWORD:?Set CYPHT_DB_PASSWORD in .env}
+      SESSION_TYPE: DB
+      USER_CONFIG_TYPE: DB
+    volumes:
+      # Per-user settings and the IMAP account list live here; losing it means
+      # re-adding every mailbox.
+      - cypht_users:/var/lib/hm3/users
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ntfy:
+    image: ${NTFY_IMAGE:?Set NTFY_IMAGE in .env}
+    restart: unless-stopped
+    command: serve
+    ports:
+      - "127.0.0.1:${NTFY_PORT:-2586}:2586"
+    environment:
+      # Must be the URL clients type (the tunnel hostname), otherwise push
+      # subscription links point at localhost.
+      NTFY_BASE_URL: ${NTFY_BASE_URL:?Set NTFY_BASE_URL in .env}
+      NTFY_LISTEN_HTTP: 0.0.0.0:2586
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      # No anonymous topics: every topic is a credential.
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
+      # Uncomment to let the Android app receive pushes through ntfy.sh's
+      # FCM relay without keeping a websocket open. Trade-off: message
+      # metadata passes through the public ntfy.sh instance.
+      # NTFY_UPSTREAM_BASE_URL: https://ntfy.sh
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_lib:/var/lib/ntfy
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  cypht_db:
+  cypht_users:
+  ntfy_cache:
+  ntfy_lib:
+
+networks:
+  backend:
+    driver: bridge
