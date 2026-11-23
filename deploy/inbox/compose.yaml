@@ -1,37 +1,49 @@
-# Inbox hub for main: mail aggregation (SnappyMail) + push notifications (ntfy).
+# Inbox hub for main: mail aggregation (Gofer) + push notifications (ntfy).
 #
 # Only loopback ports are published; Cloudflare Tunnel (cloudflared-pi) reaches
 # them from 127.0.0.1, so no inbound firewall port is opened. See README.md.
 name: inbox
 
 services:
-  snappymail:
-    image: ${SNAPPYMAIL_IMAGE:?Set SNAPPYMAIL_IMAGE in .env}
+  gofer:
+    image: ${GOFER_IMAGE:?Set GOFER_IMAGE in .env}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${SNAPPYMAIL_PORT:-24080}:8888"
+      # Gofer listens on 8090 inside the container. The host side stays 24080
+      # because 127.0.0.1:8090 already belongs to api.20050917.xyz; the tunnel
+      # ingress for mail.20050917.xyz therefore needs no change.
+      - "127.0.0.1:${GOFER_PORT:-24080}:8090"
     environment:
-      # Per-request PHP memory cap. The image already ships nginx + php-fpm, so
-      # there is nothing else to run: no database container.
-      MEMORY_LIMIT: ${SNAPPYMAIL_MEMORY_LIMIT:-128M}
-      UPLOAD_MAX_SIZE: ${SNAPPYMAIL_UPLOAD_MAX_SIZE:-25M}
-      # The public entry is HTTPS (Cloudflare Tunnel), so session cookies are
-      # Secure. A plain http://127.0.0.1 check still returns the login page.
-      SECURE_COOKIES: "true"
+      # Browsers open this address, so links inside mail and the sign-in
+      # cookie domain have to be the public hostname, not the loopback one.
+      GOFER_BASE_URL: ${GOFER_BASE_URL:?Set GOFER_BASE_URL in .env}
+      # One protected profile holding several mailboxes. "managed" would give
+      # every user a separate database; this install has a single person.
+      GOFER_AUTH_MODE: personal
+      # cloudflared connects to the published host port, so the request enters
+      # the container from the Docker bridge gateway and Gofer only trusts the
+      # real client address (X-Forwarded-For) from there.
+      GOFER_TRUSTED_PROXY_CIDRS: 172.16.0.0/12
+      # Sender pictures: ask Gravatar and Libravatar about the address only.
+      # bimi and domain_icon would contact servers chosen by the sender, which
+      # leaks that you are reading the mail to whoever sent it.
+      GOFER_AVATAR_PROVIDERS: gravatar,libravatar
+      # Off: keeps font lists and files on the server instead of fetching them
+      # from Google.
+      GOFER_GOOGLE_FONTS: "false"
+      # Refuse to start rather than convert the database storage layout in
+      # place. Uncomment when switching this install to managed mode, so the
+      # conversion waits for a backup.
+      # GOFER_PREVENT_STORAGE_CONVERSION: "true"
     volumes:
-      # Holds the admin password, every account's settings and the list of
-      # additional accounts. Losing it means re-adding every mailbox.
-      - snappymail_data:/var/lib/snappymail
+      # The whole install: mail store, account settings, encryption keys and
+      # the setup token state. Losing it means re-adding every mailbox.
+      - gofer_data:/data
     networks:
       - backend
     security_opt:
       - no-new-privileges:true
-    healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8888/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+    # The image ships HEALTHCHECK "gofer healthcheck"; compose inherits it.
     logging:
       driver: json-file
       options:
@@ -73,7 +85,7 @@ services:
         max-file: "3"
 
 volumes:
-  snappymail_data:
+  gofer_data:
   ntfy_cache:
   ntfy_lib:
 
