@@ -15,10 +15,15 @@ set -uo pipefail
 HOSTS=(main nixos az hw)
 TIMEOUT=8
 
+MODE=table
 case "${1:-}" in
   -h|--help)
     sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
     exit 0
+    ;;
+  --json)
+    MODE=json
+    shift
     ;;
 esac
 
@@ -60,8 +65,18 @@ human_up() { # seconds -> "12d 3h" / "5h 21m" / "42m"
   else printf '%dm' "$m"; fi
 }
 
-printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' \
-  HOST NAME OS UP LOAD 'DISK USED' FAILED DOCKER TAILSCALE
+# --json emits one array for the dashboard (deploy/glance/fleet-json.py); any
+# character that would break the JSON string is dropped rather than escaped,
+# because every field here is a hostname or a short numeric summary.
+js() { printf '%s' "$1" | tr -d '\\"'; }
+
+if [ "$MODE" = json ]; then
+  printf '{"generated":"%s","hosts":[' "$(date -Iseconds)"
+else
+  printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' \
+    HOST NAME OS UP LOAD 'DISK USED' FAILED DOCKER TAILSCALE
+fi
+first=1
 
 for h in "${HOSTS[@]}"; do
   if [ "$h" = main ] || [ "$h" = "$(hostname)" ]; then
@@ -72,11 +87,30 @@ for h in "${HOSTS[@]}"; do
     out=$(printf '%s\n' "$PROBE" | ssh -o BatchMode=yes -o ConnectTimeout="$TIMEOUT" "$h" bash -s 2>/dev/null)
   fi
   if [ -z "$out" ]; then
-    printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' "$h" UNREACHABLE - - - - - - -
+    if [ "$MODE" = json ]; then
+      [ "$first" = 1 ] || printf ','
+      first=0
+      printf '{"host":"%s","reachable":false}' "$h"
+    else
+      printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' "$h" UNREACHABLE - - - - - - -
+    fi
     continue
   fi
   get() { printf '%s\n' "$out" | sed -n "s/^$1=//p"; }
+  if [ "$MODE" = json ]; then
+    [ "$first" = 1 ] || printf ','
+    first=0
+    printf '{"host":"%s","reachable":true,"name":"%s","os":"%s","up":"%s","load":"%s","disk":"%s","failed":"%s","docker":"%s","tailscale":"%s"}' \
+      "$h" "$(js "$(get name)")" "$(js "$(get os)")" "$(human_up "$(get upsec)")" \
+      "$(js "$(get load)")" "$(js "$(get disk)")" "$(js "$(get failed)")" \
+      "$(js "$(get docker)")" "$(js "$(get ts)")"
+    continue
+  fi
   printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' \
     "$h" "$(get name)" "$(get os)" "$(human_up "$(get upsec)")" "$(get load)" \
     "$(get disk)" "$(get failed)" "$(get docker)" "$(get ts)"
 done
+
+if [ "$MODE" = json ]; then
+  printf ']}\n'
+fi

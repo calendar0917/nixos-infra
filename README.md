@@ -62,6 +62,7 @@ store 内容，不删除 profile generation；小主机仍暂停自动 GC。旧 
 ```bash
 scripts/fleet-status              # main / nixos / az / hw
 scripts/fleet-status nixos hw     # 只看这几台
+scripts/fleet-status --json       # 同一份数据给页面用（deploy/glance/fleet-json.py）
 ```
 
 桌面回归统一从这里执行：

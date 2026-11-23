@@ -14,11 +14,14 @@
 - 运行：`systemctl --user` 单元 `~/.config/systemd/user/glance.service`
 - 监听：`127.0.0.1:8770`
 - 入口：Cloudflare 隧道 `laptop-main` 里 `home.20050917.xyz → http://127.0.0.1:8770`
+- 四台详情：本目录 `fleet-json.py`（`fleet-json.service`，`127.0.0.1:8771`）把
+  `scripts/fleet-status --json` 的结果转成 HTTP，给「机器」页的 `custom-api` widget 用
 
 ## 页面上有什么
 
 - **概览**：时钟、`main` 的本机资源、八个监控点、三组书签（对外域名 / main 本机 / 其他机器）。
-- **机器**：四台纳管机器、不纳管的两台 pve、团队项目仓库；每条的 `description` 里带地址和系统。
+- **机器**：四台的实时状态（uptime / 负载 / 磁盘 / 失败单元，来自 `fleet-status`）、
+  四台入口、不纳管的两台 pve、团队项目仓库。
 
 监控点（`monitor` widget，1 分钟缓存）：`pi`、`vault`、`api`、`teamup` 四个对外域名，
 加本机 `30141` / `8090` / `8787` / `8222` 四个服务。`pi` 那条用了 `alt-status-codes: [307]`。
@@ -30,6 +33,26 @@
 - 字段名以当时版本的文档为准，不要凭记忆写：
   `curl -sS https://raw.githubusercontent.com/glanceapp/glance/main/docs/configuration.md`，
   或对照 `~/opt/glance/glance -config … config:validate`（它只校验语法，不校验键名是否生效）。
+
+## 四台详情怎么来的（`fleet-json` + `custom-api`）
+
+Glance 自带的 `server-stats` 只读**本机**的 `/proc`，所以 nixos / az / hw 的 uptime、负载、
+磁盘它拿不到——页面上原本只有 `main`。补法是绕一圈：
+
+1. `scripts/fleet-status --json` 走 ssh 探四台，输出一个数组（新增的 `--json` 模式，
+   不带参数时仍是原来那张表格，CLI 用法不变）。
+2. `deploy/glance/fleet-json.py` 起在 `127.0.0.1:8771`，后台每 120 秒预热一次，请求只读缓存、
+   立即返回（实测 1ms）。不能每个请求同步跑 ssh：四台最坏各 8 秒，Glance 会等到超时。
+3. 「机器」页的 `custom-api` widget `GET /fleet.json`，用 Go 模板渲染成四行状态。
+   连着两次探测失败也只会显示上一次的结果，不会白屏（缓存最多容忍 15 分钟）。
+
+```bash
+# 装/更新这个单元（和 glance.service 一样是用户级）
+cp deploy/glance/fleet-json.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now fleet-json.service
+curl -sS http://127.0.0.1:8771/fleet.json | python3 -m json.tool
+```
 
 ## 为什么只监控这些
 
@@ -87,6 +110,8 @@ systemctl --user disable --now glance.service
 
 ## 已知局限
 
-- 服务随 `calendar` 的用户会话启动；机器重启后要等桌面会话起来它才在。没开 linger（要 sudo）。
-- 只探 HTTP 状态码，不探内容；`az` 的 VLESS（非 HTTP）和 `hw` 的 sshd 探不了。
+- 两个单元（`glance`、`fleet-json`）都随 `calendar` 的用户会话启动；机器重启后要等桌面会话
+  起来才在。没开 linger（要 `sudo loginctl enable-linger calendar`）。
+- 监控只探 HTTP 状态码、不探内容；`az` 的 VLESS（非 HTTP）和 `hw` 的 sshd 探不了。
+- 「机器」页的详情依赖本机能 ssh 到四台（`BatchMode`、密钥无口令）；ssh 一断就退化成旧数据。
 - 监控请求从 `main` 发出，`127.0.0.1` 与本机服务同机，出口域名走 CF 绕一圈回来。

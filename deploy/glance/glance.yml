@@ -116,6 +116,33 @@ pages:
     columns:
       - size: full
         widgets:
+          # 四台的实时状态。数据来自 scripts/fleet-status --json，
+          # 经 deploy/glance/fleet-json.py（127.0.0.1:8771，systemctl --user
+          # 单元 fleet-json.service）转发——Glance 自带的 server-stats 只认本机。
+          - type: custom-api
+            title: 四台状态（fleet-status）
+            cache: 1m
+            url: http://127.0.0.1:8771/fleet.json
+            template: |
+              <div class="flex justify-between size-h6 margin-block-5 color-paragraph">
+                <span>机器</span><span>运行 · 负载 · 磁盘 · 失败单元</span>
+              </div>
+              <ul class="list list-gap-10">
+              {{ range .JSON.Array "hosts" }}
+                <li>
+                  <div class="flex justify-between items-center">
+                    <a class="size-h4 color-highlight" href="http://{{ .String "tailscale" }}" target="_blank" rel="noreferrer">{{ .String "host" }}</a>
+                    {{ if .Bool "reachable" }}
+                      <span class="size-h6 color-paragraph" title="{{ .String "os" }}">{{ .String "up" }} · 负载 {{ .String "load" }} · {{ .String "disk" }}
+                      {{- if ne (.String "failed") "0" }} · <span class="color-negative">失败 {{ .String "failed" }}</span>{{ end }}</span>
+                    {{ else }}
+                      <span class="size-h6 color-negative">不可达</span>
+                    {{ end }}
+                  </div>
+                </li>
+              {{ end }}
+              </ul>
+
           - type: bookmarks
             title: 四台纳管机器
             groups:

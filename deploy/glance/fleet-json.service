@@ -1,0 +1,13 @@
+[Unit]
+Description=fleet-status JSON bridge for Glance (127.0.0.1:8771)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/nixos-infra/deploy/glance
+ExecStart=/usr/bin/env python3 %h/nixos-infra/deploy/glance/fleet-json.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
