@@ -27,7 +27,8 @@ cloudflared 直接打 loopback，链路最短。
   └─ https://pi.20050917.xyz   → Cloudflare 边缘 → cloudflared（main 上的 cloudflared-pi.service）
   └─ https://vault.20050917.xyz →            ├─ http://127.0.0.1:30141 (pi-web)
   └─ https://api.20050917.xyz   →            ├─ http://127.0.0.1:8222  (vaultwarden)
-                                             └─ http://127.0.0.1:8090  (axonhub)
+  └─ https://home.20050917.xyz  →            ├─ http://127.0.0.1:8090  (axonhub)
+                                             └─ http://127.0.0.1:8770  (glance 服务总览)
 ```
 
 - 只建**出站**隧道，不开放任何公网端口，不新增防火墙规则。

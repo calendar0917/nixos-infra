@@ -22,3 +22,6 @@ deploy/nixos-smoke/data/
 
 # Local runtime secrets for the inbox hub (Cypht + ntfy).
 deploy/inbox/.env
+
+# Glance 登录凭据（明文口令 + 会话密钥），不入库。
+deploy/glance/auth.yml

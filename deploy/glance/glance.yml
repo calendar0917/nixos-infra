@@ -1,0 +1,118 @@
+# Glance 服务总览
+#
+# 运行方式：systemctl --user（见 deploy/glance/install.md）
+# 二进制：~/opt/glance/glance（v0.8.8，单个 Go 静态文件）
+# 入口：https://home.20050917.xyz（cloudflared 隧道 → 127.0.0.1:8770）
+#
+# 改这个文件后：systemctl --user restart glance
+
+server:
+  address: 127.0.0.1
+  port: 8770
+
+branding:
+  app-name: Fleet
+
+# 唯一账号。口令只以 bcrypt 哈希形式存在，
+# 改口令：~/opt/glance/glance password:hash '新口令'
+auth:
+  $include: auth.yml
+
+pages:
+  - name: 概览
+    slug: home
+    columns:
+      - size: small
+        widgets:
+          - type: clock
+            hour-format: 24h
+
+          - type: server-stats
+            title: main
+
+          - type: monitor
+            title: 服务状态
+            cache: 1m
+            sites:
+              - title: pi
+                url: https://pi.20050917.xyz
+                alt-status-codes: [307]
+              - title: vault
+                url: https://vault.20050917.xyz
+              - title: api
+                url: https://api.20050917.xyz
+              - title: teamup
+                url: https://teamup.20050917.xyz
+              - title: pi-web :30141
+                url: http://127.0.0.1:30141
+                alt-status-codes: [307]
+              - title: axonhub :8090
+                url: http://127.0.0.1:8090
+              - title: artex :8787
+                url: http://127.0.0.1:8787
+              - title: vaultwarden :8222
+                url: http://127.0.0.1:8222
+
+      - size: full
+        widgets:
+          - type: bookmarks
+            groups:
+              - name: 对外入口
+                links:
+                  - name: pi
+                    url: https://pi.20050917.xyz
+                  - name: vault
+                    url: https://vault.20050917.xyz
+                  - name: api
+                    url: https://api.20050917.xyz
+                  - name: teamup
+                    url: https://teamup.20050917.xyz
+
+              - name: main（笔记本）
+                links:
+                  - name: pi-web
+                    url: http://127.0.0.1:30141
+                  - name: axonhub
+                    url: http://127.0.0.1:8090
+                  - name: artex
+                    url: http://127.0.0.1:8787
+                  - name: DS Bot
+                    url: http://127.0.0.1:35721
+
+              - name: 其他机器
+                links:
+                  - name: nixos（tailscale）
+                    url: http://100.107.6.15
+                  - name: az（tailscale）
+                    url: http://100.125.26.18
+                  - name: hw（tailscale）
+                    url: http://100.85.48.79
+                  - name: pve-old
+                    url: https://pve-old.yulinsec.cn
+
+  - name: 机器
+    slug: hosts
+    columns:
+      - size: full
+        widgets:
+          - type: bookmarks
+            groups:
+              - name: 四台纳管
+                links:
+                  - name: main
+                    url: http://127.0.0.1:35721
+                  - name: nixos
+                    url: http://100.107.6.15
+                  - name: az
+                    url: http://100.125.26.18
+                  - name: hw
+                    url: http://100.85.48.79
+
+              - name: 团队项目
+                links:
+                  - name: TeamUp 生产
+                    url: https://teamup.20050917.xyz
+                  - name: UESTC-Teamup 仓库
+                    url: https://github.com/calendar0917/UESTC-Teamup
+                  - name: nixos-infra 仓库
+                    url: https://github.com/calendar0917/nixos-infra

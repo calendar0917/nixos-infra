@@ -1,0 +1,7 @@
+# 复制成 auth.yml 后填入真实值（auth.yml 不进仓库）
+# 口令哈希: ~/opt/glance/glance password:hash '你的口令'
+# 密钥:     ~/opt/glance/glance secret:make
+secret-key: <secret:make 的输出>
+users:
+  calendar:
+    password: <password:hash 的输出>
