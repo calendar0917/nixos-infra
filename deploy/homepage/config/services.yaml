@@ -1,0 +1,109 @@
+# 服务卡片。href 是点开的地址，siteMonitor 是状态探测（HEAD，失败回落 GET）。
+# machine 的四个卡片用 customapi 读 fleet-json（127.0.0.1:8771），
+# 数据来自 scripts/fleet-status --json，见 deploy/glance/README.md。
+
+- 对外域名:
+    - pi:
+        href: https://pi.20050917.xyz
+        description: 20050917.xyz 的 pi 面板
+        icon: si-raspberrypi
+        siteMonitor: https://pi.20050917.xyz
+    - vault:
+        href: https://vault.20050917.xyz
+        description: Vaultwarden
+        icon: si-vaultwarden
+        siteMonitor: https://vault.20050917.xyz
+    - api:
+        href: https://api.20050917.xyz
+        description: axonhub
+        icon: mdi-api
+        siteMonitor: https://api.20050917.xyz
+    - teamup:
+        href: https://teamup.20050917.xyz
+        description: TeamUp 生产站
+        icon: mdi-account-group
+        siteMonitor: https://teamup.20050917.xyz
+
+- 本机服务（main）:
+    - pi-web:
+        href: http://127.0.0.1:30141
+        description: ':30141'
+        icon: mdi-web
+        siteMonitor: http://127.0.0.1:30141
+    - axonhub:
+        href: http://127.0.0.1:8090
+        description: ':8090'
+        icon: mdi-robot-outline
+        siteMonitor: http://127.0.0.1:8090
+    - artex:
+        href: http://127.0.0.1:8787
+        description: ':8787'
+        icon: mdi-shield-lock-outline
+        siteMonitor: http://127.0.0.1:8787
+    - vaultwarden:
+        href: http://127.0.0.1:8222
+        description: ':8222'
+        icon: si-vaultwarden
+        siteMonitor: http://127.0.0.1:8222
+
+- 机器（fleet-status）:
+    - main:
+        href: http://127.0.0.1:35721
+        description: 笔记本 · NixOS · 100.98.145.40
+        icon: mdi-laptop
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8771/host/main.json
+          refreshInterval: 60000
+          mappings:
+            - field: up
+              label: 运行
+            - field: load
+              label: 负载
+            - field: disk
+              label: 磁盘
+    - nixos:
+        href: http://100.107.6.15
+        description: 100.107.6.15 · NixOS
+        icon: mdi-server
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8771/host/nixos.json
+          refreshInterval: 60000
+          mappings:
+            - field: up
+              label: 运行
+            - field: load
+              label: 负载
+            - field: disk
+              label: 磁盘
+    - az:
+        href: http://100.125.26.18
+        description: 100.125.26.18 · Ubuntu · india
+        icon: mdi-server
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8771/host/az.json
+          refreshInterval: 60000
+          mappings:
+            - field: up
+              label: 运行
+            - field: load
+              label: 负载
+            - field: disk
+              label: 磁盘
+    - hw:
+        href: http://100.85.48.79
+        description: 100.85.48.79 · Debian · hcss-ecs-1e04
+        icon: mdi-server
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8771/host/hw.json
+          refreshInterval: 60000
+          mappings:
+            - field: up
+              label: 运行
+            - field: load
+              label: 负载
+            - field: disk
+              label: 磁盘

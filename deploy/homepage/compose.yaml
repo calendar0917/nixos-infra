@@ -1,0 +1,17 @@
+services:
+  homepage:
+    # 钉住版本：v2.8.0（2026-11-11）。升级时改这里，改完 down + up。
+    image: ghcr.io/gethomepage/homepage:v2.8.0
+    container_name: homepage
+    restart: unless-stopped
+    # host 网络：页面要直接读到 127.0.0.1 上的 fleet-json（8771）、pi-web（30141）、
+    # axonhub（8090）、artex（8787）、vaultwarden（8222）。
+    # 这些在本机都只绑 loopback，桥接网络里访问不到；host 网络下 127.0.0.1 就是本机。
+    # 代价：homepage 自己监听 0.0.0.0:3000，靠 nixos 防火墙挡住外部，公网只走隧道。
+    network_mode: host
+    environment:
+      # 不设这个 Homepage 拒绝 Host 不匹配的请求（防 DNS rebinding）
+      HOMEPAGE_ALLOWED_HOSTS: home.20050917.xyz,127.0.0.1:3000
+      TZ: Asia/Shanghai
+    volumes:
+      - ./config:/app/config

@@ -5,7 +5,9 @@
 nixos / az / hw 的 uptime、负载、磁盘它拿不到。这台机器上唯一能查四台状态的
 是 scripts/fleet-status，所以这里起一个只用 loopback 的小 HTTP 服务转发一下。
 
-- 监听 127.0.0.1:8771，只给本机的 Glance 和 cloudflared 用
+- 监听 127.0.0.1:8771，只给本机的 Glance / Homepage 和 cloudflared 用
+- `/fleet.json` 返回整份结果；`/host/<name>.json` 返回单台拍平的对象，
+  给 Homepage 的 customapi widget 用（它只能按 flat 字段做 mappings）
 - 后台线程每 CACHE_SECONDS 秒跑一次 fleet-status 预热缓存；请求只读缓存，立即返回
 - 缓存过期也不阻塞：只要手上有上一次的结果就先返回它（最多 STALE_SECONDS 秒）
 - fleet-status 内部是 ssh，四个 host 最坏各 8s 超时，所以不能每个请求都同步跑
@@ -65,18 +67,50 @@ def warmer() -> None:
         time.sleep(CACHE_SECONDS)
 
 
+DASH = "—"
+
+
+def flatten(host: dict) -> dict:
+    """One host as a flat object, with a dash for every field it cannot fill."""
+    if not host.get("reachable"):
+        return {"host": host.get("host", ""), "reachable": False,
+                "up": DASH, "load": DASH, "disk": DASH, "failed": DASH}
+    out = {"host": host.get("host", ""), "reachable": True}
+    for key in ("os", "up", "load", "disk", "failed", "docker"):
+        out[key] = host.get(key) or DASH
+    return out
+
+
+def one_host(name: str) -> bytes | None:
+    doc = json.loads(collect())
+    for host in doc.get("hosts", []):
+        if host.get("host") == name:
+            return json.dumps(flatten(host), ensure_ascii=False).encode()
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path.split("?")[0] not in ("/fleet.json", "/"):
-            self.send_error(404)
-            return
-        try:
-            body = collect()
-        except Exception as exc:  # noqa: BLE001
-            body = json.dumps({"error": str(exc)}).encode()
-            self.send_response(503)
+        path = self.path.split("?")[0]
+        if path.startswith("/host/") and path.endswith(".json"):
+            try:
+                body = one_host(path[len("/host/"):-len(".json")])
+            except Exception:  # noqa: BLE001
+                body = None
+            if body is None:
+                self.send_error(404)
+                return
+            self._reply(200, body)
+        elif path in ("/fleet.json", "/"):
+            try:
+                self._reply(200, collect())
+            except Exception as exc:  # noqa: BLE001
+                self._reply(503, json.dumps({"error": str(exc)}).encode())
         else:
-            self.send_response(200)
+            self.send_error(404)
+
+    def _reply(self, status: int, body: bytes) -> None:
+        self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

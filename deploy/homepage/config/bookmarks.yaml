@@ -1,0 +1,32 @@
+# 书签。格式注意：每个书签下面是「一个列表元素」，属性都写在同一个映射里，
+# 不是每个属性各占一个 "- "。写成多个 "- " 时只保留第一个键，href 会丢，
+# 首页 SSR 就会在 new URL(bookmark.href) 处抛 Invalid URL（整页 500）。
+
+- 不纳管:
+    - pve-old:
+        - abbr: PVE
+          href: https://pve-old.yulinsec.cn
+          description: 别人的 Proxmox 宿主机
+    - pve-new:
+        - abbr: PV2
+          href: https://pve-old.yulinsec.cn
+          description: 经 pve-old 跳板 · 192.168.31.45
+
+- 团队项目:
+    - TeamUp 生产:
+        - abbr: TU
+          href: https://teamup.20050917.xyz
+    - UESTC-Teamup 仓库:
+        - abbr: GH
+          href: https://github.com/calendar0917/UESTC-Teamup
+    - nixos-infra 仓库:
+        - abbr: GH
+          href: https://github.com/calendar0917/nixos-infra
+
+- 入口:
+    - Cloudflare:
+        - abbr: CF
+          href: https://dash.cloudflare.com
+    - Vaultwarden:
+        - abbr: VW
+          href: https://vault.20050917.xyz

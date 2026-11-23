@@ -1,0 +1,16 @@
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: long
+      timeStyle: short
+
+- resources:
+    label: main
+    cpu: true
+    memory: true
+    disk: /
+    uptime: true
+
+- search:
+    provider: duckduckgo
+    target: _blank

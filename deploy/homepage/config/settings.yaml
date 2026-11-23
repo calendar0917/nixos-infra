@@ -1,0 +1,8 @@
+title: Fleet
+description: main / nixos / az / hw
+theme: dark
+color: slate
+headerStyle: boxed
+statusStyle: dot
+hideVersion: true
+useEqualHeights: true

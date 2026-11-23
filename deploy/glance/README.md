@@ -1,5 +1,8 @@
 # Glance 服务总览（`home.20050917.xyz`）
 
+> **2026-11-23 起已被 Homepage 取代**（`deploy/homepage/`）：隧道 `home` 那条 ingress 已指向
+> `127.0.0.1:3000`，`glance.service` 还在跑但没人访问，留着当回滚。要看页面改 `deploy/homepage/`。
+
 四台机器上跑的东西集中在一页看，顺带做八个监控点。Glance 是 Go 静态文件，常驻约 30–50MB。
 
 选 Glance 而不是 Homepage，真实原因是省事：单个二进制、无数据库、`systemctl --user` 直起，

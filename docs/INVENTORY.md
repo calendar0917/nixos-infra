@@ -25,7 +25,7 @@
 | `pi.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:30141` | 307 → 登录页 | pi-web 密码 |
 | `vault.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:8222` | 200 | Vaultwarden 账密 |
 | `api.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:8090` | 200 | AxonHub API key |
-| `home.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:8770`（Glance） | 303 → 登录页 | Glance 账号（见 `deploy/glance/`） |
+| `home.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:3000`（Homepage，见 `deploy/homepage/`） | 200 | **无**（公开可读，待定） |
 | `az.20050917.xyz` | 隧道 `az`（`4fa56e9c-…`） | `127.0.0.1:8080` VLESS+WS | 404（按路径走，正常） | VLESS uuid |
 | `teamup.20050917.xyz` | A 记录 → `20.89.19.232` | 直连 nginx | 200 | 应用自身 |
 | `bot.20050917.xyz` | A 记录 → `183.87.144.211`，本应 frps → nixos Caddy `8799` | — | **暂不使用**（原链路断，见下） | — |
@@ -51,7 +51,7 @@
 | 想知道 | 命令 |
 | --- | --- |
 | 四台一行看全 | `scripts/fleet-status` |
-| 浏览器里看服务 | <https://home.20050917.xyz>（Glance，见 `deploy/glance/`） |
+| 浏览器里看服务 | <https://home.20050917.xyz>（Homepage，见 `deploy/homepage/`） |
 | 谁在线 | `tailscale status` |
 | 外部入口实况 | 逐个 `curl`（见 §2 状态列的口径） |
 | 隧道映射 | Cloudflare API（`CLOUDFLARE_API_TOKEN`）或面板 |
