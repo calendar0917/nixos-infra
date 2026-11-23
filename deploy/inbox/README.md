@@ -23,10 +23,11 @@ RSS/GitHub 收件，换成 SnappyMail 后省掉整个数据库：
 | --- | --- | --- |
 | 容器 | 3 | 2 |
 | 磁盘（镜像） | 305MB + 104MB + 30MB | 93MB + 30MB |
-| 内存 | 400–600MB | 预计 150–250MB |
+| 内存（实测 2026-11-23） | 400–600MB | **57MiB + 14.5MiB** |
 | RSS / GitHub 通知 | 有 | **没有**（明确放弃） |
 
-内存是估的，起服务后用 `docker stats --no-stream` 测真值再回填到本文件。
+实测来自 `docker stats --no-stream`：`inbox-snappymail-1` 57MiB、
+`inbox-ntfy-1` 14.5MiB。
 
 ## 文件
 
@@ -59,22 +60,29 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:2586/v1/health  # 期
 sudo docker stats --no-stream                                       # 看真实内存占用
 ```
 
-## 隧道 ingress（Cloudflare 面板）
+## 隧道 ingress（已配好，2026-11-23）
 
-`config_src=cloudflare`，ingress 在云端，不在本仓库。在
-Network → Tunnels → `laptop-main` → Public Hostnames 加两条：
+`config_src=cloudflare`，ingress 在云端，不在本仓库。两条规则已经用
+`CLOUDFLARE_API_TOKEN` 通过 API 写进去（tunnel
+`ecb1dbdf-d1fd-4ef8-9c03-cae65a62c690`，配置 `version 6`），DNS 也建了
+两条指向 `ecb1dbdf-…cfargotunnel.com` 的 CNAME（proxied）：
 
 | Subdomain | Domain | Service |
 | --- | --- | --- |
 | `mail` | `20050917.xyz` | `http://127.0.0.1:24080` |
 | `notify` | `20050917.xyz` | `http://127.0.0.1:2586` |
 
-DNS 会自动生成 CNAME。加完从任意网络验证：
+同一条隧道上原有 `pi`（30141）、`vault`（8222）、`api`（8090）三条，未改动。
+复核公网：
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' https://notify.20050917.xyz/v1/health
 curl -sS -o /dev/null -w '%{http_code}\n' https://mail.20050917.xyz/
 ```
+
+**注意本机代理**：这台机器上 `HTTPS_PROXY=127.0.0.1:7897` 会让
+`notify.20050917.xyz` 的 TLS 握手失败（直连正常，`mail` 不受影响）。用
+`curl --noproxy '*'` 验证，或给代理加 DIRECT 规则。
 
 ## SnappyMail 首次配置（管理员面板）
 
