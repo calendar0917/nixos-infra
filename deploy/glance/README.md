@@ -1,8 +1,13 @@
 # Glance 服务总览（`home.20050917.xyz`）
 
-四台机器上跑的东西集中在一页看，顺带做八个监控点。选它不选 Homepage 的原因：
-这台机器（`main`）上执行账户**没有 sudo、不在 docker 组**，而用户级 systemd 是活的，
-所以只能跑「单个二进制 + 无数据库」的东西。Glance 是 Go 静态文件，常驻约 30–50MB。
+四台机器上跑的东西集中在一页看，顺带做八个监控点。Glance 是 Go 静态文件，常驻约 30–50MB。
+
+选 Glance 而不是 Homepage，真实原因是省事：单个二进制、无数据库、`systemctl --user` 直起，
+不用向用户要一条 sudo 命令。**这不是「没有 sudo 所以做不到」**——Homepage 是 Next.js 应用，
+`main` 上 docker 是 active 且开机自启，照 `deploy/axonhub` 的惯例写个 compose 就能跑，
+代价是需要用户执行一次 `sudo docker compose up -d`（单容器，常驻约 150–250MB，端口 3000）。
+界面观感、服务网格、书签的成熟度上 Homepage 确实更好；要换就照这个路子重做，
+隧道里 `home` 那条 ingress 从 `127.0.0.1:8770` 改成 `127.0.0.1:3000` 即可。
 
 - 二进制：`~/opt/glance/glance`（v0.8.8，来源 `glanceapp/glance` 的 `glance-linux-amd64.tar.gz`）
 - 配置：本目录 `glance.yml`（进仓库）+ `auth.yml`（**不进仓库**，600）
@@ -12,11 +17,19 @@
 
 ## 页面上有什么
 
-- **概览**：时钟、`main` 的本机资源、八个监控点、四组书签（对外入口 / main / 其他机器）。
-- **机器**：四台纳管机器、团队项目仓库。
+- **概览**：时钟、`main` 的本机资源、八个监控点、三组书签（对外域名 / main 本机 / 其他机器）。
+- **机器**：四台纳管机器、不纳管的两台 pve、团队项目仓库；每条的 `description` 里带地址和系统。
 
 监控点（`monitor` widget，1 分钟缓存）：`pi`、`vault`、`api`、`teamup` 四个对外域名，
 加本机 `30141` / `8090` / `8787` / `8222` 四个服务。`pi` 那条用了 `alt-status-codes: [307]`。
+
+## 配置里踩过的坑
+
+- `bookmarks` 的分组和链接字段都叫 **`title`**，不是 `name`。写成 `name` 时 Glance 不报错，
+  但渲染出来是空链接——只有 `<a href>` 没有文字，分组标题也不显示。已按 v0.8.8 文档改正。
+- 字段名以当时版本的文档为准，不要凭记忆写：
+  `curl -sS https://raw.githubusercontent.com/glanceapp/glance/main/docs/configuration.md`，
+  或对照 `~/opt/glance/glance -config … config:validate`（它只校验语法，不校验键名是否生效）。
 
 ## 为什么只监控这些
 

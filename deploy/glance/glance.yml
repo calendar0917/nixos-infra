@@ -1,10 +1,11 @@
 # Glance 服务总览
 #
-# 运行方式：systemctl --user（见 deploy/glance/install.md）
+# 运行方式：systemctl --user（见 deploy/glance/README.md）
 # 二进制：~/opt/glance/glance（v0.8.8，单个 Go 静态文件）
 # 入口：https://home.20050917.xyz（cloudflared 隧道 → 127.0.0.1:8770）
 #
 # 改这个文件后：systemctl --user restart glance
+# 字段名以 v0.8.8 的文档为准：bookmarks 的分组和链接都用 title，不是 name
 
 server:
   address: 127.0.0.1
@@ -13,8 +14,7 @@ server:
 branding:
   app-name: Fleet
 
-# 唯一账号。口令只以 bcrypt 哈希形式存在，
-# 改口令：~/opt/glance/glance password:hash '新口令'
+# 唯一账号。口令只以明文形式存在（0.8.8 的 bcrypt 实测不生效，见 README）
 auth:
   $include: auth.yml
 
@@ -56,39 +56,60 @@ pages:
       - size: full
         widgets:
           - type: bookmarks
+            title: 常用入口
             groups:
-              - name: 对外入口
+              - title: 对外域名
                 links:
-                  - name: pi
+                  - title: pi
+                    description: 20050917.xyz 的 pi 面板
                     url: https://pi.20050917.xyz
-                  - name: vault
+                    icon: si:raspberrypi
+                  - title: vault
+                    description: Vaultwarden
                     url: https://vault.20050917.xyz
-                  - name: api
+                    icon: si:vaultwarden
+                  - title: api
+                    description: axonhub
                     url: https://api.20050917.xyz
-                  - name: teamup
+                    icon: mdi:api
+                  - title: teamup
+                    description: TeamUp 生产站
                     url: https://teamup.20050917.xyz
+                    icon: mdi:account-group
 
-              - name: main（笔记本）
+              - title: main（笔记本本机）
                 links:
-                  - name: pi-web
+                  - title: pi-web :30141
                     url: http://127.0.0.1:30141
-                  - name: axonhub
+                    icon: mdi:web
+                  - title: axonhub :8090
                     url: http://127.0.0.1:8090
-                  - name: artex
+                    icon: mdi:robot-outline
+                  - title: artex :8787
                     url: http://127.0.0.1:8787
-                  - name: DS Bot
+                    icon: mdi:shield-lock-outline
+                  - title: DS Bot :35721
                     url: http://127.0.0.1:35721
+                    icon: mdi:robot-happy-outline
 
-              - name: 其他机器
+              - title: 其他机器（tailscale）
                 links:
-                  - name: nixos（tailscale）
+                  - title: nixos
+                    description: 100.107.6.15
                     url: http://100.107.6.15
-                  - name: az（tailscale）
+                    icon: mdi:server
+                  - title: az
+                    description: 100.125.26.18 · india
                     url: http://100.125.26.18
-                  - name: hw（tailscale）
+                    icon: mdi:server
+                  - title: hw
+                    description: 100.85.48.79 · hcss-ecs-1e04
                     url: http://100.85.48.79
-                  - name: pve-old
+                    icon: mdi:server
+                  - title: pve-old
+                    description: 别人的宿主机，只登记
                     url: https://pve-old.yulinsec.cn
+                    icon: si:proxmox
 
   - name: 机器
     slug: hosts
@@ -96,23 +117,46 @@ pages:
       - size: full
         widgets:
           - type: bookmarks
+            title: 四台纳管机器
             groups:
-              - name: 四台纳管
+              - title: 直连入口
                 links:
-                  - name: main
+                  - title: main
+                    description: 本地 · 100.98.145.40 · NixOS 26.11
                     url: http://127.0.0.1:35721
-                  - name: nixos
+                    icon: mdi:laptop
+                  - title: nixos
+                    description: 100.107.6.15 · NixOS 26.11 · uptime 31d
                     url: http://100.107.6.15
-                  - name: az
+                    icon: mdi:server
+                  - title: az
+                    description: 100.125.26.18 · Ubuntu 22.04 · india
                     url: http://100.125.26.18
-                  - name: hw
+                    icon: mdi:server
+                  - title: hw
+                    description: 100.85.48.79 · Debian 12 · hcss-ecs-1e04
                     url: http://100.85.48.79
+                    icon: mdi:server
 
-              - name: 团队项目
+              - title: 不纳管（只登记）
                 links:
-                  - name: TeamUp 生产
+                  - title: pve-old
+                    description: 别人的 Proxmox 宿主机
+                    url: https://pve-old.yulinsec.cn
+                    icon: si:proxmox
+                  - title: pve-new
+                    description: 经 pve-old 跳板 · 192.168.31.45
+                    url: https://pve-old.yulinsec.cn
+                    icon: si:proxmox
+
+              - title: 团队项目
+                links:
+                  - title: TeamUp 生产
                     url: https://teamup.20050917.xyz
-                  - name: UESTC-Teamup 仓库
+                    icon: mdi:account-group
+                  - title: UESTC-Teamup 仓库
                     url: https://github.com/calendar0917/UESTC-Teamup
-                  - name: nixos-infra 仓库
+                    icon: si:github
+                  - title: nixos-infra 仓库
                     url: https://github.com/calendar0917/nixos-infra
+                    icon: si:github
