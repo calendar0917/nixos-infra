@@ -28,12 +28,10 @@
 | `home.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:3000`（Homepage，见 `deploy/homepage/`） | 200 | **无**（公开可读，待定） |
 | `az.20050917.xyz` | 隧道 `az`（`4fa56e9c-…`） | `127.0.0.1:8080` VLESS+WS | 404（按路径走，正常） | VLESS uuid |
 | `teamup.20050917.xyz` | A 记录 → `20.89.19.232` | 直连 nginx | 200 | 应用自身 |
-| `bot.20050917.xyz` | A 记录 → `183.87.144.211`，本应 frps → nixos Caddy `8799` | — | **暂不使用**（原链路断，见下） | — |
-| `artex.20050917.xyz` | 同上 → `8787` | — | **暂不使用**（同一个原因） | — |
 
 - 通配 `*.20050917.xyz` → `52.231.71.121`（az）：没单独建过记录的域名都会落到 az。
 - 隧道 `laptop-main` 的 ingress 在云端（`config_src=cloudflare`），**以 API/面板为准**，不在本仓库；这里只记结果。
-- `bot.` / `artex.` 的链路是 DNS → hw `frps` → nixos Caddy，**中间那一跳没了**：`frps.service` 于 2026-11-23 13:55:23 被一次 root 登录（`110.184.179.202`）手动 `stop`，hw 上 80/443 现无进程监听。nixos 侧是好的：Caddy `active`，`127.0.0.1:8787`、`127.0.0.1:8799` 本地均返回 200。要恢复只需 hw 上 `systemctl start frps`，但 hw 的 frps 同时承载 `*.yulinsec.cn` 那批站，启停不由我们定，故标为暂不使用。
+- `bot.20050917.xyz`、`artex.20050917.xyz` 两条**已按决定断掉，不再当作入口**（2026-11-23）。DNS 记录留着不动：链路是 DNS → hw `frps` → nixos Caddy（`8799` / `8787`），中间那跳 `frps.service` 已被一次 root 登录手动 `stop`，hw 上 80/443 现无监听。nixos 侧是好的：Caddy `active`，`127.0.0.1:8787`、`127.0.0.1:8799` 本地均 200。以后要用（例如 OpenMausBot 要 `bot.`）只需 hw 上 `systemctl start frps`——但 hw 的 frps 同时承载 `*.yulinsec.cn` 那批站，启停不由我们定，到时候再谈。
 
 ## 3. 不纳管（别人的机器，只登记）
 
