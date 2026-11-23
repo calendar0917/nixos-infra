@@ -11,10 +11,12 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `main` | LENOVO 21LG 笔记本（`#main`） | tailscale `100.98.145.40` | 本机 | 基本常开 | nixos-infra flake | pi-web `30141`、axonhub `8090`、vaultwarden `127.0.0.1:8222`、artex `127.0.0.1:8787/8788`、cloudflared（隧道 `laptop-main`）、DS Bot `127.0.0.1:35721` |
 | `nixos` | KOLOE 小主机（`#nixos`） | tailscale `100.107.6.15` | `ssh nixos` | **不保证 24h** | nixos-infra flake | Caddy、artex `127.0.0.1:8787/8788`、openmausbot `127.0.0.1:8799/8800`、mihomo `7897/7898`、x11vnc `127.0.0.1:5900` |
-| `az` | Azure 印度 | `52.231.71.121`（国内被墙） | `ssh az` | 常开 | **手工**，不在 flake | cloudflared（隧道 `az`）、VLESS+WS `127.0.0.1:8080` |
-| `hw` | 华为云 | `183.87.144.211` | `ssh hw` | 常开 | **手工**，不在 flake | 只有 sshd；`frps.service` 未运行 |
+| `az` | Azure 印度（hostname `india`，Ubuntu 22.04） | tailscale `100.125.26.18` | `ssh az` | 常开 | **手工**，不在 flake | cloudflared（隧道 `az`）、VLESS+WS `127.0.0.1:8080` |
+| `hw` | 华为云（hostname `hcss-ecs-1e04`，Debian 12） | tailscale `100.85.48.79` | `ssh hw` | 常开 | **手工**，不在 flake | sshd；`frps.service` 已停用（见 §2） |
 
-`main` 的 pi-web 与 axonhub 绑在 `0.0.0.0`（同网段可达），其余服务都只绑 loopback。
+- 四台 ssh 别名全部写 tailscale `100.x`，不再需要代理或跳板；`az` 原来那条 `ProxyCommand` 已删。
+- 两台云主机的公网地址仅作备案：`az` = `52.231.71.121`（国内直连被墙）、`hw` = `183.87.144.211`。
+- `main` 的 pi-web 与 axonhub 绑在 `0.0.0.0`（同网段可达），其余服务都只绑 loopback。
 
 ## 2. 对外入口
 
@@ -25,11 +27,12 @@
 | `api.20050917.xyz` | 隧道 `laptop-main` | `127.0.0.1:8090` | 200 | AxonHub API key |
 | `az.20050917.xyz` | 隧道 `az`（`4fa56e9c-…`） | `127.0.0.1:8080` VLESS+WS | 404（按路径走，正常） | VLESS uuid |
 | `teamup.20050917.xyz` | A 记录 → `20.89.19.232` | 直连 nginx | 200 | 应用自身 |
-| `bot.20050917.xyz` | A 记录 → `183.87.144.211`，本应 frps → nixos Caddy `8799` | — | **不通**：hw 上 `frps` 未运行 | — |
-| `artex.20050917.xyz` | 同上 → `8787` | — | **不通**：同一个原因 | — |
+| `bot.20050917.xyz` | A 记录 → `183.87.144.211`，本应 frps → nixos Caddy `8799` | — | **暂不使用**（原链路断，见下） | — |
+| `artex.20050917.xyz` | 同上 → `8787` | — | **暂不使用**（同一个原因） | — |
 
 - 通配 `*.20050917.xyz` → `52.231.71.121`（az）：没单独建过记录的域名都会落到 az。
 - 隧道 `laptop-main` 的 ingress 在云端（`config_src=cloudflare`），**以 API/面板为准**，不在本仓库；这里只记结果。
+- `bot.` / `artex.` 的链路是 DNS → hw `frps` → nixos Caddy，**中间那一跳没了**：`frps.service` 于 2026-11-23 13:55:23 被一次 root 登录（`110.184.179.202`）手动 `stop`，hw 上 80/443 现无进程监听。nixos 侧是好的：Caddy `active`，`127.0.0.1:8787`、`127.0.0.1:8799` 本地均返回 200。要恢复只需 hw 上 `systemctl start frps`，但 hw 的 frps 同时承载 `*.yulinsec.cn` 那批站，启停不由我们定，故标为暂不使用。
 
 ## 3. 不纳管（别人的机器，只登记）
 
