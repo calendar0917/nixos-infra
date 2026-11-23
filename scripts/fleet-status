@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# One-line-per-host summary of the four managed machines, over SSH.
+#
+# Read-only: it never switches, restarts or writes anything on the hosts.
+# Reaches each host through its ~/.ssh/config alias, so those aliases must work
+# (`ssh main`, `ssh nixos`, `ssh az`, `ssh hw`). See docs/INVENTORY.md.
+#
+# Usage:
+#   scripts/fleet-status              # all four hosts
+#   scripts/fleet-status nixos hw     # only the named ones
+#   scripts/fleet-status --help
+
+set -uo pipefail
+
+HOSTS=(main nixos az hw)
+TIMEOUT=8
+
+case "${1:-}" in
+  -h|--help)
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+    ;;
+esac
+
+if [ "$#" -gt 0 ]; then
+  HOSTS=("$@")
+fi
+
+# Runs on the remote side: one key=value line per field, every probe degrading
+# to "-" instead of failing the run. Values stay short so the table lines up.
+read -r -d '' PROBE <<'REMOTE'
+. /etc/os-release 2>/dev/null || true
+printf 'name=%s\n' "$(hostname)"
+printf 'os=%s\n' "$(printf '%s' "${PRETTY_NAME:-unknown}" | cut -c1-20)"
+printf 'upsec=%s\n' "$(cut -d' ' -f1 /proc/uptime 2>/dev/null | cut -d. -f1 || echo -)"
+printf 'load=%s\n' "$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || echo -)"
+# On NixOS / is a tmpfs, so report the filesystem that holds /nix instead.
+if [ -d /nix ]; then disk_mnt=/nix; else disk_mnt=/; fi
+printf 'disk=%s\n' "$(df -hP "$disk_mnt" 2>/dev/null | awk 'NR==2{print $5" of "$2}')"
+if systemctl --failed --no-legend --no-pager >/dev/null 2>&1; then
+  printf 'failed=%s\n' "$(systemctl --failed --no-legend --no-pager 2>/dev/null | wc -l | tr -d ' ')"
+else
+  printf 'failed=?\n'
+fi
+if docker info >/dev/null 2>&1; then
+  printf 'docker=%s\n' "$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')"
+else
+  printf 'docker=n/a\n'
+fi
+printf 'ts=%s\n' "$(tailscale ip -4 2>/dev/null | head -1 || echo -)"
+REMOTE
+
+human_up() { # seconds -> "12d 3h" / "5h 21m" / "42m"
+  case "$1" in
+    ''|*[!0-9]*) printf '%s' - ; return ;;
+  esac
+  d=$(( $1 / 86400 )); h=$(( ($1 % 86400) / 3600 )); m=$(( ($1 % 3600) / 60 ))
+  if [ "$d" -gt 0 ]; then printf '%dd %dh' "$d" "$h"
+  elif [ "$h" -gt 0 ]; then printf '%dh %dm' "$h" "$m"
+  else printf '%dm' "$m"; fi
+}
+
+printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' \
+  HOST NAME OS UP LOAD 'DISK USED' FAILED DOCKER TAILSCALE
+
+for h in "${HOSTS[@]}"; do
+  if [ "$h" = main ] || [ "$h" = "$(hostname)" ]; then
+    out=$(printf '%s\n' "$PROBE" | bash -s 2>/dev/null)
+  else
+    # The probe goes over stdin; interpolating it into the ssh command would
+    # break on the single quotes it contains.
+    out=$(printf '%s\n' "$PROBE" | ssh -o BatchMode=yes -o ConnectTimeout="$TIMEOUT" "$h" bash -s 2>/dev/null)
+  fi
+  if [ -z "$out" ]; then
+    printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' "$h" UNREACHABLE - - - - - - -
+    continue
+  fi
+  get() { printf '%s\n' "$out" | sed -n "s/^$1=//p"; }
+  printf '%-6s %-20s %-21s %-9s %-5s %-15s %-6s %-6s %s\n' \
+    "$h" "$(get name)" "$(get os)" "$(human_up "$(get upsec)")" "$(get load)" \
+    "$(get disk)" "$(get failed)" "$(get docker)" "$(get ts)"
+done

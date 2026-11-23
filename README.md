@@ -57,6 +57,13 @@ store 内容，不删除 profile generation；小主机仍暂停自动 GC。旧 
 
 ## 维护入口
 
+四台机器一行一台看现状（只读，经 `~/.ssh/config` 的别名访问）：
+
+```bash
+scripts/fleet-status              # main / nixos / az / hw
+scripts/fleet-status nixos hw     # 只看这几台
+```
+
 桌面回归统一从这里执行：
 
 ```bash
@@ -149,6 +156,10 @@ feature 裁剪。除非需要 release 里还没有的模块，否则不要重新
 
 ## 文档导航
 
+- **现状台账**（哪四台、地址、怎么进、跑什么、域名通不通）：[`docs/INVENTORY.md`](docs/INVENTORY.md)
+  —— 只在这里写现状，其它文档只写做法，别抄第二遍。
+- 公网入口的设计与回滚（Cloudflare Tunnel、Vaultwarden、AxonHub）：
+  [`docs/UNIFIED_ACCESS.md`](docs/UNIFIED_ACCESS.md)
 - 桌面组件协作、Sway/Niri 会话生命周期、显示器布局、锁屏/挂起和故障入口：
   [`docs/DESKTOP.md`](docs/DESKTOP.md)
 - 应用兼容、默认打开方式和 OBS：

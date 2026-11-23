@@ -2,7 +2,9 @@
 
 状态：**P1 已上线**。`https://pi.20050917.xyz` 经 Cloudflare Tunnel 指向笔记本
 （`#main`）的 pi-web，手机不开 Tailscale 即可访问。**P2 已上线**：同一条隧道再挂一个
-`https://vault.20050917.xyz`，跑 Vaultwarden 密码库。其余主机维持现状。
+`https://vault.20050917.xyz`，跑 Vaultwarden 密码库。**P3 已上线**：
+`https://api.20050917.xyz` 指向同一台笔记本的 AxonHub（LLM 网关，`/v1/*` 仍需
+AxonHub API key）。其余主机维持现状。
 
 ## 1. 要解决的问题
 
@@ -13,12 +15,7 @@
 
 ## 2. 主机
 
-| 别名 | 位置 | 地址 | 常开 | 备注 |
-| --- | --- | --- | --- | --- |
-| `main` | 笔记本（`#main`） | tailscale `100.98.145.40` | 基本常开 | pi-web、artex、DS Bot、cloudflared |
-| `nixos` | KOLOE 小主机（`#nixos`） | tailscale `100.107.6.15` | **不保证 24h** | Caddy + Docker + frpc-artex |
-| `az` | Azure | `52.231.71.121` | 常开 | `20050917.xyz` apex，8088 静态页 |
-| `hw` | 华为云 | `183.87.144.211` | 常开 | frps，承担 `recruit.yulinsec.cn`，**不动** |
+哪四台、地址、怎么进、跑什么、归谁管：见 [`INVENTORY.md`](INVENTORY.md) §1，这里不重复。
 
 ## 3. 已实施的架构
 
@@ -28,22 +25,16 @@ cloudflared 直接打 loopback，链路最短。
 ```
 手机（普通网络，无需 VPN）
   └─ https://pi.20050917.xyz   → Cloudflare 边缘 → cloudflared（main 上的 cloudflared-pi.service）
-  └─ https://vault.20050917.xyz →            └─ http://127.0.0.1:30141 (pi-web)
-                                               └─ http://127.0.0.1:8222  (vaultwarden)
+  └─ https://vault.20050917.xyz →            ├─ http://127.0.0.1:30141 (pi-web)
+  └─ https://api.20050917.xyz   →            ├─ http://127.0.0.1:8222  (vaultwarden)
+                                             └─ http://127.0.0.1:8090  (axonhub)
 ```
 
 - 只建**出站**隧道，不开放任何公网端口，不新增防火墙规则。
 - 隧道 id `ecb1dbdf-d1fd-4ef8-9c03-cae65a62c690`（名称 `laptop-main`），
   `config_src=cloudflare`：**ingress 规则存在云端**，改映射去 dashboard 或 API，
-  不在本仓库。当前云端 ingress：
-
-  | hostname | service |
-  | --- | --- |
-  | `pi.20050917.xyz` | `http://127.0.0.1:30141`（connectTimeout 10000） |
-  | `vault.20050917.xyz` | `http://127.0.0.1:8222`（connectTimeout 10000） |
-  | 其余 | `http_status:404` |
-
-- DNS：`pi`、`vault` 两条 CNAME → `ecb1dbdf-....cfargotunnel.com`，橙云代理。其余 6 条记录未变。
+  不在本仓库。当前 ingress 有哪几条、每个域名指向哪个后端、现场通不通：
+  见 [`INVENTORY.md`](INVENTORY.md) §2（唯一台账，这里只写做法）。
 
 ## 4. 实现细节（仓库内）
 
