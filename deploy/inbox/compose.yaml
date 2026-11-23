@@ -1,62 +1,37 @@
-# Inbox hub for main: mail/RSS aggregation (Cypht) + push notifications (ntfy).
+# Inbox hub for main: mail aggregation (SnappyMail) + push notifications (ntfy).
 #
 # Only loopback ports are published; Cloudflare Tunnel (cloudflared-pi) reaches
 # them from 127.0.0.1, so no inbound firewall port is opened. See README.md.
 name: inbox
 
 services:
-  cypht-db:
-    image: ${MARIADB_IMAGE:?Set MARIADB_IMAGE in .env}
+  snappymail:
+    image: ${SNAPPYMAIL_IMAGE:?Set SNAPPYMAIL_IMAGE in .env}
     restart: unless-stopped
-    environment:
-      MARIADB_ROOT_PASSWORD: ${CYPHT_DB_ROOT_PASSWORD:?Set CYPHT_DB_ROOT_PASSWORD in .env}
-      MARIADB_DATABASE: cypht
-      MARIADB_USER: cypht
-      MARIADB_PASSWORD: ${CYPHT_DB_PASSWORD:?Set CYPHT_DB_PASSWORD in .env}
-    volumes:
-      - cypht_db:/var/lib/mysql
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  cypht:
-    image: ${CYPHT_IMAGE:?Set CYPHT_IMAGE in .env}
-    restart: unless-stopped
-    depends_on:
-      cypht-db:
-        condition: service_healthy
     ports:
-      - "127.0.0.1:${CYPHT_PORT:-24080}:80"
+      - "127.0.0.1:${SNAPPYMAIL_PORT:-24080}:8888"
     environment:
-      AUTH_USERNAME: ${CYPHT_AUTH_USERNAME:-admin}
-      AUTH_PASSWORD: ${CYPHT_AUTH_PASSWORD:?Set CYPHT_AUTH_PASSWORD in .env}
-      DB_CONNECTION_TYPE: host
-      DB_DRIVER: mysql
-      DB_HOST: cypht-db
-      DB_NAME: cypht
-      DB_USER: cypht
-      DB_PASS: ${CYPHT_DB_PASSWORD:?Set CYPHT_DB_PASSWORD in .env}
-      SESSION_TYPE: DB
-      USER_CONFIG_TYPE: DB
+      # Per-request PHP memory cap. The image already ships nginx + php-fpm, so
+      # there is nothing else to run: no database container.
+      MEMORY_LIMIT: ${SNAPPYMAIL_MEMORY_LIMIT:-128M}
+      UPLOAD_MAX_SIZE: ${SNAPPYMAIL_UPLOAD_MAX_SIZE:-25M}
+      # The public entry is HTTPS (Cloudflare Tunnel), so session cookies are
+      # Secure. A plain http://127.0.0.1 check still returns the login page.
+      SECURE_COOKIES: "true"
     volumes:
-      # Per-user settings and the IMAP account list live here; losing it means
-      # re-adding every mailbox.
-      - cypht_users:/var/lib/hm3/users
+      # Holds the admin password, every account's settings and the list of
+      # additional accounts. Losing it means re-adding every mailbox.
+      - snappymail_data:/var/lib/snappymail
     networks:
       - backend
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:8888/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     logging:
       driver: json-file
       options:
@@ -98,8 +73,7 @@ services:
         max-file: "3"
 
 volumes:
-  cypht_db:
-  cypht_users:
+  snappymail_data:
   ntfy_cache:
   ntfy_lib:
 
