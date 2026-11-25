@@ -17,7 +17,7 @@ services:
       retries: 10
 
   artex:
-    image: ruoji6/artex:v0.3.27
+    image: ruoji6/artex:v0.3.31
     restart: unless-stopped
     depends_on:
       postgres:
