@@ -63,6 +63,13 @@
     binfmt = true;
   };
 
+  # System browser for long-lived browser automation, so callers do not pull a
+  # throwaway browser through `nix shell` on every run. google-chrome is
+  # unfree, which modules/base.nix already allows. The package ships its own
+  # desktop entry; the CLI binary is /run/current-system/sw/bin/google-chrome.
+  # Main only: the mini host has no interactive browser use case.
+  environment.systemPackages = [ pkgs.google-chrome ];
+
   # Standard power profiles only: power-profiles-daemon manages the CPU
   # platform profile. TLP and auto-cpufreq are not enabled and would conflict
   # with this service. The daemon starts at balanced and persists later manual
