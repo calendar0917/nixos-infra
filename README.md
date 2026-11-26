@@ -165,6 +165,8 @@ feature 裁剪。除非需要 release 里还没有的模块，否则不要重新
   [`deploy/glance/README.md`](deploy/glance/README.md)
 - 桌面组件协作、Sway/Niri 会话生命周期、显示器布局、锁屏/挂起和故障入口：
   [`docs/DESKTOP.md`](docs/DESKTOP.md)
+- 输入法（fcitx5、Rime、vinput 语音输入）哪些能重建、哪些要手工补：
+  [`docs/INPUT_METHOD.md`](docs/INPUT_METHOD.md)
 - 应用兼容、默认打开方式和 OBS：
   [`docs/APPS.md`](docs/APPS.md)
 - TTY/桌面恢复、重装顺序、网络、SOPS、Restic、SSH：

@@ -38,6 +38,14 @@
     pwndbg = {
       url = "github:pwndbg/pwndbg/9760ac8f1346d142857cffc933995cd6fca34dff";
     };
+
+    # fcitx5 voice-input addon (local SenseVoice via sherpa-onnx, or cloud
+    # ASR). Follows our nixpkgs so the addon links the same fcitx5 ABI as the
+    # system fcitx5, like every other add-on in i18n.inputMethod.fcitx5.addons.
+    fcitx5-vinput = {
+      url = "github:fcitx5-vinput/fcitx5-vinput";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -49,6 +57,7 @@
       burpPro,
       flakida,
       pwndbg,
+      fcitx5-vinput,
       ...
     }:
     let
@@ -58,6 +67,9 @@
         host: extraModules:
         lib.nixosSystem {
           system = "x86_64-linux";
+          # main's extra module uses the flake-level voice-input package; the
+          # mini host simply ignores the argument.
+          specialArgs = { inherit fcitx5-vinput; };
           modules = [
             host
             sops-nix.nixosModules.sops
@@ -74,8 +86,46 @@
         # modules.
         main = mkHost ./hosts/main [
           (
-            { ... }:
             {
+              pkgs,
+              fcitx5-vinput,
+              ...
+            }:
+            let
+              vinput = fcitx5-vinput.packages.${pkgs.system}.default;
+            in
+            {
+              # Voice input belongs to the fcitx5 process itself (global add-on
+              # hotkeys), not to an input method, so there is no profile entry
+              # and Rime keeps being DefaultIM.
+              i18n.inputMethod.fcitx5.addons = [ vinput ];
+
+              # vinput CLI + GUI for model management; the add-on alone puts
+              # nothing on PATH. This also puts the package's D-Bus activation
+              # file and user unit under /run/current-system/sw/share, which the
+              # session bus and the user systemd instance already scan.
+              environment.systemPackages = [ vinput ];
+
+              # The add-on only speaks D-Bus; recording + ASR runs in this
+              # separate user daemon. Declared here instead of relying on the
+              # store-path unit so `systemctl --user enable` never records a
+              # stale /nix/store path that a flake update would invalidate.
+              systemd.user.services.vinput-daemon = {
+                description = "Vinput voice input daemon";
+                after = [ "pipewire.service" "wireplumber.service" ];
+                serviceConfig = {
+                  Type = "dbus";
+                  BusName = "org.fcitx.Vinput";
+                  ExecStart = "${vinput}/bin/vinput-daemon";
+                };
+                wantedBy = [ "default.target" ];
+              };
+
+              # Extra hardware triggers (gamepads, remotes, mouse buttons) come
+              # from the package's udev rules. Keyboard triggers work already
+              # through logind's uaccess on the active seat.
+              services.udev.packages = [ vinput ];
+
               home-manager.extraSpecialArgs = {
                 inherit burpPro flakida pwndbg;
               };

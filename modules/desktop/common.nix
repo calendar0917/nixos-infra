@@ -5,6 +5,56 @@
   ...
 }:
 
+let
+  # Fcitx5 candidate-window themes. Catppuccin carries the same Mocha palette
+  # the Waybar/niri/kitty configs already use, so the candidate window matches
+  # the desktop instead of standing out. The theme packages only install files
+  # under share/fcitx5/themes, which Fcitx5 already scans through XDG_DATA_DIRS;
+  # that is also what makes every variant selectable in fcitx5-configtool →
+  # 外观.
+  #
+  # The rounded variant uses the theme's SVG panel instead of a flat rectangle.
+  # "Glass" is the same panel with a slightly translucent fill and an explicit
+  # CJK font: the stock theme asks for plain "Sans", which resolves to whatever
+  # fontconfig picks first rather than the Noto Sans CJK SC installed here.
+  fcitx5ThemeCatppuccin = pkgs.catppuccin-fcitx5.override {
+    withRoundedCorners = true;
+  };
+
+  fcitx5ThemeCatppuccinGlass = pkgs.runCommand "fcitx5-theme-catppuccin-mocha-glass" { } ''
+    themeDir=$out/share/fcitx5/themes/catppuccin-mocha-glass
+    mkdir -p "$themeDir"
+    cp -r ${fcitx5ThemeCatppuccin}/share/fcitx5/themes/catppuccin-mocha-blue/. "$themeDir/"
+    chmod -R u+w "$themeDir"
+    conf="$themeDir/theme.conf"
+
+    # The stock theme is sized for a 1x display: font 12/13 plus 18px text
+    # insets and 10px background insets. This host is 1536x864 logical at
+    # scale 1.25, so the same numbers come out noticeably larger than the
+    # rest of the UI. Shrink one step: font 11, text insets 10/4, background
+    # insets 8. The rounded 9-slice slice size is 8px, so keep rx=8 in the SVG.
+    sed -i \
+      -e 's/^Name=.*/Name=Catppuccin Mocha Glass/' \
+      -e 's/^Font=Sans 13$/Font=Noto Sans CJK SC 11/' \
+      -e 's/^Font=Sans 10$/Font=Noto Sans CJK SC 10/' \
+      -e 's/^Spacing=3$/Spacing=2/' \
+      "$conf"
+
+    # Scoped by section so the identically named keys in the Menu sections
+    # keep their own values.
+    sed -i -E \
+      -e '/^\[InputPanel\/TextMargin\]$/,/^\[/ s/^(Left|Right)=.*/\1=10/' \
+      -e '/^\[InputPanel\/TextMargin\]$/,/^\[/ s/^(Top|Bottom)=.*/\1=4/' \
+      -e '/^\[InputPanel\/Background\/Margin\]$/,/^\[/ s/^(Left|Right|Top|Bottom)=.*/\1=8/' \
+      -e '/^\[InputPanel\/Highlight\/Margin\]$/,/^\[/ s/^(Left|Right)=.*/\1=10/' \
+      -e '/^\[InputPanel\/Highlight\/Margin\]$/,/^\[/ s/^(Top|Bottom)=.*/\1=4/' \
+      "$conf"
+
+    # Mocha surface0 with ~88% alpha, blue accent with ~85% alpha.
+    sed -i 's|fill="#313244"|fill="#313244e0"|' "$themeDir/panel.svg"
+    sed -i 's|fill="#89b4fa"|fill="#89b4fad9"|' "$themeDir/highlight.svg"
+  '';
+in
 {
   # ---------- Login manager ----------
   # SDDM presents every enabled Wayland session. The list comes from the
@@ -134,5 +184,19 @@
   environment.systemPackages = [
     pkgs.kitty
     pkgs.nautilus
+
+    # Candidate-window themes for the Fcitx5 classic UI. Catppuccin ships all
+    # four flavours in every accent colour; the extra packages are sober dark
+    # themes kept so the user can switch in fcitx5-configtool without a rebuild.
+    fcitx5ThemeCatppuccin
+    fcitx5ThemeCatppuccinGlass
+    pkgs.fcitx5-tokyonight
+    pkgs.fcitx5-fluent
+    pkgs.fcitx5-nord
   ];
+
+  # The default system path env only links the well-known subtrees, so without
+  # this the theme directories above never reach /run/current-system/sw/share
+  # and Fcitx5 (which scans XDG_DATA_DIRS) cannot see them.
+  environment.pathsToLink = [ "/share/fcitx5" ];
 }
