@@ -34,6 +34,13 @@
   # by Docker and is not duplicated here.
   networking.firewall.allowedTCPPorts = [ 30141 7897 ];
 
+  # Docker 容器访问宿主服务走 bridge 接口进来、命中 input 链，而默认策略是
+  # drop、bridge 不在 trustedInterfaces 里。按网段给 magpie 网关放行 3425，
+  # 不对 LAN/公网开放；不要改成 allowedTCPPorts 或信任 br-* 接口（名字会变）。
+  networking.firewall.extraInputRules = ''
+    ip saddr 172.16.0.0/12 tcp dport 3425 accept comment "magpie gateway for docker"
+  '';
+
   # Use the same desktop/Home Manager baseline as the mini host, but keep the
   # NixOS home on its own @nixos-home subvolume. Arch's ~/.config and ~/.local
   # are never copied or used as Home Manager targets.

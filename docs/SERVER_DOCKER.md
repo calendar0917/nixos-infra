@@ -18,7 +18,8 @@
 - `calendar` 不加入 `docker` 组；日常命令使用 `sudo docker ...`。
 - 小主机的 Docker 配置独立于 main。main 的 `hosts/main/docker.nix` 行为不变。
 - 不关闭 NixOS nftables/firewall，不切换 Docker firewall backend，不修改全局
-  forwarding 或把所有 bridge 加入 `trustedInterfaces`。
+  forwarding 或把所有 bridge 加入 `trustedInterfaces`。容器访问宿主服务是
+  单端口、按网段的例外，见 [`DOCKER_HOST_ACCESS.md`](DOCKER_HOST_ACCESS.md)。
 - 不启用 Swarm、experimental、容器 IPv6、镜像加速站或自动 prune。
 - 不建立 Compose 编排框架、Portainer、Watchtower 或自动拉取/重建 unit。
 
