@@ -70,6 +70,9 @@ KEY_RECOVER_COOLDOWN = int(
     os.environ.get("AXONHUB_KEY_RECOVER_COOLDOWN", "1800")
 )  # key 被自动禁用满这么久才重开一次，避免 429 循环
 SCOPE_DROP_ALERT = 2     # scope 比上一轮少这么多渠道就告警
+# 两张卡约定的最小渠道数。低于它就每轮告警：只比上一轮的话，缩水后第二轮
+# 就会因为「和上一轮一样少」而静默，2026-11-28 16:38 就出现过这种情况。
+SCOPE_MIN_EXPECTED = int(os.environ.get("AXONHUB_SCOPE_MIN_EXPECTED", "8"))
 DEADLINE = 60            # 单轮最坏耗时（秒）
 HTTP_TIMEOUT = 10
 
@@ -540,6 +543,11 @@ def check_scope_health(state, scope, blocked, active):
     15:42 就是这样丢了 45/48/49，靠人肉才发现。
     """
     alerts = []
+    if len(scope) < SCOPE_MIN_EXPECTED:
+        alerts.append(
+            "scope 只有 %d 个渠道（预期至少 %d）：%s"
+            % (len(scope), SCOPE_MIN_EXPECTED, ",".join(sorted(scope)))
+        )
     for cid, where in sorted(blocked.items(), key=lambda kv: int(kv[0])):
         tags = ",".join("%s:p%s" % (m, p) for m, p in where)
         alerts.append("关联被禁用 %s(%s)" % (cid, tags))

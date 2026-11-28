@@ -227,6 +227,8 @@ pin 空转、不探活、不参与路由，日志里只剩一行 `override-ignor
 把被禁用的关联、scope 相对上一轮的缩水（`SCOPE_DROP_ALERT`，默认少 2 个就报）、
 空转的 pin 写进 `tune.log` 的 `ALERT=` 行，同时记进 state.json 的 `alerts`，
 `tune-review.py` 会把它们带进复盘 prompt 并告知模型「这是运维事故，别据此降权」。
+另外只要 scope 低于 `AXONHUB_SCOPE_MIN_EXPECTED`（默认 8）就**每轮**告警，不会在
+缩水后的第二轮因为「和上一轮一样少」而静默。
 
 **手动改完关联后怎么立即生效**：不用等 tune.py，跑一次
 `systemctl --user start axonhub-tune.service` 即可（定时器每 5 分钟也会自己发现）。
