@@ -105,6 +105,18 @@ def build_prompt(intent, profile):
 注意：非 DS/free 渠道不能当 deepseek 卡首选；临时渠道标记复评；探活失败/持续5xx保持禁用；
 样本不足或配额受限的渠道不要升主位；不确定就不改并说明缺什么证据。
 
+时间与健康度的硬规则（必须遵守，不许自行推断）：
+1. 当前时间只看 profile.now_utc / profile.now_local；额度重置只看渠道 quota.reset_state
+   （past/future/unknown）和 quota.nextResetAt。禁止自己换算时区或猜测窗口是否过期。
+   reset_state=past 表示窗口已过，可以重新探活；future 表示还要等待；unknown 表示缺证据。
+2. 质量判断必须先看 error_pressure.upstream_health 和 error_pressure_severe，再看 successRate。
+   upstream_health=unavailable 时必须输出 keep_disabled，并在 summary/evidence 明确写「上游不可用」，
+   即使 successRate 很高（失败重试会把上游 5xx 算成请求成功）。
+3. quota_limited 且 reset_state=past 时，不要再说「额度未过」；应建议重新探活/补样本。
+   如果同时 low_sample=true 或成功率低，则保持不进主位，理由写成「窗口已过但样本不足，先补样本」。
+4. 每条 evidence 必须引用对应字段，例如 quota.reset_state、error_pressure.upstream_health、
+   stats24.low_sample；没有这些字段就不要下时间/健康结论。
+
 __DATA__
 """.replace("__DATA__", json.dumps(payload, ensure_ascii=False, indent=1))
 
@@ -174,10 +186,12 @@ def rules_decision(profile):
     if c47 and (c47["status"]["value"] == "disabled" or c47["error_pressure"]["requests_with_5xx"] > 0):
         add(
             "keep_disabled", "47", "持续 5xx/504 的渠道交探活等待恢复，不要删",
-            "24h 5xx请求=%s; status=%s; last_error=%s"
-            % (c47["error_pressure"]["requests_with_5xx"],
+            "upstream_health=%s; severe=%s; 24h 5xx请求=%s; status=%s; last_error=%s"
+            % (c47["error_pressure"].get("upstream_health"),
+               c47["error_pressure"].get("error_pressure_severe"),
+               c47["error_pressure"]["requests_with_5xx"],
                c47["status"]["value"], c47.get("last_error")),
-            confidence="high",
+            confidence="high", note="上游不可用；successRate 受重试影响，不作为健康依据",
         )
 
     for cid in ("45", "48", "49"):
@@ -194,12 +208,14 @@ def rules_decision(profile):
     c26 = channels.get("26")
     if c26:
         s = c26["stats24"]
+        reset_kind = (c26.get("quota") or {}).get("reset_state", "unknown")
         add(
-            "keep_out_of_p1", "26", "成功率低/额度用完的渠道先不升主位",
-            "rate_24h=%s%%, n=%s, low_sample=%s, 429请求=%s, last_error=%s"
-            % (s["successRate"], s["total"], s["low_sample"],
+            "keep_out_of_p1", "26", "额度窗口已过可重新探活，但样本不足先不升主位",
+            "quota.reset_state=%s; rate_24h=%s%%, n=%s, low_sample=%s, 429请求=%s, last_error=%s"
+            % (reset_kind, s["successRate"], s["total"], s["low_sample"],
                c26["error_pressure"]["requests_with_429"], c26.get("last_error")),
             risk="low", confidence="medium" if s["low_sample"] else "high",
+            note="窗口已过，可以重新探活；24h 样本不足，先补样本再评估是否进主位",
         )
 
     for cid in ("25", "38", "46"):
@@ -218,7 +234,7 @@ def rules_decision(profile):
     no_change = ["gpt-5.6-luna", "gpt-5.6-sol", "deepseek-safe", "orderingWeight 全部保持"]
     return {
         "round": "rules-dryrun-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"),
-        "summary": "jb 把非 DS 的 free 从 p0 挪到 p3；47 上游 5xx 保持禁用待探活；26 周限额不进 p1；临时渠道标记复评。其余不动。",
+        "summary": "jb 把非 DS 的 free 从 p0 挪到后备；47 上游不可用保持禁用；26 额度窗口已过可重新探活但样本不足，暂不进主位；临时渠道标记复评。其余不动。",
         "changes": changes,
         "no_change": no_change,
     }
@@ -233,6 +249,47 @@ def validate_decision(doc):
             raise ValueError("非法 action")
         if not item.get("intent") or not item.get("evidence"):
             raise ValueError("每条建议必须带 intent + evidence")
+    return doc
+
+
+def fact_check_decision(doc, profile):
+    """对模型输出做事实兜底：时间窗和上游健康度不允许模型猜反。"""
+    channels = {str(c["identity"]["id"]): c for c in profile.get("channels", [])}
+    for item in doc.get("changes", []):
+        cid = str(item.get("channel"))
+        ch = channels.get(cid)
+        if not ch:
+            continue
+        pressure = ch.get("error_pressure") or {}
+        evidence = str(item.get("evidence") or "")
+        for state in ("past", "future", "unknown"):
+            evidence = evidence.replace(
+                "quota.reset_state=%s; quota.reset_state=%s" % (state, state),
+                "quota.reset_state=%s" % state,
+            )
+        item["evidence"] = evidence
+        if cid == "47" and pressure.get("upstream_health") == "unavailable":
+            item["action"] = "keep_disabled"
+            evidence = str(item.get("evidence") or "")
+            if "upstream_health=unavailable" not in evidence:
+                evidence = "upstream_health=unavailable; error_pressure_severe=true; " + evidence
+            item["evidence"] = evidence
+            item["note"] = "上游不可用；successRate 受失败重试影响，不能当作健康依据"
+        if cid == "26":
+            state = (ch.get("quota") or {}).get("reset_state", "unknown")
+            evidence = re.sub(
+                r"quota\.reset_state=(?:past|future|unknown)\s*[;；]?\s*",
+                "", evidence,
+            ).lstrip(" ；;，,")
+            item["evidence"] = "quota.reset_state=%s; %s" % (state, evidence)
+            if state == "past":
+                item["note"] = "额度窗口已过，可以重新探活；24h 样本不足，先补样本再评估是否进主位"
+    summary = str(doc.get("summary") or "")
+    if "26" in channels and (channels["26"].get("quota") or {}).get("reset_state") == "past":
+        summary = summary.replace("周额度未过", "周额度窗口已过").replace(
+            "额度未过", "额度窗口已过"
+        )
+    doc["summary"] = summary
     return doc
 
 
@@ -302,6 +359,7 @@ def main(argv=None):
         source = "rules-fallback" if args.mode == "auto" else "rules-offline"
 
     decision = validate_decision(decision)
+    decision = fact_check_decision(decision, profile)
     decision["source"] = source
     decision["generatedAt"] = now_iso()
     decision["decisionIntervalMinutes"] = DECIDE_INTERVAL_MINUTES

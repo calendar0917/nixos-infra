@@ -97,6 +97,63 @@ def median_or_none(values):
     return round(statistics.median(vals)) if vals else None
 
 
+def reset_time_from_error(error):
+    """从 last_error 里提取明确的 RFC3339 重置时间；没有就返回 None。"""
+    m = re.search(r"(20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))", str(error or ""))
+    return m.group(1) if m else None
+
+
+def reset_state(reset_at, now_utc):
+    """重置状态只由脚本按 UTC 计算，模型不允许自己猜时区。"""
+    reset = parse_ts(reset_at)
+    now = parse_ts(now_utc)
+    if not reset or not now:
+        return "unknown"
+    return "past" if reset <= now else "future"
+
+
+def local_time_iso(value):
+    """把带时区的 RFC3339 时间转成本机时区；原值不变，避免把 Z 当本地时间。"""
+    parsed = parse_ts(value)
+    return parsed.astimezone().isoformat(timespec="seconds") if parsed else None
+
+
+def upstream_health(status, last_error, total_24h, requests_with_5xx,
+                   reset_state_value=None):
+    """上游健康度优先于 successRate；重试会把上游失败算成请求成功，必须单列。"""
+    err = str(last_error or "")
+    n = int(total_24h or 0)
+    x5 = int(requests_with_5xx or 0)
+    ratio = (x5 / n) if n else 0.0
+    five_xx_error = bool(re.search(r"\b(500|502|503|504)\b|gateway timeout", err, re.I))
+    if str(status) == "disabled" and five_xx_error:
+        health, severe, reason = "unavailable", True, "disabled + last_error 为 5xx/504"
+    elif re.search(r"weekly usage limit|quota|usage limit", err, re.I):
+        if reset_state_value == "past":
+            health, severe, reason = (
+                "quota_reset_past", False,
+                "last_error 为额度/周限额，但 quota.reset_state=past",
+            )
+        else:
+            health, severe, reason = "quota_limited", False, "last_error 为额度/周限额"
+    elif re.search(r"no access|forbidden|unauthorized", err, re.I):
+        health, severe, reason = "access_blocked", False, "last_error 为权限/403"
+    elif x5 >= 5 and ratio >= 0.01:
+        health, severe, reason = "degraded", True, "24h 5xx 占比 ≥1%%（%d/%d）" % (x5, n)
+    elif x5 >= 10:
+        health, severe, reason = "degraded", False, "24h 有 %d 次 5xx" % x5
+    elif x5 > 0:
+        health, severe, reason = "healthy_with_noise", False, "24h 有 %d 次 5xx" % x5
+    else:
+        health, severe, reason = "healthy", False, "24h 无 5xx"
+    return {
+        "upstream_health": health,
+        "error_pressure_severe": severe,
+        "reason": reason,
+        "five_xx_ratio_pct": round(ratio * 100, 2),
+    }
+
+
 def shared_key_groups(channels):
     """输入已带 key_fp 的画像列表，返回 fp -> [channel_id]。"""
     groups = {}
@@ -231,14 +288,59 @@ def short_id(gid):
     return str(gid).rsplit("/", 1)[-1]
 
 
+def sanitize_catalog_model(model):
+    """只保留分类/配额需要的公开元数据；绝不保留请求头或凭据。"""
+    return {
+        "id": model.get("id"),
+        "name": model.get("name"),
+        "canonical_id": model.get("canonical_id"),
+        "family": model.get("family"),
+        "description": model.get("description"),
+        "open_weights": model.get("open_weights"),
+        "limit": model.get("limit"),
+        "cost": model.get("cost"),
+        "go": model.get("go"),
+    }
+
+
+def fetch_opencode_catalog(base_url, api_key, wanted_models, timeout=20):
+    """读取 opencode /v1/models 的公开目录；失败只返回错误类型，不回显响应体。"""
+    wanted = {str(x) for x in (wanted_models or []) if x}
+    if not wanted:
+        return {}, None
+    req = urllib.request.Request(
+        base_url.rstrip("/") + "/v1/models",
+        headers={
+            "Authorization": "Bearer " + api_key,
+            "Accept": "application/json",
+            # opencode 的 Cloudflare 规则会拒绝没有 User-Agent 的请求。
+            "User-Agent": "axonhub/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            doc = json.loads(resp.read().decode() or "{}")
+    except urllib.error.HTTPError as exc:
+        return {}, "HTTP %d" % exc.code
+    except (OSError, ValueError) as exc:
+        return {}, type(exc).__name__
+    rows = doc.get("data") or doc.get("models") or []
+    return {
+        str(row.get("id")): sanitize_catalog_model(row)
+        for row in rows
+        if isinstance(row, dict) and str(row.get("id")) in wanted
+    }, None
+
+
 def build_profile(client, channel_ids, window_hours, intent_path):
     ids = sorted(set(str(x) for x in channel_ids), key=lambda x: int(x) if x.isdigit() else 10**9)
     hints = load_user_hints(intent_path)
     gids = ["gid://axonhub/Channel/" + x for x in ids]
-    since = (
-        datetime.datetime.now(datetime.timezone.utc)
-        - datetime.timedelta(hours=window_hours)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc_dt = datetime.datetime.now(datetime.timezone.utc)
+    now_local_dt = datetime.datetime.now().astimezone()
+    now_utc = now_utc_dt.isoformat()
+    now_local = now_local_dt.isoformat(timespec="seconds")
+    since = (now_utc_dt - datetime.timedelta(hours=window_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     channel_q = (
         "{queryChannels(input:{first:200,where:{idIn:%s}}){edges{node{"
@@ -263,7 +365,7 @@ def build_profile(client, channel_ids, window_hours, intent_path):
         if n.get("modelID") in CARD_MODELS:
             assoc[n["modelID"]] = n.get("settings", {}).get("associations") or []
 
-    # 每渠道 4 个聚合 + 最近 12 个请求（模型 id / 延迟 / 错误码）。
+    # 每渠道 4 个聚合 + 最近 12 个请求；opencode 再按模型拆一份，避免 free 的 429 被平均值盖住。
     aliases = []
     for cid in ids:
         base = 'createdAtGTE:"%s",channelID:"gid://axonhub/Channel/%s"' % (since, cid)
@@ -275,8 +377,28 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             'r%s:requests(first:12,orderBy:{field:CREATED_AT,direction:DESC},where:{%s}){edges{node{modelID createdAt executions(first:2){edges{node{responseStatusCode metricsLatencyMs errorMessage}}}}}}'
             % (cid, base)
         )
+        raw = raw_channels.get(cid) or {}
+        if raw.get("type") == "opencode_go":
+            for idx, model in enumerate(raw.get("supportedModels") or []):
+                p = "p%s_%d" % (cid, idx)
+                mbase = base + ",modelID:" + json.dumps(model)
+                aliases.append('%s_n:requests(first:1,where:{%s}){totalCount}' % (p, mbase))
+                aliases.append('%s_f:requests(first:1,where:{%s,statusIn:[failed,canceled]}){totalCount}' % (p, mbase))
+                aliases.append('%s_e:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[429]}}){totalCount}' % (p, mbase))
+                aliases.append('%s_g:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[500,502,503,504]}}){totalCount}' % (p, mbase))
     stats = client.gql("{" + " ".join(aliases) + "}")
 
+    catalog_wanted = {}
+    for raw in raw_channels.values():
+        if raw.get("type") != "opencode_go":
+            continue
+        raw_keys = ((raw.get("credentials") or {}).get("apiKeys") or [])
+        raw_fps = [key_fingerprint(k) for k in raw_keys if k]
+        if raw_fps:
+            catalog_wanted.setdefault((raw.get("baseURL"), raw_fps[0]), set()).update(
+                raw.get("supportedModels") or []
+            )
+    catalog_cache = {}
     channels = []
     for cid in ids:
         raw = raw_channels.get(cid)
@@ -284,6 +406,14 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             continue
         keys = ((raw.get("credentials") or {}).get("apiKeys") or [])
         fps = [key_fingerprint(k) for k in keys if k]
+        catalog, catalog_error = {}, None
+        if raw.get("type") == "opencode_go" and keys and fps:
+            cache_key = (raw.get("baseURL"), fps[0])
+            if cache_key not in catalog_cache:
+                catalog_cache[cache_key] = fetch_opencode_catalog(
+                    raw.get("baseURL"), keys[0], sorted(catalog_wanted.get(cache_key, set()))
+                )
+            catalog, catalog_error = catalog_cache[cache_key]
         # 原 credentials 对象绝不进入输出。
         raw.pop("credentials", None)
         entries = raw.get("allModelEntries") or []
@@ -312,6 +442,13 @@ def build_profile(client, channel_ids, window_hours, intent_path):
         ttfts = [p.get("avgTimeToFirstTokenMs") for p in probes if p.get("avgTimeToFirstTokenMs")]
         disabled_keys = raw.get("disabledAPIKeys") or []
         quota = raw.get("providerQuotaStatus") or {}
+        reset_at = quota.get("nextResetAt") or reset_time_from_error(last_error)
+        reset_src = "providerQuotaStatus" if quota.get("nextResetAt") else (
+            "last_error" if reset_at else None
+        )
+        reset_kind = reset_state(reset_at, now_utc)
+        req5xx = int((stats.get("g" + cid) or {}).get("totalCount") or 0)
+        health = upstream_health(raw.get("status"), last_error, n, req5xx)
         ch = {
             "identity": {
                 "id": cid, "name": raw.get("name"), "type": raw.get("type"),
@@ -349,7 +486,11 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             },
             "error_pressure": {
                 "requests_with_429": int((stats.get("e" + cid) or {}).get("totalCount") or 0),
-                "requests_with_5xx": int((stats.get("g" + cid) or {}).get("totalCount") or 0),
+                "requests_with_5xx": req5xx,
+                "upstream_health": health["upstream_health"],
+                "error_pressure_severe": health["error_pressure_severe"],
+                "health_reason": health["reason"],
+                "five_xx_ratio_pct": health["five_xx_ratio_pct"],
             },
             "latency": {
                 "p50_ms": median_or_none(latencies),
@@ -358,7 +499,8 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             "last_error": last_error,
             "quota": {
                 "providerType": quota.get("providerType"), "status": quota.get("status"),
-                "ready": quota.get("ready"), "nextResetAt": quota.get("nextResetAt"),
+                "ready": quota.get("ready"), "nextResetAt": reset_at,
+                "reset_source": reset_src, "reset_state": reset_kind,
                 "nextCheckAt": quota.get("nextCheckAt"),
             },
             "current_tier": [],
@@ -386,7 +528,9 @@ def build_profile(client, channel_ids, window_hours, intent_path):
         )
 
     return {
-        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generatedAt": now_utc,
+        "now_utc": now_utc,
+        "now_local": now_local,
         "windowHours": window_hours,
         "profileFields": list(PROFILE_FIELDS),
         "channelCount": len(channels),

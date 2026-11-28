@@ -42,7 +42,7 @@
 下面是当前 9 条渠道的用户输入样例。**这里没有渠道号、没有优先级、没有 key 明文**；`key_ref` 只是引用名。
 
 - 公益-墨析：稳定的非破限 DS 中转，url=https://jpn.cdn.moxuna.com/v1，key_ref=AXONHUB_KEY_MOXUNA
-- cmd：便宜的 DS 中转，说是有周限额，url=https://hub.oaifree.com/v1，key_ref=AXONHUB_KEY_CMD
+- cmd：便宜的 DS 中转，说是有周限额，url=https://api.commandcode.ai/provider/v1，key_ref=AXONHUB_KEY_CMD
 - hub-1125：备用的 DS 中转，url=https://hub.oaifree.com/v1，key_ref=AXONHUB_KEY_HUB1125
 - temp-1127：临时破限 DS，五小时额度，url=https://linuxdo.si/v1，key_ref=AXONHUB_KEY_TEMP1127
 - opencode：opencode 的 DS 通道，url=https://opencode.ai/zen/go，key_ref=AXONHUB_KEY_OPENCODE

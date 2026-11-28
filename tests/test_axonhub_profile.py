@@ -111,6 +111,51 @@ class AxonhubProfileTest(unittest.TestCase):
         self.assertNotIn("credentials", profile.PROFILE_FIELDS)
         self.assertIn("key_group", profile.PROFILE_FIELDS)
 
+    def test_reset_state_uses_utc_and_marks_past_window(self):
+        self.assertEqual(
+            profile.reset_state("2026-11-28T01:55:00Z", "2026-11-28T09:15:00+00:00"),
+            "past",
+        )
+        self.assertEqual(
+            profile.reset_state("2026-11-28T10:55:00Z", "2026-11-28T09:15:00+00:00"),
+            "future",
+        )
+        self.assertEqual(profile.reset_state(None, "2026-11-28T09:15:00+00:00"), "unknown")
+
+    def test_reset_time_extracted_from_error(self):
+        self.assertEqual(
+            profile.reset_time_from_error(
+                "You've reached your weekly usage limit; reset 2026-11-28T01:55Z"
+            ),
+            "2026-11-28T01:55Z",
+        )
+        self.assertEqual(
+            profile.reset_time_from_error(
+                "Your limit resets at 2026-11-28T01:55:10.695Z. Please wait"
+            ),
+            "2026-11-28T01:55:10.695Z",
+        )
+
+    def test_upstream_unavailable_overrides_high_success_rate(self):
+        h = profile.upstream_health(
+            "disabled", "504 Gateway Timeout", total_24h=39685, requests_with_5xx=271
+        )
+        self.assertEqual(h["upstream_health"], "unavailable")
+        self.assertTrue(h["error_pressure_severe"])
+
+    def test_quota_limited_is_not_misclassified_as_upstream_failure(self):
+        h = profile.upstream_health(
+            "enabled", "weekly usage limit; reset 2026-11-28T01:55Z", 16, 0
+        )
+        self.assertEqual(h["upstream_health"], "quota_limited")
+
+    def test_intent_cmd_url_is_commandcode_not_hub(self):
+        path = os.path.join(ROOT, "deploy", "axonhub", "intent.md")
+        hints = profile.load_user_hints(path)
+        self.assertEqual(
+            hints["cmd"]["url"], "https://api.commandcode.ai/provider/v1"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
