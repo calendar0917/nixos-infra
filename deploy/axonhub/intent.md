@@ -63,3 +63,4 @@
 - weekend-temp：周末临时便宜 DS，url=https://codexfree.xiaotuxp.com/v1，key_ref=AXONHUB_KEY_WEEKEND
 - weekend-temp-2：周末临时便宜 DS，url=https://free.hiyo.top/v1，key_ref=AXONHUB_KEY_WEEKEND
 - opencode-free：opencode 免费模型通道（hy4-flash-free / hungerg-free），只服务独立 free 卡，url=https://opencode.ai/zen/go，key_ref=AXONHUB_KEY_OPENCODE_FREE
+- 96110-free-ds：免费 DS（实测 deepseek-v4-1-flash-1017），用户指定当前非破限 DS 主力，也可用于破限线，url=https://api.96110.li/v1，key_ref=AXONHUB_KEY_96110
