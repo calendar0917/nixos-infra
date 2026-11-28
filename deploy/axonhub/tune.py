@@ -70,9 +70,11 @@ KEY_RECOVER_COOLDOWN = int(
     os.environ.get("AXONHUB_KEY_RECOVER_COOLDOWN", "1800")
 )  # key 被自动禁用满这么久才重开一次，避免 429 循环
 SCOPE_DROP_ALERT = 2     # scope 比上一轮少这么多渠道就告警
-# 两张卡约定的最小渠道数。低于它就每轮告警：只比上一轮的话，缩水后第二轮
-# 就会因为「和上一轮一样少」而静默，2026-11-28 16:38 就出现过这种情况。
-SCOPE_MIN_EXPECTED = int(os.environ.get("AXONHUB_SCOPE_MIN_EXPECTED", "8"))
+# 画像快照由 profile.py 生成；tune.py 只读它做漂移对账，不再硬编码渠道数量。
+PROFILE_PATH = os.environ.get(
+    "AXONHUB_PROFILE_PATH",
+    os.path.expanduser("~/.local/state/axonhub/decisions/profile-latest.json"),
+)
 DEADLINE = 60            # 单轮最坏耗时（秒）
 HTTP_TIMEOUT = 10
 
@@ -535,19 +537,55 @@ def resolve_override(override, now, log, scope):
 
 
 # ---------------------------------------------------------------------- round
-def check_scope_health(state, scope, blocked, active):
-    """scope 缩水或有关联被禁用时返回告警串（写进 tune.log 的 ALERT= 行）。
+def _profile_drift_alerts(profile, scope, blocked):
+    """拿当前 live scope 与最近一次画像快照对账，不再用固定渠道数量。"""
+    if not isinstance(profile, dict):
+        return []
+    expected = {}
+    alerts = []
+    for ch in profile.get("channels") or []:
+        ident = ch.get("identity") or {}
+        cid = str(ident.get("id"))
+        if not cid:
+            continue
+        tiers = [
+            (x.get("model"), x.get("priority"))
+            for x in ch.get("current_tier") or []
+            if x.get("model") in CARDS and not x.get("disabled")
+        ]
+        if tiers:
+            expected[cid] = tiers
+        if ch.get("ds_kind") == "non_ds":
+            bad = [
+                "%s:p%s" % (m, p) for m, p in tiers
+                if m in ("deepseek-jb", "gpt-5.6-luna", "gpt-5.6-sol")
+                and p is not None and int(p) <= 1
+            ]
+            if bad:
+                alerts.append("意图/画像不一致 %s(non_ds 在 %s)" % (cid, ",".join(bad)))
+    live = set(scope)
+    gone = sorted(set(expected) - live, key=lambda x: int(x) if x.isdigit() else 10**9)
+    new = sorted(live - set(expected), key=lambda x: int(x) if x.isdigit() else 10**9)
+    if gone:
+        alerts.append("画像漂移：渠道掉出 %s" % ",".join(gone))
+    if new:
+        alerts.append("画像漂移：新增渠道 %s" % ",".join(new))
+    return alerts
 
-    为什么需要：association.disabled=true 会让渠道静默掉出 scope —— 权重表里的
-    pin 空转、不探活、不参与路由，日志里只有一行 override-ignored。2026-11-28
-    15:42 就是这样丢了 45/48/49，靠人肉才发现。
+
+def check_scope_health(state, scope, blocked, active):
+    """返回告警串（写进 tune.log 的 ALERT= 行）。
+
+    告警来源：被禁用的关联、与上一轮的缩水、空转 pin，以及与 intent/profile.py
+    最新画像的漂移/意图冲突。**不再有 SCOPE_MIN_EXPECTED 这种固定数量阈值。**
     """
     alerts = []
-    if len(scope) < SCOPE_MIN_EXPECTED:
-        alerts.append(
-            "scope 只有 %d 个渠道（预期至少 %d）：%s"
-            % (len(scope), SCOPE_MIN_EXPECTED, ",".join(sorted(scope)))
-        )
+    try:
+        with open(PROFILE_PATH, encoding="utf-8") as f:
+            profile = json.load(f)
+    except (OSError, ValueError):
+        profile = None
+    alerts.extend(_profile_drift_alerts(profile, scope, blocked))
     for cid, where in sorted(blocked.items(), key=lambda kv: int(kv[0])):
         tags = ",".join("%s:p%s" % (m, p) for m, p in where)
         alerts.append("关联被禁用 %s(%s)" % (cid, tags))
@@ -584,7 +622,7 @@ def main():
         override = load_override(log)
         active, ignored = resolve_override(override, time.time(), log, scope)
 
-        # --- 0. 护栏：scope 缩水 / 关联被禁用，一律显式告警
+        # --- 0. 护栏：关联禁用 / scope 变化 / 意图画像漂移，一律显式告警
         alerts = check_scope_health(state, scope, blocked, active)
         for a in alerts:
             log.append("ALERT=" + a)

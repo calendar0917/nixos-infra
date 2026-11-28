@@ -227,8 +227,10 @@ pin 空转、不探活、不参与路由，日志里只剩一行 `override-ignor
 把被禁用的关联、scope 相对上一轮的缩水（`SCOPE_DROP_ALERT`，默认少 2 个就报）、
 空转的 pin 写进 `tune.log` 的 `ALERT=` 行，同时记进 state.json 的 `alerts`，
 `tune-review.py` 会把它们带进复盘 prompt 并告知模型「这是运维事故，别据此降权」。
-另外只要 scope 低于 `AXONHUB_SCOPE_MIN_EXPECTED`（默认 8）就**每轮**告警，不会在
-缩水后的第二轮因为「和上一轮一样少」而静默。
+另外 `tune.py` 每轮只读 `~/.local/state/axonhub/decisions/profile-latest.json`，把
+live scope 与画像快照对账：渠道掉出/新增、`non_ds` 渠道出现在 DS 卡 p0/p1 等
+「意图/画像不一致」都会持续告警。**已移除 `SCOPE_MIN_EXPECTED=8` 固定数量阈值**，
+不再要求 scope 永远是 8 个。
 
 **手动改完关联后怎么立即生效**：不用等 tune.py，跑一次
 `systemctl --user start axonhub-tune.service` 即可（定时器每 5 分钟也会自己发现）。
@@ -237,6 +239,14 @@ pin 空转、不探活、不参与路由，日志里只剩一行 `override-ignor
 **复盘空回复重试**：上游偶发返回 `stopReason=error`、0 token 的空回复（15:16 那次
 就是），旧逻辑第一次就判失败。现在解析不出 JSON 会隔 `AXONHUB_REVIEW_RETRY_WAIT`
 （默认 60 秒）整轮重跑一次，仍失败才记 `fail`，旧 override.json 不动。
+
+**意图驱动决策 dry-run**：`intent.md` 只写目标/约束和用户提供的「性质 + url +
+key 引用名」；`profile.py` 从实时 GraphQL/requests 数据推导 16 个字段组（key 只存
+sha256 前 8 位指纹）；`decide.py` 输出结构化决策 JSON 和一页可读建议，默认
+`auto_apply=false`，不调用任何写接口。决策频率配置项是
+`AXONHUB_DECIDE_INTERVAL_MINUTES`，**默认 10 分钟**；要降到 30 分钟只需把该环境变量
+设成 `30`（例如 timer 的 `Environment=AXONHUB_DECIDE_INTERVAL_MINUTES=30`）。画像和
+决策输出在 `~/.local/state/axonhub/decisions/`。
 
 模型复盘由 `tune-review.py` + `axonhub-tune-review.timer` 每 20 分钟跑一次，
 用 `~/DS Bot/tools/pi-task.py` 起短会话；模型最多 3 条指令，校验通过才原子
