@@ -149,12 +149,64 @@ class AxonhubProfileTest(unittest.TestCase):
         )
         self.assertEqual(h["upstream_health"], "quota_limited")
 
+    def test_high_non_429_4xx_marks_upstream_degraded(self):
+        h = profile.upstream_health(
+            "enabled", None, total_24h=1302, requests_with_5xx=0,
+            requests_with_4xx=366, requests_with_429=0,
+        )
+        self.assertEqual(h["upstream_health"], "degraded")
+        self.assertTrue(h["error_pressure_severe"])
+
+    def test_high_429_marks_rate_limited_even_without_5xx(self):
+        h = profile.upstream_health(
+            "enabled", None, total_24h=2681, requests_with_5xx=0,
+            requests_with_4xx=69, requests_with_429=159,
+        )
+        self.assertEqual(h["upstream_health"], "rate_limited")
+        self.assertTrue(h["error_pressure_severe"])
+
     def test_intent_cmd_url_is_commandcode_not_hub(self):
         path = os.path.join(ROOT, "deploy", "axonhub", "intent.md")
         hints = profile.load_user_hints(path)
         self.assertEqual(
             hints["cmd"]["url"], "https://api.commandcode.ai/provider/v1"
         )
+
+    def test_reset_timestamp_localizes_without_changing_utc_meaning(self):
+        value = "2026-11-28T01:55:10.695Z"
+        expected = profile.parse_ts(value).astimezone().isoformat(timespec="seconds")
+        self.assertEqual(profile.local_time_iso(value), expected)
+        self.assertEqual(profile.reset_state(value, "2026-11-28T09:15:00+00:00"), "past")
+
+    def test_unknown_error_attribution_blocks_health_conclusion(self):
+        h = profile.upstream_health(
+            "enabled", "https://jpn.cdn.moxuna.com 403 Forbidden", 100, 0,
+            attribution_unknown=True,
+        )
+        self.assertEqual(h["upstream_health"], "unknown")
+        self.assertFalse(h["error_pressure_severe"])
+
+    def test_catalog_sanitizer_keeps_identity_but_drops_credentials(self):
+        row = profile.sanitize_catalog_model({
+            "id": "hy4-flash-free",
+            "canonical_id": "tencent/hy4-flash",
+            "family": "hy-flash-free",
+            "description": "Tencent Hy4",
+            "apiKey": "sk-TEST-NOT-REAL",
+            "requestHeaders": {"Authorization": "Bearer secret"},
+        })
+        self.assertEqual(row["canonical_id"], "tencent/hy4-flash")
+        self.assertNotIn("apiKey", row)
+        self.assertNotIn("requestHeaders", row)
+
+    def test_intent_separates_ds_policy_and_free_model_cards(self):
+        path = os.path.join(ROOT, "deploy", "axonhub", "intent.md")
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("## 模型分类", text)
+        self.assertIn("只允许关联", text)
+        self.assertIn("独立 `free-*` 卡", text)
+        self.assertIn("不得再把它们塞进 `deepseek-*` 兜底", text)
 
 
 if __name__ == "__main__":

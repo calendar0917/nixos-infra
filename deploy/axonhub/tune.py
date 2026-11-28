@@ -570,6 +570,28 @@ def _profile_drift_alerts(profile, scope, blocked):
         alerts.append("画像漂移：渠道掉出 %s" % ",".join(gone))
     if new:
         alerts.append("画像漂移：新增渠道 %s" % ",".join(new))
+    # 共用 key 的账号配额/429 风险持续可见；用户暂不换独立 key，不能假装拆卡能隔离。
+    by_id = {
+        str((ch.get("identity") or {}).get("id")): ch
+        for ch in profile.get("channels") or []
+    }
+    seen_pairs = set()
+    for cid, ch in by_id.items():
+        for other in (ch.get("key_group") or {}).get("shared_key_with") or []:
+            other = str(other)
+            pair = tuple(sorted((cid, other), key=lambda x: int(x) if x.isdigit() else 10**9))
+            if pair in seen_pairs or other not in by_id:
+                continue
+            seen_pairs.add(pair)
+            a, b = by_id[pair[0]], by_id[pair[1]]
+            alerts.append(
+                "共用key配额/429风险 %s<->%s（429=%s/%s, quota=%s/%s）"
+                % (pair[0], pair[1],
+                   (a.get("error_pressure") or {}).get("requests_with_429"),
+                   (b.get("error_pressure") or {}).get("requests_with_429"),
+                   (a.get("quota") or {}).get("status"),
+                   (b.get("quota") or {}).get("status"))
+            )
     return alerts
 
 

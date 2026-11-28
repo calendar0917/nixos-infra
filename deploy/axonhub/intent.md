@@ -6,17 +6,27 @@
 - 我只提供每条渠道的性质描述、url 和 key 引用名；其余（成功率、429、延迟、配额、是否 DS、是否临时）
   全部由系统自动探测推导，不要让我维护字段，也不要每次变更来问我。
 
+## 模型分类（硬，2026-11-28 W34）
+- `deepseek-jb` / `deepseek-safe` 以及旧卡 `gpt-5.6-luna` / `gpt-5.6-sol` 只允许关联
+  `ds_kind=ds` 的渠道。free、非 DS、身份未公开的 stealth 模型不得挂在任意优先级，包括后备位。
+- opencode 的免费模型走独立 `free-*` 卡，客户端显式选模型名；不得再把它们塞进 `deepseek-*` 兜底。
+  同一 verified family 可共用一张卡；不同 family 或身份无法验证的模型分别建卡，避免冒名归类。
+- 破限/非破限是用途边界，不是模型家族：`deepseek-safe` 只收用户标为非破限的 DS 渠道；
+  `deepseek-jb` 收破限 DS，`luna/sol` 跟随 jb。DS 家族证明不代表破限，free 也不代表破限。
+- `hy4-flash-free` 的上游目录确认是腾讯 Hy4；`hungerg-free` 目录只写 stealth reasoning，
+  没有 canonical_id/family，响应也只暴露 `hungerg-free` 与 HungerG 自称，不能标成 DS、GPT 或混元。
+
 ## 取舍规则（稳定 > 成本，硬顺序，不要临场发挥）
 1. 先筛「能不能用」：当前探活失败、连续 5xx/504、额度窗口未到 → 不进候选最高位，哪怕它免费。
-2. 再筛「合不合意图」：free/非 DS 不能当 deepseek 卡首选；临时渠道不能长期占坑；破限/非破限不混。
+2. 再筛「合不合意图」：free/非 DS 不进 deepseek 卡任何位置，改走独立 free 卡；临时渠道不能长期占坑；破限/非破限不混。
 3. 两人都通过的候选，才按成本排序：同层内优先更便宜/更稳的；便宜渠道只有在实时成功率不低于
    主力渠道 10 个百分点以内时才允许上位。
 4. 冲突时的唯一答案：**宁可多花 token、多等 5 秒，也不用便宜换稳定**。
    只有「稳定性指标基本持平（24h 成功率差 ≤ 2 个百分点、429/5xx 无显著上升）」才允许按成本切换。
 
 ## 渠道性质约束（硬）
-- free 渠道不能当 deepseek 卡的首选或高优先级：它返回的是混元/Hunyuan，不是 deepseek。
-  可以挂在后备位做兜底，但必须排在真正 DS 渠道之后。
+- free 渠道只能服务独立 free 卡，不能作为 deepseek 卡的首选、后备或任何优先级兜底。
+  免费只表示价格，不表示模型家族；每个模型的身份必须由上游目录/响应证明，不能凭名字猜。
 - 临时渠道（名字带 temp/weekend、创建时间近、或备注写了临时）不能长期占坑：
   可以让它先吃流量，但要在复评时给出「继续/退役」建议，并标注额度窗口。
 - 破限线和非破限线分开：给非破限的渠道不要自动加到破限线当主力。
@@ -49,4 +59,4 @@
 - hub-1127-2：临时便宜 DS，url=https://hub.oaifree.com/v1，key_ref=AXONHUB_KEY_HUB11272
 - weekend-temp：周末临时便宜 DS，url=https://codexfree.xiaotuxp.com/v1，key_ref=AXONHUB_KEY_WEEKEND
 - weekend-temp-2：周末临时便宜 DS，url=https://free.hiyo.top/v1，key_ref=AXONHUB_KEY_WEEKEND
-- opencode-free：opencode 的免费通道，url=https://opencode.ai/zen/go，key_ref=AXONHUB_KEY_OPENCODE_FREE
+- opencode-free：opencode 免费模型通道（hy4-flash-free / hungerg-free），只服务独立 free 卡，url=https://opencode.ai/zen/go，key_ref=AXONHUB_KEY_OPENCODE_FREE

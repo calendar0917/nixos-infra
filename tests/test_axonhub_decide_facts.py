@@ -1,6 +1,9 @@
 import importlib.util
+import json
 import os
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECIDE = os.path.join(ROOT, "deploy", "axonhub", "decide.py")
@@ -15,6 +18,8 @@ class AxonhubDecideFactsTest(unittest.TestCase):
         self.assertIn("quota.reset_state", prompt)
         self.assertIn("error_pressure.upstream_health", prompt)
         self.assertIn("禁止自己换算时区", prompt)
+        self.assertIn("finalSuccessRate", prompt)
+        self.assertIn("暂不换 key", prompt)
 
     def test_47_unavailable_is_forced_keep_disabled(self):
         profile = {"channels": [{
@@ -53,6 +58,47 @@ class AxonhubDecideFactsTest(unittest.TestCase):
         }]}
         out = decide.fact_check_decision(doc, profile)
         self.assertEqual(out["changes"][0]["evidence"].count("quota.reset_state=past"), 1)
+
+    def test_non_ds_migration_covers_all_four_ds_cards(self):
+        tiers = [
+            {"model": "deepseek-jb", "priority": 0, "disabled": False},
+            {"model": "deepseek-safe", "priority": 3, "disabled": False},
+            {"model": "gpt-5.6-luna", "priority": 4, "disabled": False},
+            {"model": "gpt-5.6-sol", "priority": 5, "disabled": False},
+        ]
+        profile = {"channels": [{
+            "identity": {"id": "51", "name": "opencode-free"}, "ds_kind": "non_ds",
+            "models": {"supported": ["hy4-flash-free", "hungerg-free"]},
+            "current_tier": tiers,
+        }]}
+        doc = {"summary": "", "changes": []}
+        out = decide.fact_check_decision(doc, profile)
+        migrations = [x for x in out["changes"] if x["action"] == "migrate_to_free_card"]
+        self.assertEqual({x["model"] for x in migrations}, set(decide.DS_CARD_MODELS))
+        self.assertEqual(len(out["modelCardProposals"]), 2)
+
+    def test_strict_model_mode_never_falls_back_to_rules(self):
+        with tempfile.TemporaryDirectory() as td:
+            profile_path = os.path.join(td, "profile.json")
+            intent_path = os.path.join(td, "intent.md")
+            json_out = os.path.join(td, "decision.json")
+            page_out = os.path.join(td, "decision.md")
+            with open(profile_path, "w", encoding="utf-8") as f:
+                json.dump({"channels": []}, f)
+            with open(intent_path, "w", encoding="utf-8") as f:
+                f.write("intent")
+            with mock.patch.object(decide, "run_model", return_value=(None, "empty response")):
+                rc = decide.main([
+                    "--profile", profile_path, "--intent", intent_path,
+                    "--mode", "model", "--state-dir", td,
+                    "--json-out", json_out, "--page-out", page_out,
+                ])
+            self.assertEqual(rc, 2)
+            with open(json_out, encoding="utf-8") as f:
+                doc = json.load(f)
+            self.assertEqual(doc["source"], "model-failed")
+            self.assertEqual(doc["changes"], [])
+            self.assertIn("empty response", doc["modelError"])
 
 
 if __name__ == "__main__":

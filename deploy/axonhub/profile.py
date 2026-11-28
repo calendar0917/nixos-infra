@@ -8,7 +8,8 @@ sha256 计算，输出永远只有前 8 位指纹；credentials 原对象从结�
   python3 profile.py --output ~/.local/state/axonhub/decisions/profile-latest.json
   python3 profile.py --ids 25,26,38,45,46,47,48,49,51 --window-hours 24
 
-真实窗口统计直接聚合 requests 表，不用 channelSuccessRates（它忽略 timeWindow）。
+真实窗口统计按 RequestExecution.channelID 归属后聚合 requests，不用
+channelSuccessRates（它忽略 timeWindow），也避免 failover 错误串渠道。
 """
 import argparse
 import datetime
@@ -19,6 +20,7 @@ import re
 import statistics
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -119,15 +121,22 @@ def local_time_iso(value):
 
 
 def upstream_health(status, last_error, total_24h, requests_with_5xx,
-                   reset_state_value=None):
+                   reset_state_value=None, attribution_unknown=False,
+                   requests_with_4xx=0, requests_with_429=0):
     """上游健康度优先于 successRate；重试会把上游失败算成请求成功，必须单列。"""
     err = str(last_error or "")
     n = int(total_24h or 0)
     x5 = int(requests_with_5xx or 0)
+    x4 = int(requests_with_4xx or 0)
+    x429 = int(requests_with_429 or 0)
     ratio = (x5 / n) if n else 0.0
+    ratio4 = (x4 / n) if n else 0.0
+    ratio429 = (x429 / n) if n else 0.0
     five_xx_error = bool(re.search(r"\b(500|502|503|504)\b|gateway timeout", err, re.I))
-    if str(status) == "disabled" and five_xx_error:
-        health, severe, reason = "unavailable", True, "disabled + last_error 为 5xx/504"
+    if attribution_unknown and err:
+        health, severe, reason = "unknown", False, "错误归属无法证明，不参与自动健康判断"
+    elif str(status) == "disabled" and (five_xx_error or x5 >= 5):
+        health, severe, reason = "unavailable", True, "disabled + 24h 有 5xx/504 压力"
     elif re.search(r"weekly usage limit|quota|usage limit", err, re.I):
         if reset_state_value == "past":
             health, severe, reason = (
@@ -138,6 +147,10 @@ def upstream_health(status, last_error, total_24h, requests_with_5xx,
             health, severe, reason = "quota_limited", False, "last_error 为额度/周限额"
     elif re.search(r"no access|forbidden|unauthorized", err, re.I):
         health, severe, reason = "access_blocked", False, "last_error 为权限/403"
+    elif x429 >= 20 and ratio429 >= 0.05:
+        health, severe, reason = "rate_limited", True, "24h 429 占比 ≥5%%（%d/%d）" % (x429, n)
+    elif x4 >= 20 and ratio4 >= 0.10:
+        health, severe, reason = "degraded", True, "24h 非429 4xx 占比 ≥10%%（%d/%d）" % (x4, n)
     elif x5 >= 5 and ratio >= 0.01:
         health, severe, reason = "degraded", True, "24h 5xx 占比 ≥1%%（%d/%d）" % (x5, n)
     elif x5 >= 10:
@@ -145,12 +158,14 @@ def upstream_health(status, last_error, total_24h, requests_with_5xx,
     elif x5 > 0:
         health, severe, reason = "healthy_with_noise", False, "24h 有 %d 次 5xx" % x5
     else:
-        health, severe, reason = "healthy", False, "24h 无 5xx"
+        health, severe, reason = "healthy", False, "24h 无 5xx/明显 4xx 压力"
     return {
         "upstream_health": health,
         "error_pressure_severe": severe,
         "reason": reason,
         "five_xx_ratio_pct": round(ratio * 100, 2),
+        "four_xx_ratio_pct": round(ratio4 * 100, 2),
+        "rate_429_ratio_pct": round(ratio429 * 100, 2),
     }
 
 
@@ -365,27 +380,64 @@ def build_profile(client, channel_ids, window_hours, intent_path):
         if n.get("modelID") in CARD_MODELS:
             assoc[n["modelID"]] = n.get("settings", {}).get("associations") or []
 
-    # 每渠道 4 个聚合 + 最近 12 个请求；opencode 再按模型拆一份，避免 free 的 429 被平均值盖住。
+    # 统计只认「实际执行过该渠道」的 request。Request.channelID 是首选渠道，
+    # failover 到别的渠道时仍保留原值；直接按它过滤会把别家的错误串到本渠道。
     aliases = []
     for cid in ids:
-        base = 'createdAtGTE:"%s",channelID:"gid://axonhub/Channel/%s"' % (since, cid)
+        gid = "gid://axonhub/Channel/" + cid
+        base = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s"}' % (
+            since, gid, since
+        )
+        failed_where = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",statusIn:[failed,canceled]}' % (
+            since, gid, since
+        )
+        e429_where = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",responseStatusCodeIn:[429]}' % (
+            since, gid, since
+        )
+        e5_where = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",responseStatusCodeIn:[500,502,503,504]}' % (
+            since, gid, since
+        )
+        final_failed_where = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s"},statusIn:[failed,canceled]' % (
+            since, gid, since
+        )
+        x4_where = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",responseStatusCodeIn:[400,401,403,404,422]}' % (
+            since, gid, since
+        )
         aliases.append('a%s:requests(first:1,where:{%s}){totalCount}' % (cid, base))
-        aliases.append('f%s:requests(first:1,where:{%s,statusIn:[failed,canceled]}){totalCount}' % (cid, base))
-        aliases.append('e%s:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[429]}}){totalCount}' % (cid, base))
-        aliases.append('g%s:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[500,502,503,504]}}){totalCount}' % (cid, base))
+        aliases.append('f%s:requests(first:1,where:{%s}){totalCount}' % (cid, failed_where))
+        aliases.append('ff%s:requests(first:1,where:{%s}){totalCount}' % (cid, final_failed_where))
+        aliases.append('e%s:requests(first:1,where:{%s}){totalCount}' % (cid, e429_where))
+        aliases.append('g%s:requests(first:1,where:{%s}){totalCount}' % (cid, e5_where))
+        aliases.append('x%s:requests(first:1,where:{%s}){totalCount}' % (cid, x4_where))
         aliases.append(
-            'r%s:requests(first:12,orderBy:{field:CREATED_AT,direction:DESC},where:{%s}){edges{node{modelID createdAt executions(first:2){edges{node{responseStatusCode metricsLatencyMs errorMessage}}}}}}'
-            % (cid, base)
+            'r%s:requests(first:12,orderBy:{field:CREATED_AT,direction:DESC},where:{%s})'
+            '{edges{node{modelID createdAt executions(first:12){edges{node{'
+            'channelID requestURL createdAt status responseStatusCode metricsLatencyMs errorMessage'
+            '}}}}}}' % (cid, base)
         )
         raw = raw_channels.get(cid) or {}
         if raw.get("type") == "opencode_go":
             for idx, model in enumerate(raw.get("supportedModels") or []):
                 p = "p%s_%d" % (cid, idx)
-                mbase = base + ",modelID:" + json.dumps(model)
+                # 客户端请求的是 deepseek-* 卡名时，Request.modelID 不是上游模型；
+                # 必须按 RequestExecution.modelID 拆 free 模型统计。
+                mexec = 'hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",modelID:%s}' % (
+                    gid, since, json.dumps(model)
+                )
+                mbase = 'createdAtGTE:"%s",%s' % (since, mexec)
+                mfailed = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",modelID:%s,statusIn:[failed,canceled]}' % (
+                    since, gid, since, json.dumps(model)
+                )
+                me429 = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",modelID:%s,responseStatusCodeIn:[429]}' % (
+                    since, gid, since, json.dumps(model)
+                )
+                me5 = 'createdAtGTE:"%s",hasExecutionsWith:{channelID:"%s",createdAtGTE:"%s",modelID:%s,responseStatusCodeIn:[500,502,503,504]}' % (
+                    since, gid, since, json.dumps(model)
+                )
                 aliases.append('%s_n:requests(first:1,where:{%s}){totalCount}' % (p, mbase))
-                aliases.append('%s_f:requests(first:1,where:{%s,statusIn:[failed,canceled]}){totalCount}' % (p, mbase))
-                aliases.append('%s_e:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[429]}}){totalCount}' % (p, mbase))
-                aliases.append('%s_g:requests(first:1,where:{%s,hasExecutionsWith:{responseStatusCodeIn:[500,502,503,504]}}){totalCount}' % (p, mbase))
+                aliases.append('%s_f:requests(first:1,where:{%s}){totalCount}' % (p, mfailed))
+                aliases.append('%s_e:requests(first:1,where:{%s}){totalCount}' % (p, me429))
+                aliases.append('%s_g:requests(first:1,where:{%s}){totalCount}' % (p, me5))
     stats = client.gql("{" + " ".join(aliases) + "}")
 
     catalog_wanted = {}
@@ -414,6 +466,11 @@ def build_profile(client, channel_ids, window_hours, intent_path):
                     raw.get("baseURL"), keys[0], sorted(catalog_wanted.get(cache_key, set()))
                 )
             catalog, catalog_error = catalog_cache[cache_key]
+            catalog = {
+                model: catalog[model]
+                for model in (raw.get("supportedModels") or [])
+                if model in catalog
+            }
         # 原 credentials 对象绝不进入输出。
         raw.pop("credentials", None)
         entries = raw.get("allModelEntries") or []
@@ -427,28 +484,77 @@ def build_profile(client, channel_ids, window_hours, intent_path):
         )
         n = int((stats.get("a" + cid) or {}).get("totalCount") or 0)
         failed = int((stats.get("f" + cid) or {}).get("totalCount") or 0)
+        final_failed = int((stats.get("ff" + cid) or {}).get("totalCount") or 0)
+        req429 = int((stats.get("e" + cid) or {}).get("totalCount") or 0)
+        req4xx = int((stats.get("x" + cid) or {}).get("totalCount") or 0)
         rate = window_rate(n, failed)
+        final_rate = window_rate(n, final_failed)
         recent = (stats.get("r" + cid) or {}).get("edges") or []
         latencies = []
-        last_error = None
+        own_executions = []
+        cross_channel_ignored = 0
         for e in recent:
             for ee in (e["node"].get("executions") or {}).get("edges") or []:
                 x = ee["node"]
+                execution_channel = short_id(x["channelID"]) if x.get("channelID") else None
+                if execution_channel != cid:
+                    cross_channel_ignored += 1
+                    continue
+                own_executions.append(x)
                 if x.get("metricsLatencyMs") is not None:
                     latencies.append(x["metricsLatencyMs"])
-                if not last_error and x.get("errorMessage"):
-                    last_error = x["errorMessage"][:130]
+        error_executions = [x for x in own_executions if x.get("errorMessage")]
+        last_execution = max(
+            error_executions,
+            key=lambda x: parse_ts(x.get("createdAt")) or datetime.datetime.min.replace(
+                tzinfo=datetime.timezone.utc
+            ),
+            default=None,
+        )
+        last_error = last_execution.get("errorMessage")[:130] if last_execution else None
+        last_error_url = last_execution.get("requestURL") if last_execution else None
+        last_error_channel = (
+            short_id(last_execution.get("channelID"))
+            if last_execution and last_execution.get("channelID") else None
+        )
+        attribution_unknown = bool(
+            last_error and (last_error_channel != cid or not last_error_url)
+        )
+        attribution = (
+            "attribution_unknown" if attribution_unknown
+            else ("execution_channel_verified" if last_error else "no_error")
+        )
         probes = raw.get("channelProbes") or []
         ttfts = [p.get("avgTimeToFirstTokenMs") for p in probes if p.get("avgTimeToFirstTokenMs")]
         disabled_keys = raw.get("disabledAPIKeys") or []
         quota = raw.get("providerQuotaStatus") or {}
+        quota_data = quota.get("quotaData") or {}
         reset_at = quota.get("nextResetAt") or reset_time_from_error(last_error)
         reset_src = "providerQuotaStatus" if quota.get("nextResetAt") else (
             "last_error" if reset_at else None
         )
         reset_kind = reset_state(reset_at, now_utc)
         req5xx = int((stats.get("g" + cid) or {}).get("totalCount") or 0)
-        health = upstream_health(raw.get("status"), last_error, n, req5xx)
+        health = upstream_health(
+            raw.get("status"), last_error, n, req5xx,
+            reset_state_value=reset_kind, attribution_unknown=attribution_unknown,
+            requests_with_4xx=req4xx, requests_with_429=req429,
+        )
+        per_model_stats = {}
+        if raw.get("type") == "opencode_go":
+            for idx, model in enumerate(raw.get("supportedModels") or []):
+                p = "p%s_%d" % (cid, idx)
+                mn = int((stats.get(p + "_n") or {}).get("totalCount") or 0)
+                mf = int((stats.get(p + "_f") or {}).get("totalCount") or 0)
+                per_model_stats[model] = {
+                    "windowHours": window_hours,
+                    "total": mn,
+                    "failed": mf,
+                    "successRate": window_rate(mn, mf),
+                    "low_sample": mn < LOW_SAMPLE,
+                    "requests_with_429": int((stats.get(p + "_e") or {}).get("totalCount") or 0),
+                    "requests_with_5xx": int((stats.get(p + "_g") or {}).get("totalCount") or 0),
+                }
         ch = {
             "identity": {
                 "id": cid, "name": raw.get("name"), "type": raw.get("type"),
@@ -471,6 +577,9 @@ def build_profile(client, channel_ids, window_hours, intent_path):
                 "manual": raw.get("manualModels") or [],
                 "defaultTestModel": raw.get("defaultTestModel"),
                 "allEntries": entries,
+                "catalog": catalog,
+                "catalogError": catalog_error,
+                "stats24": per_model_stats,
             },
             "ds_kind": ds_kind(model_ids, observed),
             "observed_response_model": observed,
@@ -482,15 +591,29 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             },
             "stats24": {
                 "windowHours": window_hours, "total": n, "failed": failed,
-                "successRate": rate, "low_sample": n < LOW_SAMPLE,
+                "successRate": rate, "finalFailed": final_failed,
+                "finalSuccessRate": final_rate, "low_sample": n < LOW_SAMPLE,
+                "countBasis": "unique_requests_with_execution_on_channel",
+                "successRateBasis": "requests_without_any_failed_execution_on_channel",
+                "finalSuccessRateBasis": "request_final_status_completed",
             },
             "error_pressure": {
-                "requests_with_429": int((stats.get("e" + cid) or {}).get("totalCount") or 0),
+                "requests_with_429": req429,
+                "requests_with_4xx_excluding_429": req4xx,
                 "requests_with_5xx": req5xx,
                 "upstream_health": health["upstream_health"],
                 "error_pressure_severe": health["error_pressure_severe"],
                 "health_reason": health["reason"],
                 "five_xx_ratio_pct": health["five_xx_ratio_pct"],
+                "four_xx_ratio_pct": health["four_xx_ratio_pct"],
+                "rate_429_ratio_pct": health["rate_429_ratio_pct"],
+                "attribution": attribution,
+                "attribution_unknown": attribution_unknown,
+                "attribution_basis": "RequestExecution.channelID + requestURL",
+                "last_error_channel": last_error_channel,
+                "last_error_url": last_error_url,
+                "last_error_host": urllib.parse.urlparse(last_error_url).netloc if last_error_url else None,
+                "cross_channel_attempts_ignored_recent": cross_channel_ignored,
             },
             "latency": {
                 "p50_ms": median_or_none(latencies),
@@ -500,8 +623,12 @@ def build_profile(client, channel_ids, window_hours, intent_path):
             "quota": {
                 "providerType": quota.get("providerType"), "status": quota.get("status"),
                 "ready": quota.get("ready"), "nextResetAt": reset_at,
+                "nextResetAtLocal": local_time_iso(reset_at),
                 "reset_source": reset_src, "reset_state": reset_kind,
                 "nextCheckAt": quota.get("nextCheckAt"),
+                "planType": quota_data.get("plan_type"),
+                "windows": quota_data.get("windows") or {},
+                "limits": quota_data.get("_limits") or [],
             },
             "current_tier": [],
             "user_hint": hint or {},

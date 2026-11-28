@@ -178,7 +178,8 @@ name from the live one.
 ## 渠道调权层（tune.py）
 
 每 5 分钟一个 systemd 用户 timer 跑 `tune.py`，只动 `deepseek-jb` /
-`deepseek-safe` 两张模型卡关联的渠道：
+`deepseek-safe` 两张模型卡关联的渠道；opencode 的免费模型由 `decide.py` 单独给出
+`free-*` 卡迁移建议，当前不写线上：
 
 - `~/.local/state/axonhub-tune/state.json`：每轮状态摘要（权重、成功率、最近
   1 小时 429 数、探活结果、本轮改了什么及原因），滚动保留最近 12 轮；另有
@@ -242,8 +243,19 @@ live scope 与画像快照对账：渠道掉出/新增、`non_ds` 渠道出现�
 
 **意图驱动决策 dry-run**：`intent.md` 只写目标/约束和用户提供的「性质 + url +
 key 引用名」；`profile.py` 从实时 GraphQL/requests 数据推导 16 个字段组（key 只存
-sha256 前 8 位指纹）；`decide.py` 输出结构化决策 JSON 和一页可读建议，默认
-`auto_apply=false`，不调用任何写接口。决策频率配置项是
+sha256 前 8 位指纹）。请求统计按 `RequestExecution.channelID + requestURL` 归属，
+避免把 failover 到别渠道的错误串到原渠道；无法证明归属时标
+`error_pressure.attribution=attribution_unknown`，不参与自动决策。画像同时给出
+`stats24.successRate`（该渠道无失败 execution 的清洁率）和 `stats24.finalSuccessRate`
+（请求最终 completed 比例）；两者差距大表示 failover 掩盖了上游拒绝，模型必须同时看。
+4xx/429 压力会进入 `error_pressure.upstream_health`（如 `degraded` / `rate_limited`）。
+opencode 渠道还会只读拉取 `/v1/models` 目录，用 `canonical_id/family/description`
+证明模型家族。`decide.py --mode model` 是严格模型模式：失败会写 `source=model-failed`
+并返回非零，**禁止 rules-offline 兜底冒充模型结果**。默认 `auto_apply=false`，不调用任何
+写接口；free/非 DS 模型只建议迁移到独立 `free-*` 卡，不生成实际 mutation。
+46/51（以及 48/49）共用 key 时，`tune.py` 每轮写 `ALERT=共用key配额/429风险 ...`，
+画像继续监控 quota/429；用户暂不换独立 key 时不创建第二把 key。
+决策频率配置项是
 `AXONHUB_DECIDE_INTERVAL_MINUTES`，**默认 10 分钟**；要降到 30 分钟只需把该环境变量
 设成 `30`（例如 timer 的 `Environment=AXONHUB_DECIDE_INTERVAL_MINUTES=30`）。画像和
 决策输出在 `~/.local/state/axonhub/decisions/`。
