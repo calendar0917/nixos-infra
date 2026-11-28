@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_STATE_DIR = os.path.expanduser("~/.local/state/axonhub/decisions")
 DECIDE_INTERVAL_MINUTES = int(os.environ.get("AXONHUB_DECIDE_INTERVAL_MINUTES", "10"))
 PI_TASK = os.path.expanduser("~/DS Bot/tools/pi-task.py")
-PI_WEB_PASSWORD_FILE = os.path.expanduser("~/.config/axonhub-tune/pi-web-password")
+PI_WEB_PASSWORD_FILE = os.path.expanduser("~/.config/pi-web/password")
 MODEL_TIMEOUT = int(os.environ.get("AXONHUB_DECIDE_MODEL_TIMEOUT", "600"))
 DS_CARD_MODELS = ("deepseek-jb", "deepseek-safe", "gpt-5.6-luna", "gpt-5.6-sol")
 

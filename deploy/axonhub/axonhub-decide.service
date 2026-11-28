@@ -1,0 +1,10 @@
+[Unit]
+Description=axonhub 意图驱动画像与模型决策 dry-run
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/calendar/nixos-infra/deploy/axonhub
+Environment=AXONHUB_DECIDE_INTERVAL_MINUTES=10
+ExecStart=/home/calendar/nixos-infra/deploy/axonhub/run-decide.sh
+TimeoutStartSec=900

@@ -260,6 +260,24 @@ opencode 渠道还会只读拉取 `/v1/models` 目录，用 `canonical_id/family
 设成 `30`（例如 timer 的 `Environment=AXONHUB_DECIDE_INTERVAL_MINUTES=30`）。画像和
 决策输出在 `~/.local/state/axonhub/decisions/`。
 
+**定时模型决策**：`axonhub-decide.service` 是 oneshot，先跑 `profile.py`，再跑
+`decide.py --mode model`；严格模型模式失败会写 `source=model-failed` 并非零退出，
+不会用 rules-offline 冒充。`run-decide.sh` 用 `flock -n` 防重叠，service 不调用
+`apply.py`、不写任何 axonhub 接口。service `TimeoutStartSec=900`（模型长尾实测
+42–208 秒，留足余量，避免 timer 下一轮撞上未结束的上一轮）。`axonhub-decide.timer` 默认
+`OnBootSec=2min` + `OnUnitActiveSec=10min`，`AccuracySec=30s`，日志进 journal。
+频率由 `AXONHUB_DECIDE_INTERVAL_MINUTES` 控制，默认 10；改成 30 分钟只需：
+
+```sh
+cd /home/calendar/nixos-infra/deploy/axonhub
+AXONHUB_DECIDE_INTERVAL_MINUTES=30 ./install-axonhub-decide.sh
+```
+
+安装脚本会把同一个数同步写进 service 的 Environment 和 timer 的
+`OnUnitActiveSec`，然后 `daemon-reload` 并 `enable --now`。手动跑一轮用
+`systemctl --user start axonhub-decide.service`；看下一次触发用
+`systemctl --user list-timers axonhub-decide.timer`。
+
 **执行层 dry-run**：`apply.py` 默认只读快照并输出 `would_apply` / `blocked`，不会调用
 createModel/updateModel/bulkUpdateChannel/createChannel。硬护栏包括：action 白名单、
 channel/model/priority 校验、DS 卡只收 `ds_kind=ds`、单轮最多 3 个非 keep 变更、
