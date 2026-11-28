@@ -38,6 +38,12 @@ at:
 
 - `http://<主机局域网IP>:8090`
 - `http://<主机Tailscale-IP>:8090`
+- `https://api.20050917.xyz`（公网，经 Cloudflare Tunnel `laptop-main`，
+  规则在云端；见 [docs/UNIFIED_ACCESS.md](../../docs/UNIFIED_ACCESS.md)）
+
+公网入口不改变鉴权：`/v1/*` 仍要 AxonHub API key（无 key 返回 401），管理界面走
+`/login`。风险点在于 `/login` 现在对全网可见，是暴力破解的靶子；`.env` 的
+`AXONHUB_BIND_IP=0.0.0.0` 同时意味着局域网和 tailnet 都能直连，这两层一起考虑。
 
 Use the existing web login and API key authentication. PostgreSQL remains on the
 internal `backend` network with no host port. Binding to `0.0.0.0` listens on
@@ -168,3 +174,73 @@ name from the live one.
 - Registry mirrors are third-party services. They are only pull accelerators;
   they are not a trust boundary. Do not disable TLS verification to work around
   a mirror failure.
+
+## 渠道调权层（tune.py）
+
+每 5 分钟一个 systemd 用户 timer 跑 `tune.py`，只动 `deepseek-jb` /
+`deepseek-safe` 两张模型卡关联的渠道：
+
+- `~/.local/state/axonhub-tune/state.json`：每轮状态摘要（权重、成功率、最近
+  1 小时 429 数、探活结果、本轮改了什么及原因），滚动保留最近 12 轮；另有
+  `promoteLog` 记录「模型 pin 连续 3 轮一致 → 自动升格 manual」的事件。
+- `~/.local/state/axonhub-tune/override.json`：人工/模型决定，`tune.py` 只读。
+- `~/.local/state/axonhub-tune/review-state.json`：复盘脚本自己的 20 分钟轮次
+  记录（只存每轮模型给出的 pin，用于判断「连续 3 轮一致」）。
+- 日志：`~/.local/state/axonhub-tune/tune.log`、`review.log`。
+- 凭据：管理员密码只从 `$DSH_SECRET_AXONHUB_ADMIN_PASSWORD` 或
+  `~/.config/axonhub-tune/password`（0600）读取；token 缓存
+  `~/.cache/axonhub-tune/token`（0600）。任何日志都不回显凭据片段。
+
+override 指令只有三类，每条必须带 `expires_at`（epoch 秒）：`pin`（固定权重）、
+`pause_probe`（暂停探活）、`archive_candidate`（标记待归档，不删除渠道）。
+过期条目自动失效并记日志；文件不存在当空。
+
+**重要**：`tune.py` 每 5 分钟按滚动成功率重算权重，会覆盖手工在后台改的
+`orderingWeight`。任何人工意图（固定权重、暂停探活、待归档）都必须写成
+override 条目，否则下一轮就被抹掉。`source: "manual"` 的条目由复盘原样保留，
+模型不得覆盖，也不占「每轮最多 3 条」的额度。
+
+当前的人工 pin（`source: manual`）：
+
+| 渠道 | 权重 | 到期 | 说明 |
+| --- | --- | --- | --- |
+| 48 / 49 / 47 | 100 | 两周 | 破限线主力等权轮转 |
+| 45（temp-1127） | 100 | 一天后复查 | deepseek-jb 的 p2 备用主力，等额度恢复放第二顺位 |
+
+**保护名单**：45 属于保护渠道，不允许被模型标成 `archive_candidate` 或
+`pause_probe`（prompt 里写明，代码里也双重兜底）。它现在只是 credits 用尽，
+不是渠道坏了。
+
+**探活恢复**：范围内 `status=disabled` 或带 `autoDisabledAt` 的渠道每轮最多探
+2 条，连续 2 轮成功才置 `enabled`。注意全局 `autoDisableChannel`（如 429×5）会把
+渠道的 **API key 一并永久禁用**（`disabledAPIKeys.expiresAt` 为空），此时
+`testChannel` 只报 missing api key，单靠置 enabled 救不回来。`tune.py` 会在 key
+被禁满 30 分钟（`AXONHUB_KEY_RECOVER_COOLDOWN`，默认 1800 秒，可临时设为 0 做
+验证）后调 `enableAllChannelAPIKeys` 重开一次 key、把渠道按回 disabled，再靠两票
+探活放回；仍失败就等下一轮 30 分钟冷却，不会形成 429 循环。已恢复的渠道会清掉
+旧探活票，避免残留票让下次一票就放行。
+
+**scope 护栏（2026-11-28 事故后加）**：模型关联里某条
+`associations[].disabled=true` 时，那个渠道会**静默掉出** `tune.py` 的调权范围——
+pin 空转、不探活、不参与路由，日志里只剩一行 `override-ignored=…渠道不在两张卡范围内`。
+15:42 就是这样丢了 45/48/49 三个渠道，靠人肉才发现。现在每轮都会：
+把被禁用的关联、scope 相对上一轮的缩水（`SCOPE_DROP_ALERT`，默认少 2 个就报）、
+空转的 pin 写进 `tune.log` 的 `ALERT=` 行，同时记进 state.json 的 `alerts`，
+`tune-review.py` 会把它们带进复盘 prompt 并告知模型「这是运维事故，别据此降权」。
+
+**手动改完关联后怎么立即生效**：不用等 tune.py，跑一次
+`systemctl --user start axonhub-tune.service` 即可（定时器每 5 分钟也会自己发现）。
+如果改出问题，异常会作为 `ALERT=` 行记进 `~/.local/state/axonhub-tune/tune.log`。
+
+**复盘空回复重试**：上游偶发返回 `stopReason=error`、0 token 的空回复（15:16 那次
+就是），旧逻辑第一次就判失败。现在解析不出 JSON 会隔 `AXONHUB_REVIEW_RETRY_WAIT`
+（默认 60 秒）整轮重跑一次，仍失败才记 `fail`，旧 override.json 不动。
+
+模型复盘由 `tune-review.py` + `axonhub-tune-review.timer` 每 20 分钟跑一次，
+用 `~/DS Bot/tools/pi-task.py` 起短会话；模型最多 3 条指令，校验通过才原子
+改写 override.json，失败或输出不合法时不动旧文件。同一条 `pin(id,weight)`
+连续 3 轮一致时自动升格为 `manual`（续期 1440 分钟），并在 state.json 的
+`promoteLog` 记一条，之后不必每 20 分钟重算。两个脚本通过
+`state.lock`（flock）互斥写 state.json，`tune.py` 保存时会合并盘上的
+`promoteLog`，不会覆盖复盘脚本刚写的升格记录。单元文件在本目录有副本，
+安装位置是 `~/.config/systemd/user/`。
