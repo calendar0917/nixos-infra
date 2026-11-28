@@ -622,7 +622,12 @@ def render_page(doc):
         "| 渠道 | 现状 | 建议 | 一句话理由 |",
         "| --- | --- | --- | --- |",
     ]
+    seen_rows = set()
     for item in doc.get("changes", []):
+        row_key = (str(item.get("channel")), str(item.get("model")), item.get("action"))
+        if row_key in seen_rows:
+            continue
+        seen_rows.add(row_key)
         ch = item.get("channelName") or item.get("channel")
         current = item.get("from")
         if current is not None:

@@ -260,6 +260,16 @@ opencode 渠道还会只读拉取 `/v1/models` 目录，用 `canonical_id/family
 设成 `30`（例如 timer 的 `Environment=AXONHUB_DECIDE_INTERVAL_MINUTES=30`）。画像和
 决策输出在 `~/.local/state/axonhub/decisions/`。
 
+**执行层 dry-run**：`apply.py` 默认只读快照并输出 `would_apply` / `blocked`，不会调用
+createModel/updateModel/bulkUpdateChannel/createChannel。硬护栏包括：action 白名单、
+channel/model/priority 校验、DS 卡只收 `ds_kind=ds`、单轮最多 3 个非 keep 变更、
+每张卡至少保留一条 enabled DS、共用 key 同组保护、禁改 key/删渠道。快照写入
+`~/.local/state/axonhub/snapshots/<ts>.json`（不含 key 明文）；mutation 失败会自动用
+快照回滚并写 `ALERT=apply ...`。free 卡创建是独立 proposal 阶段，输出 createModel
+计划并标记 `requiresExplicitApproval`；只有 free 卡存在且 `free-cards.json` 中状态为
+`probe_ok` 时才允许迁移，顺序是「创建 → 逐模型探活 → 挂到 free 卡 → 从 DS/luna/sol
+摘除」。`--rollback-drill` 用模拟 client 演练失败回滚，不联网。
+
 模型复盘由 `tune-review.py` + `axonhub-tune-review.timer` 每 20 分钟跑一次，
 用 `~/DS Bot/tools/pi-task.py` 起短会话；模型最多 3 条指令，校验通过才原子
 改写 override.json，失败或输出不合法时不动旧文件。同一条 `pin(id,weight)`

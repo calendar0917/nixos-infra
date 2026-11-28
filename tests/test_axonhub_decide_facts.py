@@ -77,6 +77,21 @@ class AxonhubDecideFactsTest(unittest.TestCase):
         self.assertEqual({x["model"] for x in migrations}, set(decide.DS_CARD_MODELS))
         self.assertEqual(len(out["modelCardProposals"]), 2)
 
+    def test_render_page_deduplicates_channel_model_action(self):
+        doc = {
+            "source": "model", "round": "r", "generatedAt": "t",
+            "summary": "s", "changes": [
+                {"channel": 48, "model": "gpt-5.6-luna", "action": "move_priority",
+                 "from": 1, "to": 4, "evidence": "first"},
+                {"channel": 48, "model": "gpt-5.6-luna", "action": "move_priority",
+                 "from": 1, "to": 4, "evidence": "duplicate"},
+            ], "no_change": [],
+        }
+        page = decide.render_page(doc)
+        self.assertEqual(page.count("| 48 |"), 1)
+        self.assertIn("first", page)
+        self.assertNotIn("duplicate", page)
+
     def test_strict_model_mode_never_falls_back_to_rules(self):
         with tempfile.TemporaryDirectory() as td:
             profile_path = os.path.join(td, "profile.json")
