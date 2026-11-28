@@ -52,7 +52,7 @@
 - 默认只报不写；`auto_apply` 由我再显式打开一次，之后每次变更不用再问我。
 
 ## 渠道输入（用户只提供性质 + url + key 引用名）
-下面是当前 9 条渠道的用户输入样例。**这里没有渠道号、没有优先级、没有 key 明文**；`key_ref` 只是引用名。
+下面是当前 10 条渠道的用户输入样例（其中 1 条已禁用，仍保留配置待评估）。**这里没有渠道号、没有优先级、没有 key 明文**；`key_ref` 只是引用名。
 
 - 公益-墨析：稳定的非破限 DS 中转，url=https://jpn.cdn.moxuna.com/v1，key_ref=AXONHUB_KEY_MOXUNA
 - cmd：便宜的 DS 中转，说是有周限额，url=https://api.commandcode.ai/provider/v1，key_ref=AXONHUB_KEY_CMD
@@ -63,4 +63,4 @@
 - weekend-temp：周末临时便宜 DS，url=https://codexfree.xiaotuxp.com/v1，key_ref=AXONHUB_KEY_WEEKEND
 - weekend-temp-2：周末临时便宜 DS，url=https://free.hiyo.top/v1，key_ref=AXONHUB_KEY_WEEKEND
 - opencode-free：opencode 免费模型通道（hy4-flash-free / hungerg-free），只服务独立 free 卡，url=https://opencode.ai/zen/go，key_ref=AXONHUB_KEY_OPENCODE_FREE
-- 96110-free-ds：免费 DS（实测 deepseek-v4-1-flash-1017），用户指定当前非破限 DS 主力，也可用于破限线，url=https://api.96110.li/v1，key_ref=AXONHUB_KEY_96110
+- 96110-free-ds：免费 DS（实测 deepseek-v4-1-flash-1017），**已禁用（首字延迟过高），保留配置待评估**；原为非破限 DS 主力，也可用于破限线，url=https://api.96110.li/v1，key_ref=AXONHUB_KEY_96110
