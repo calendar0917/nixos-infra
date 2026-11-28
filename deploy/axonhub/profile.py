@@ -283,15 +283,18 @@ class GraphQLClient:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(tok)
 
-    def gql(self, query):
+    def gql(self, query, variables=None):
         if not self.token:
             self._login()
+        payload = {"query": query}
+        if variables is not None:
+            payload["variables"] = variables
         try:
-            d = self._post("/admin/graphql", {"query": query}, self.token)
+            d = self._post("/admin/graphql", payload, self.token)
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):
                 self._login()
-                d = self._post("/admin/graphql", {"query": query}, self.token)
+                d = self._post("/admin/graphql", payload, self.token)
             else:
                 raise
         if d.get("errors"):

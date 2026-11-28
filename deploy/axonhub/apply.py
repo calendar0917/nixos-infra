@@ -508,14 +508,13 @@ def _gql_update_model(client, model, settings):
     query = (
         'mutation($id:ID!,$input:UpdateModelInput!){updateModel(id:$id,input:$input){id}}'
     )
-    # GraphQLClient.gql 只接受 query；把变量安全地内联为 JSON literal。
-    associations = json.dumps(settings.get("associations") or [], ensure_ascii=False)
-    strategy = json.dumps(settings.get("loadBalancerStrategy") or "failover")
-    q = (
-        'mutation{updateModel(id:%s,input:{settings:{associations:%s,loadBalancerStrategy:%s}}){id}}'
-        % (json.dumps("gid://axonhub/Model/" + model), associations, strategy)
-    )
-    return client.gql(q)
+    return client.gql(query, {
+        "id": "gid://axonhub/Model/" + model,
+        "input": {"settings": {
+            "associations": settings.get("associations") or [],
+            "loadBalancerStrategy": settings.get("loadBalancerStrategy") or "failover",
+        }},
+    })
 
 
 def execute_operations(client, operations, snapshot, auto_apply=False, alert_fn=write_alert):
@@ -579,7 +578,7 @@ class SimulatedClient:
         self.calls = []
         self.fail_on = fail_on
 
-    def gql(self, query):
+    def gql(self, query, variables=None):
         self.calls.append(query)
         if len(self.calls) == self.fail_on:
             raise RuntimeError("simulated mutation failure")
