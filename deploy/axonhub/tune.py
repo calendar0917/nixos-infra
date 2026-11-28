@@ -75,6 +75,9 @@ PROFILE_PATH = os.environ.get(
     "AXONHUB_PROFILE_PATH",
     os.path.expanduser("~/.local/state/axonhub/decisions/profile-latest.json"),
 )
+INTENT_PATH = os.environ.get(
+    "AXONHUB_INTENT_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "intent.md")
+)
 DEADLINE = 60            # 单轮最坏耗时（秒）
 HTTP_TIMEOUT = 10
 
@@ -537,7 +540,17 @@ def resolve_override(override, now, log, scope):
 
 
 # ---------------------------------------------------------------------- round
-def _profile_drift_alerts(profile, scope, blocked):
+def _free_copy_transition_active():
+    """intent.md 显式声明「已复制、旧关联暂留」时，不把 non-DS 旧关联误报为漂移。"""
+    try:
+        with open(INTENT_PATH, encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return False
+    return "W38-FREE-COPY-TRANSITION" in text and "当前不执行 migrate/remove" in text
+
+
+def _profile_drift_alerts(profile, scope, blocked, allow_non_ds_transition=False):
     """拿当前 live scope 与最近一次画像快照对账，不再用固定渠道数量。"""
     if not isinstance(profile, dict):
         return []
@@ -555,7 +568,7 @@ def _profile_drift_alerts(profile, scope, blocked):
         ]
         if tiers:
             expected[cid] = tiers
-        if ch.get("ds_kind") == "non_ds":
+        if ch.get("ds_kind") == "non_ds" and not allow_non_ds_transition:
             bad = [
                 "%s:p%s" % (m, p) for m, p in tiers
                 if m in ("deepseek-jb", "gpt-5.6-luna", "gpt-5.6-sol")
@@ -607,7 +620,12 @@ def check_scope_health(state, scope, blocked, active):
             profile = json.load(f)
     except (OSError, ValueError):
         profile = None
-    alerts.extend(_profile_drift_alerts(profile, scope, blocked))
+    alerts.extend(
+        _profile_drift_alerts(
+            profile, scope, blocked,
+            allow_non_ds_transition=_free_copy_transition_active(),
+        )
+    )
     for cid, where in sorted(blocked.items(), key=lambda kv: int(kv[0])):
         tags = ",".join("%s:p%s" % (m, p) for m, p in where)
         alerts.append("关联被禁用 %s(%s)" % (cid, tags))

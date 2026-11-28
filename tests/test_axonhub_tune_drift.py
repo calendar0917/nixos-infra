@@ -45,6 +45,24 @@ class AxonhubDriftTest(unittest.TestCase):
         }]}
         self.assertEqual(tune._profile_drift_alerts(profile, {"25": [1]}, {}), [])
 
+    def test_free_copy_transition_suppresses_only_non_ds_old_association_alert(self):
+        profile = {"channels": [{
+            "identity": {"id": "51"}, "ds_kind": "non_ds",
+            "current_tier": [{"model": "deepseek-jb", "priority": 0, "disabled": False}],
+            "key_group": {"shared_key_with": ["46"]},
+            "error_pressure": {"requests_with_429": 8}, "quota": {"status": "available"},
+        }, {
+            "identity": {"id": "46"}, "ds_kind": "ds",
+            "current_tier": [{"model": "deepseek-jb", "priority": 3, "disabled": False}],
+            "key_group": {"shared_key_with": ["51"]},
+            "error_pressure": {"requests_with_429": 159}, "quota": {"status": "available"},
+        }]}
+        alerts = tune._profile_drift_alerts(
+            profile, {"51": [0], "46": [3]}, {}, allow_non_ds_transition=True
+        )
+        self.assertFalse(any("意图/画像不一致 51" in x for x in alerts))
+        self.assertTrue(any("共用key配额/429风险 46<->51" in x for x in alerts))
+
     def test_shared_key_quota_429_alert_is_persistent(self):
         profile = {"channels": [
             {"identity": {"id": "46"}, "ds_kind": "ds",

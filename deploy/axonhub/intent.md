@@ -11,6 +11,9 @@
   `ds_kind=ds` 的渠道。free、非 DS、身份未公开的 stealth 模型不得挂在任意优先级，包括后备位。
 - opencode 的免费模型走独立 `free-*` 卡，客户端显式选模型名；不得再把它们塞进 `deepseek-*` 兜底。
   同一 verified family 可共用一张卡；不同 family 或身份无法验证的模型分别建卡，避免冒名归类。
+- `W38-FREE-COPY-TRANSITION`：`free-hy4-flash` / `free-hungerg-stealth` 已从渠道 51 复制关联；
+  `deepseek-jb` / `deepseek-safe` / `gpt-5.6-luna` / `gpt-5.6-sol` 上的原 51 关联全部保留。
+  当前不执行 migrate/remove；删除必须等用户显式批准。
 - 破限/非破限是用途边界，不是模型家族：`deepseek-safe` 只收用户标为非破限的 DS 渠道；
   `deepseek-jb` 收破限 DS，`luna/sol` 跟随 jb。DS 家族证明不代表破限，free 也不代表破限。
 - `hy4-flash-free` 的上游目录确认是腾讯 Hy4；`hungerg-free` 目录只写 stealth reasoning，
